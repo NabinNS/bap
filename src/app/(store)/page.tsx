@@ -1,19 +1,29 @@
 import Link from "next/link";
 import styles from "./page.module.css";
 import HeroSlider from "../../components/hero/HeroSlider";
+import InfoPanel from "@/components/hero/InfoPanel";
 
 export default function StoreHomePage() {
   return (
     <div className="space-y-8">
-      <div className="flex h-[500px]">
+
+
+      <div className="flex justify-between gap-4 w-full h-64">
         <div className="flex-[7] h-full">
           <HeroSlider />
         </div>
 
-        <div className="flex-[3]">
-          <div></div>
+        <div className="flex-[3] h-full">
+          <InfoPanel />
         </div>
       </div>
+      <section>
+        <h2 className="text-2xl font-semibold mb-4">Featured Products</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+      </section>
+
+
+
       {/* Hero section */}
       {/* <section className="bg-gray-100 rounded-lg p-6">
         <h1 className="text-4xl font-bold mb-2">Welcome to MyStore</h1>
@@ -24,10 +34,6 @@ export default function StoreHomePage() {
       </section> */}
 
       {/* Featured Products */}
-      <section>
-        <h2 className="text-2xl font-semibold mb-4">Featured Products</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
-      </section>
     </div>
   );
 }

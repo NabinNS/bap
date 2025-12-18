@@ -3,31 +3,31 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
-// const images = [
-//   "/images/slider/slider1.jpg",
-//   "/images/slider/slider2.jpg",
-//   "/images/slider/slider3.jpg",
-//   "/images/slider/slider4.jpg",
-// ];
+const images = [
+  "/images/slider/slider1.jpg",
+  "/images/slider/slider2.jpg",
+  "/images/slider/slider3.jpg",
+  "/images/slider/slider4.jpg",
+];
 
 const SLIDE_INTERVAL = 4000;
 
 export default function HeroSlider() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  //   useEffect(() => {
-  //     const timer = setInterval(() => {
-  //       setCurrentIndex((prev) => (prev + 1) % images.length);
-  //     }, SLIDE_INTERVAL);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % images.length);
+    }, SLIDE_INTERVAL);
 
-  //     return () => clearInterval(timer);
-  //   }, []);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <div className="relative">
-      <Image src="/images/slider/slider1.jpg" fill alt="image"/>
+    <div className="relative h-64">
+      {/* <Image src="/images/slider/slider1.jpg" fill alt="image" /> */}
 
-      {/* {images.map((src, index) => (
+      {images.map((src, index) => (
         <div
           key={src}
           className={`absolute inset-0 transition-opacity duration-1000 ease-in-out
@@ -38,10 +38,10 @@ export default function HeroSlider() {
             alt={`Slide ${index + 1}`}
             fill
             priority={index === 0}
-            
+
           />
         </div>
-      ))} */}
+      ))}
     </div>
   );
 }
