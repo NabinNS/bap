@@ -12,7 +12,7 @@ export default function StoreLayout({ children }: StoreLayoutProps) {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F8FBFF" }}>
       <Navbar />
 
-      <main className="flex-1 px-4 py-6">{children}</main>
+      <main className="flex-1 py-6">{children}</main>
 
       <Footer />
     </div>

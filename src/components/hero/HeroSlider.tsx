@@ -24,7 +24,7 @@ export default function HeroSlider() {
   }, []);
 
   return (
-    <div className="relative h-64">
+    <div className="relative h-full">
       {/* <Image src="/images/slider/slider1.jpg" fill alt="image" /> */}
 
       {images.map((src, index) => (
@@ -37,6 +37,7 @@ export default function HeroSlider() {
             src={src}
             alt={`Slide ${index + 1}`}
             fill
+            sizes="(max-width: 768px) 100vw, 70vw"
             priority={index === 0}
 
           />
