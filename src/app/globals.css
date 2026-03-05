@@ -135,7 +135,7 @@
   .brand-marquee-track {
     display: flex;
     align-items: center;
-    gap: 3rem;
+    gap: 1rem;
     width: max-content;
     animation: brand-marquee 20s linear infinite;
   }

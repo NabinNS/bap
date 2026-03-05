@@ -253,7 +253,7 @@ export default function StoreHomePage() {
                   key={`${brand.name}-${index}`}
                   className="flex items-center justify-center"
                 >
-                  <div className="relative h-16 w-48 md:h-20 md:w-60">
+                  <div className="relative h-16 w-28 md:h-20 md:w-60">
                     <Image
                       src={brand.logo}
                       alt={brand.name}
