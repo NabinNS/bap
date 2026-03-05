@@ -131,4 +131,25 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  .brand-marquee-track {
+    display: flex;
+    align-items: center;
+    gap: 3rem;
+    width: max-content;
+    animation: brand-marquee 20s linear infinite;
+  }
+
+  @keyframes brand-marquee {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-33.3333%);
+    }
+  }
+
+  .group:hover .brand-marquee-track {
+    animation-play-state: paused;
+  }
 }

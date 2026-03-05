@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ProductCard from "./ProductCard";
 
@@ -14,15 +14,6 @@ export default function ProductSlider({ products }: ProductSliderProps) {
 
     // Triple the products for infinite effect
     const loopedProducts = [...products, ...products, ...products];
-
-    // Initialize scroll position to the middle set
-    useEffect(() => {
-        if (scrollRef.current && products.length > 0) {
-            const container = scrollRef.current;
-            const singleSetWidth = container.scrollWidth / 3;
-            container.scrollLeft = singleSetWidth;
-        }
-    }, [products.length]);
 
     const handleInfiniteScroll = () => {
         if (!scrollRef.current || isScrolling) return;
@@ -88,7 +79,7 @@ export default function ProductSlider({ products }: ProductSliderProps) {
             <div
                 ref={scrollRef}
                 onScroll={handleInfiniteScroll}
-                className="flex overflow-x-auto gap-4 pb-6 hide-scrollbar"
+                className="flex overflow-x-auto gap-4 pb-4 hide-scrollbar"
             >
                 {loopedProducts.map((product, index) => (
                     <div key={`${product.id}-${index}`} className="min-w-[220px] sm:min-w-[240px] flex-shrink-0">
