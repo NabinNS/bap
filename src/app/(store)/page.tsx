@@ -240,9 +240,9 @@ export default function StoreHomePage() {
 
 
         {/* Our Brands */}
-        <section className="-mx-4 md:-mx-8 lg:-mx-12 py-6 bg-gray-900 text-white">
+        <section className="-mx-4  my-8 md:-mx-8 lg:-mx-12 py-6 bg-[#ECEEF2]">
           <h2 className="text-center text-2xl md:text-3xl font-bold mb-8">
-            <span className="inline-block border-b-2 border-white pb-1 px-4">
+            <span className="inline-block border-b-2 border-gray-900 pb-1 px-4">
               Our Brands
             </span>
           </h2>
@@ -253,12 +253,12 @@ export default function StoreHomePage() {
                   key={`${brand.name}-${index}`}
                   className="flex items-center justify-center"
                 >
-                  <div className="relative h-10 w-32 md:h-12 md:w-40">
+                  <div className="relative h-16 w-48 md:h-20 md:w-60">
                     <Image
                       src={brand.logo}
                       alt={brand.name}
                       fill
-                      sizes="200px"
+                      sizes="260px"
                       className="object-contain opacity-90 hover:opacity-100 transition-opacity duration-300"
                     />
                   </div>
