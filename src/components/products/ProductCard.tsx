@@ -30,7 +30,7 @@ export default function ProductCard({
     const [imageError, setImageError] = useState(false);
 
     return (
-        <div className="group relative bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col h-full min-w-[200px] cursor-default transition-all duration-300 ease-in-out hover:-translate-y-1.5 hover:shadow-lg">
+        <div className="group relative bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full min-w-[200px] cursor-default transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-md">
             {/* Image Container */}
             <div className="relative aspect-[4/3] overflow-hidden bg-slate-50 shrink-0">
                 {isNew && (

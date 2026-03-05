@@ -196,7 +196,7 @@ export default function StoreHomePage() {
         </section>
 
         {/* Featured Categories */}
-        <section className="relative py-10 px-4 md:px-8  border border-slate-300">
+        <section className="relative py-10 px-4 md:px-8  border border-slate-300 bg-slate-100">
           <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
             <div className="flex flex-col">
               <h2 className="text-2xl font-black text-gray-900 leading-tight">Shop by Category</h2>
@@ -216,97 +216,9 @@ export default function StoreHomePage() {
           <CategorySlider categories={categories} />
         </section>
 
-        {/* Shop by Brand */}
-        <section className="relative py-10">
-          <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
-            <h2 className="text-2xl font-black text-gray-900 leading-tight">Shop by Brand</h2>
-            <p className="text-sm text-gray-500 max-w-md">
-              Browse parts from the world’s most trusted automotive brands and manufacturers.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {brands.map((brand) => (
-              <div
-                key={brand.name}
-                className="group flex items-center justify-center bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all duration-300 ease-in-out hover:-translate-y-1.5 hover:shadow-lg"
-              >
-                <div className="relative w-24 h-10 flex items-center justify-center">
-                  <Image
-                    src={brand.logo}
-                    alt={brand.name}
-                    fill
-                    sizes="120px"
-                    className="object-contain filter grayscale group-hover:grayscale-0 transition duration-300"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Why Choose Us */}
-        <section className="py-10">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl font-black text-gray-900 mb-2">Why Choose Us</h2>
-            <p className="text-sm text-gray-500 max-w-2xl mx-auto">
-              We combine genuine parts, expert support, and fast delivery to keep your vehicle running at its best.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
-                <Clock className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 mb-1">Fast Delivery</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Quick dispatch and reliable shipping options to get parts to your doorstep on time.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 mb-1">Genuine Products</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Sourced directly from manufacturers and authorized distributors only.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
-                <Award className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 mb-1">Warranty Support</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Most parts include extended warranty coverage for added peace of mind.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
-                <Zap className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 mb-1">Easy Returns</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Simple return and replacement process if something is not the right fit.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
 
         {/* Featured Products Segment */}
-        <section className="relative py-10">
+        <section className="relative py-10 px-4 md:px-8 border border-slate-300 bg-slate-100">
           <div className="flex items-center justify-between mb-8 gap-4">
             <h2 className="text-2xl font-black text-gray-900 leading-tight">Featured Products</h2>
             <Link
