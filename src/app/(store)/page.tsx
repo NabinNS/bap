@@ -241,8 +241,10 @@ export default function StoreHomePage() {
 
         {/* Our Brands */}
         <section className="-mx-4 md:-mx-8 lg:-mx-12 py-6 bg-gray-900 text-white">
-          <h2 className="text-center text-2xl md:text-3xl font-bold mb-4">
-            Our Brands
+          <h2 className="text-center text-2xl md:text-3xl font-bold mb-8">
+            <span className="inline-block border-b-2 border-white pb-1 px-4">
+              Our Brands
+            </span>
           </h2>
           <div className="overflow-hidden group">
             <div className="brand-marquee-track px-8">
@@ -256,7 +258,7 @@ export default function StoreHomePage() {
                       src={brand.logo}
                       alt={brand.name}
                       fill
-                      sizes="160px"
+                      sizes="200px"
                       className="object-contain opacity-90 hover:opacity-100 transition-opacity duration-300"
                     />
                   </div>
