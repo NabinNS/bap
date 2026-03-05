@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { ChevronRight, ArrowRight, Zap, Award, ShieldCheck, Clock } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, Zap, Award, ShieldCheck, Clock } from "lucide-react";
 import HeroSlider from "../../components/hero/HeroSlider";
 import InfoPanel from "@/components/hero/InfoPanel";
-import ProductCard from "@/components/products/ProductCard";
 import ProductSlider from "@/components/products/ProductSlider";
 import { Button } from "@/components/ui/button";
 
@@ -42,7 +42,7 @@ const featuredProducts = [
     image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
     category: "Electrical",
   },
-   {
+  {
     id: "1",
     name: "Ceramic Brake Pads Set",
     price: 45.99,
@@ -77,7 +77,7 @@ const featuredProducts = [
     image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
     category: "Electrical",
   },
-   {
+  {
     id: "1",
     name: "Ceramic Brake Pads Set",
     price: 45.99,
@@ -114,7 +114,7 @@ const featuredProducts = [
   },
 ];
 
-import CategoryCard from "@/components/categories/CategoryCard";
+import CategorySlider from "@/components/categories/CategorySlider";
 
 const categories = [
   {
@@ -154,157 +154,226 @@ const categories = [
     href: "/categories/miscellaneous"
   },
 ];
+
+const brands = [
+  {
+    name: "BOSCH",
+    logo: "https://images.unsplash.com/photo-1588173889591-f5716c263162?auto=format&fit=crop&q=80&w=400",
+  },
+  {
+    name: "Brembo",
+    logo: "https://images.unsplash.com/photo-1584526053134-1334216dd1ba?auto=format&fit=crop&q=80&w=400",
+  },
+  {
+    name: "NGK",
+    logo: "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?auto=format&fit=crop&q=80&w=400",
+  },
+  {
+    name: "MANN+HUMMEL",
+    logo: "https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&q=80&w=400",
+  },
+  {
+    name: "DENSO",
+    logo: "https://images.unsplash.com/photo-1523983388277-336a66bf9bcd?auto=format&fit=crop&q=80&w=400",
+  },
+];
+
 export default function StoreHomePage() {
   return (
-    <div className="space-y-12 pb-16">
-      {/* Hero Section */}
-      <div className="flex flex-col md:flex-row justify-between gap-4 w-full h-auto md:h-80 px-4">
-        <div className="flex-[7] h-full overflow-hidden rounded-lg">
-          <HeroSlider />
-        </div>
+    <div className="min-h-screen bg-[#F5F7FA] py-2">
+      <div className="px-4 md:px-8 lg:px-12">
+        {/* Hero Section */}
+        <section className="py-10">
+          <div className="flex flex-col md:flex-row justify-between gap-4 w-full h-auto md:h-80">
+            <div className="flex-[7] h-full overflow-hidden rounded-xl">
+              <HeroSlider />
+            </div>
 
-        <div className="flex-[3] h-full">
-          <InfoPanel />
-        </div>
+            <div className="flex-[3] h-full">
+              <InfoPanel />
+            </div>
+          </div>
+        </section>
+
+        {/* Featured Categories */}
+        <section className="relative py-10 px-4 md:px-8  border border-slate-300">
+          <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+            <div className="flex flex-col">
+              <h2 className="text-2xl font-black text-gray-900 leading-tight">Shop by Category</h2>
+              <p className="text-gray-500 text-sm mt-1">
+                Find parts easily by browsing our most popular categories.
+              </p>
+            </div>
+            <Link
+              href="/categories"
+              className="group flex items-center gap-3 bg-gray-900 text-white px-8 py-3 rounded-full text-sm font-bold transition-all hover:bg-[#0d3b66]"
+            >
+              View All Categories
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
+
+          <CategorySlider categories={categories} />
+        </section>
+
+        {/* Shop by Brand */}
+        <section className="relative py-10">
+          <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+            <h2 className="text-2xl font-black text-gray-900 leading-tight">Shop by Brand</h2>
+            <p className="text-sm text-gray-500 max-w-md">
+              Browse parts from the world’s most trusted automotive brands and manufacturers.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {brands.map((brand) => (
+              <div
+                key={brand.name}
+                className="group flex items-center justify-center bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all duration-300 ease-in-out hover:-translate-y-1.5 hover:shadow-lg"
+              >
+                <div className="relative w-24 h-10 flex items-center justify-center">
+                  <Image
+                    src={brand.logo}
+                    alt={brand.name}
+                    fill
+                    sizes="120px"
+                    className="object-contain filter grayscale group-hover:grayscale-0 transition duration-300"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Why Choose Us */}
+        <section className="py-10">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-black text-gray-900 mb-2">Why Choose Us</h2>
+            <p className="text-sm text-gray-500 max-w-2xl mx-auto">
+              We combine genuine parts, expert support, and fast delivery to keep your vehicle running at its best.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-1">Fast Delivery</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Quick dispatch and reliable shipping options to get parts to your doorstep on time.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-1">Genuine Products</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Sourced directly from manufacturers and authorized distributors only.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
+                <Award className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-1">Warranty Support</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Most parts include extended warranty coverage for added peace of mind.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
+                <Zap className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-1">Easy Returns</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Simple return and replacement process if something is not the right fit.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Featured Products Segment */}
+        <section className="relative py-10">
+          <div className="flex items-center justify-between mb-8 gap-4">
+            <h2 className="text-2xl font-black text-gray-900 leading-tight">Featured Products</h2>
+            <Link
+              href="/products"
+              className="group flex items-center gap-3 bg-gray-900 text-white px-8 py-3.5 rounded-full text-sm font-bold transition-all hover:bg-[#0d3b66]"
+            >
+              View All Products
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
+
+          <ProductSlider products={featuredProducts} />
+        </section>
+
+        {/* Special Offer Banner */}
+        <section className="py-10">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-700 to-indigo-900 text-white p-8 md:p-12">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+            <div className="relative z-10 max-w-2xl">
+              <span className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 inline-block">
+                Limited Time Offer
+              </span>
+              <h2 className="text-3xl md:text-5xl font-black mb-4 leading-tight">
+                Flash Sale: Up to 40% OFF <br />
+                on Genuine Brake Systems!
+              </h2>
+              <p className="text-blue-100 mb-8 text-lg">
+                Ensure your safety with premium quality parts from top brands.{" "}
+                <br className="hidden md:block" />
+                Offer valid until Feb 28th.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <Button size="lg" className="bg-white text-blue-900 hover:bg-gray-100 font-bold px-8">
+                  Shop Sale Now
+                </Button>
+                <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 font-bold">
+                  Learn More
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Newsletter Section */}
+        <section className="py-10">
+          <div className="relative overflow-hidden bg-gray-900 rounded-3xl p-8 md:p-16 text-center text-white">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-900/30 to-transparent"></div>
+            <div className="relative z-10 max-w-2xl mx-auto">
+              <h2 className="text-2xl md:text-3xl font-bold mb-4">Never Miss a Genuine Deal</h2>
+              <p className="text-gray-400 mb-8">
+                Subscribe to get the latest product updates, car maintenance tips, and special discounts delivered to your inbox.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="email"
+                  placeholder="Enter your email address"
+                  className="flex-1 bg-white/10 border border-white/20 rounded-lg px-6 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                />
+                <Button size="lg" className="bg-blue-700 hover:bg-blue-600 font-bold px-8">
+                  Subscribe
+                </Button>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-4 italic">We respect your privacy. Unsubscribe at any time.</p>
+            </div>
+          </div>
+        </section>
       </div>
-
-      {/* Featured Categories */}
-      <section className="relative py-8 px-6 bg-[#f1f5f9] border border-slate-200/60 shadow-inner">
-        <div className="flex flex-col md:flex-row items-end justify-between mb-10 gap-4 px-2">
-          <div className="max-w-xl">
-            <h2 className="text-2xl font-black text-gray-900 leading-tight">Top Categories</h2>
-          </div>
-          <Link href="/categories" className="group flex items-center gap-3 bg-gray-900 text-white px-8 py-3.5 rounded-full text-sm font-bold transition-all hover:bg-[#0d3b66]">
-            View All Categories
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6 px-2">
-          {categories.map((cat) => (
-            <CategoryCard
-              key={cat.name}
-              name={cat.name}
-              count={cat.count}
-              image={cat.image}
-              href={cat.href}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* Featured Products Segment */}
-      <section className="px-4">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-black text-gray-900 leading-tight">Featured Products</h2>
-          <Link href="/products" className="group flex items-center gap-3 bg-gray-900 text-white px-8 py-3.5 rounded-full text-sm font-bold transition-all hover:bg-[#0d3b66]">
-            View All Products
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-        </div>
-
-        <ProductSlider products={featuredProducts} />
-      </section>
-
-      {/* Special Offer Banner */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-700 to-indigo-900 text-white p-8 md:p-12">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-        <div className="relative z-10 max-w-2xl">
-          <span className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 inline-block">
-            Limited Time Offer
-          </span>
-          <h2 className="text-3xl md:text-5xl font-black mb-4 leading-tight">
-            Flash Sale: Up to 40% OFF <br />on Genuine Brake Systems!
-          </h2>
-          <p className="text-blue-100 mb-8 text-lg">
-            Ensure your safety with premium quality parts from top brands. <br className="hidden md:block" />
-            Offer valid until Feb 28th.
-          </p>
-          <div className="flex flex-wrap gap-4">
-            <Button size="lg" className="bg-white text-blue-900 hover:bg-gray-100 font-bold px-8">
-              Shop Sale Now
-            </Button>
-            <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 font-bold">
-              Learn More
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Trust & Features Section */}
-      <section className="bg-gray-50 rounded-2xl p-8 md:p-12 border border-blue-50">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          <div className="flex gap-4">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-1">100% Genuine</h3>
-              <p className="text-xs text-gray-500 leading-relaxed">We source directly from manufacturers and authorized distributors.</p>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
-              <Zap className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-1">Fast Shipping</h3>
-              <p className="text-xs text-gray-500 leading-relaxed">Nex-day delivery available within the valley and 3 days elsewhere.</p>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
-              <Award className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-1">Extended Warranty</h3>
-              <p className="text-xs text-gray-500 leading-relaxed">Most of our parts come with a minimum 6-month replacement warranty.</p>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
-              <Clock className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-1">24/7 Support</h3>
-              <p className="text-xs text-gray-500 leading-relaxed">Our experts are available around the clock to help you find the right part.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Brands Section (Suggested) */}
-      <section className="text-center">
-        <h3 className="text-gray-400 uppercase tracking-widest text-[10px] font-bold mb-8">Trusted by Mechanics Worldwide</h3>
-        <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-40 grayscale hover:grayscale-0 transition-all duration-700 px-4">
-          <span className="text-2xl font-black text-gray-800 tracking-tighter">BOSCH</span>
-          <span className="text-2xl font-black text-gray-800 tracking-tighter italic">Brembo</span>
-          <span className="text-2xl font-black text-gray-800 tracking-tighter">NGK</span>
-          <span className="text-2xl font-black text-gray-800 tracking-tighter">MANN+HUMMEL</span>
-          <span className="text-2xl font-black text-gray-800 tracking-tighter">DENSO</span>
-          <span className="text-2xl font-black text-gray-800 tracking-tighter italic">Shell</span>
-        </div>
-      </section>
-
-      {/* Newsletter Section */}
-      <section className="relative overflow-hidden bg-gray-900 rounded-3xl p-8 md:p-16 text-center text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/30 to-transparent"></div>
-        <div className="relative z-10 max-w-2xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-bold mb-4">Never Miss a Genuine Deal</h2>
-          <p className="text-gray-400 mb-8">Subscribe to get the latest product updates, car maintenance tips, and special discounts delivered to your inbox.</p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="email"
-              placeholder="Enter your email address"
-              className="flex-1 bg-white/10 border border-white/20 rounded-lg px-6 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-            />
-            <Button size="lg" className="bg-blue-700 hover:bg-blue-600 font-bold px-8">
-              Subscribe
-            </Button>
-          </div>
-          <p className="text-[10px] text-gray-500 mt-4 italic">We respect your privacy. Unsubscribe at any time.</p>
-        </div>
-      </section>
     </div>
   );
 }

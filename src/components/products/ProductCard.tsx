@@ -30,7 +30,7 @@ export default function ProductCard({
     const [imageError, setImageError] = useState(false);
 
     return (
-        <div className="group relative bg-white rounded-xl border border-slate-100 overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col h-full min-w-[200px] cursor-default">
+        <div className="group relative bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col h-full min-w-[200px] cursor-default transition-all duration-300 ease-in-out hover:-translate-y-1.5 hover:shadow-lg">
             {/* Image Container */}
             <div className="relative aspect-[4/3] overflow-hidden bg-slate-50 shrink-0">
                 {isNew && (
@@ -44,7 +44,7 @@ export default function ProductCard({
                         alt={name}
                         fill
                         sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
-                        className="object-cover"
+                        className="object-cover transition-transform duration-300 ease-in-out group-hover:scale-105"
                         onError={() => setImageError(true)}
                     />
                 ) : (
@@ -59,35 +59,45 @@ export default function ProductCard({
             {/* Compact Product Details */}
             <div className="p-4 flex flex-col flex-1">
                 <Link href={`/products/${id}`} className="hover:text-[#0d3b66] transition-colors">
-                    <h3 className="text-sm font-bold text-gray-900 mb-2 truncate line-clamp-2 white-space-normal h-6 overflow-hidden">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2">
                         {name}
                     </h3>
                 </Link>
 
-                {/* Price & Action row */}
-                <div className="flex items-center justify-between mt-auto">
-                    <div className="flex flex-col">
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-lg font-black text-[#0d3b66]">${price.toFixed(2)}</span>
-                            {originalPrice && (
-                                <span className="text-xs text-gray-400 line-through">
-                                    ${originalPrice.toFixed(2)}
-                                </span>
-                            )}
-                        </div>
+                {/* Rating row */}
+                {typeof rating === "number" && rating > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-amber-500 mb-3">
+                        {Array.from({ length: 5 }).map((_, index) => (
+                            <Star
+                                key={index}
+                                className={`w-3 h-3 ${index < rating ? "fill-amber-400" : "fill-transparent"} stroke-amber-400`}
+                            />
+                        ))}
+                        <span className="ml-1 text-[11px] text-gray-500">({rating})</span>
+                    </div>
+                )}
+
+                {/* Price & Action */}
+                <div className="mt-auto space-y-3">
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-lg font-semibold text-[#0d3b66]">${price.toFixed(2)}</span>
+                        {originalPrice && (
+                            <span className="text-xs text-gray-400 line-through">
+                                ${originalPrice.toFixed(2)}
+                            </span>
+                        )}
                     </div>
 
-                    {/* Larger Cart Button */}
                     <Button
-                        size="icon"
-                        className="h-10 w-10 rounded-xl bg-[#0d3b66] text-white hover:bg-slate-900 border-none shadow-md transition-all active:scale-95 cursor-pointer relative z-20"
+                        className="w-full bg-[#0d3b66] hover:bg-slate-900 text-white font-semibold rounded-xl border-none shadow-md transition-all duration-300 ease-in-out active:scale-95"
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             // Add to cart logic here
                         }}
                     >
-                        <ShoppingCart className="h-5 w-5" />
+                        <ShoppingCart className="w-4 h-4 mr-2" />
+                        Add to Cart
                     </Button>
                 </div>
             </div>
