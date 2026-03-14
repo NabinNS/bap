@@ -1,6 +1,5 @@
 import ProductCard from "@/components/products/ProductCard";
-import { ChevronRight, Filter } from "lucide-react";
-import Link from "next/link";
+import ProductFilters from "@/components/products/ProductFilters";
 
 const allProducts = [
     {
@@ -61,37 +60,11 @@ const allProducts = [
 
 export default function ProductsPage() {
     return (
-        <div className="max-w-7xl mx-auto px-4 py-8">
-            {/* Breadcrumbs */}
-            <nav className="flex items-center gap-2 text-sm text-gray-500 mb-8">
-                <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
-                <ChevronRight className="w-4 h-4" />
-                <span className="text-gray-900 font-medium">All Products</span>
-            </nav>
-
+        <div className="w-full max-w-[1600px] mx-auto px-4 md:px-6 py-8">
             <div className="flex flex-col md:flex-row gap-8">
-                {/* Sidebar Filters - Placeholder */}
-                <aside className="w-full md:w-64 shrink-0">
-                    <div className="bg-white rounded-xl border border-slate-100 p-6 shadow-sm">
-                        <div className="flex items-center gap-2 mb-6">
-                            <Filter className="w-5 h-5 text-[#0d3b66]" />
-                            <h2 className="font-bold text-gray-900 text-lg">Filters</h2>
-                        </div>
-
-                        <div className="space-y-6">
-                            <div>
-                                <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">Categories</h3>
-                                <div className="space-y-2">
-                                    {["All", "Engine", "Brakes", "Suspension", "Electrical", "Lubricants"].map((cat) => (
-                                        <label key={cat} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-[#0d3b66]">
-                                            <input type="checkbox" className="rounded border-gray-300 text-[#0d3b66] focus:ring-[#0d3b66]" />
-                                            {cat}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                {/* Sidebar Filters */}
+                <aside className="w-full md:w-70 shrink-0">
+                    <ProductFilters />
                 </aside>
 
                 {/* Product Grid */}

@@ -180,7 +180,7 @@ const brands = [
 
 export default function StoreHomePage() {
   return (
-    <div className="min-h-screen bg-[#F5F7FA] py-2">
+    <div className="min-h-screen py-2">
       <div className="px-4 md:px-8 lg:px-12">
         {/* Hero Section */}
         <section className="py-10">
