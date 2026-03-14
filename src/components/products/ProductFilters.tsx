@@ -82,9 +82,9 @@ export default function ProductFilters() {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-100 p-6 shadow-sm flex flex-col">
+    <div className="bg-white  border border-slate-100 py-4 px-3 shadow-sm flex flex-col">
       {/* Header: Filters + search, or full-width input (in flow so content doesn't hide) */}
-      <div className="flex items-center justify-between gap-2 mb-6 shrink-0">
+      <div className="flex items-center justify-between gap-2 mb-3 shrink-0">
         {searchExpanded ? (
           <div className="flex items-center gap-2 w-full">
             <input
@@ -107,7 +107,9 @@ export default function ProductFilters() {
           </div>
         ) : (
           <>
+          <div className="px-4">
             <h2 className="font-bold text-gray-900 text-lg">Filters</h2>
+            </div>
             <button
               type="button"
               onClick={handleSearchClick}
@@ -120,13 +122,13 @@ export default function ProductFilters() {
         )}
       </div>
 
-      <div className="space-y-0 overflow-y-auto hide-scrollbar min-h-0 flex-1">
+      <div className="space-y-4 overflow-y-auto hide-scrollbar min-h-0 flex-1">
         {/* Category */}
-        <div className="border-t border-slate-200 pt-6 first:pt-0 first:border-t-0">
+        <div className="border border-slate-400 p-4">
           <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
             Category
           </h3>
-          <div className="max-h-48 overflow-y-auto overflow-x-hidden space-y-2">
+          <div className="max-h-48 overflow-y-auto overflow-x-hidden scrollbar-on-hover space-y-2">
             {categoriesToShow.map((cat) => (
               <label
                 key={cat}
@@ -154,7 +156,7 @@ export default function ProductFilters() {
         </div>
 
         {/* Price range */}
-        <div className="border-t border-slate-200 pt-6">
+        <div className="border border-slate-400 p-4">
           <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
             Price range
           </h3>
@@ -163,24 +165,24 @@ export default function ProductFilters() {
               type="number"
               placeholder="Min"
               min={0}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3b66] focus:border-transparent"
+              className="w-full rounded-lg border border-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3b66] focus:border-transparent"
             />
             <span className="text-gray-400 text-sm">–</span>
             <input
               type="number"
               placeholder="Max"
               min={0}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3b66] focus:border-transparent"
+              className="w-full rounded-lg border border-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3b66] focus:border-transparent"
             />
           </div>
         </div>
 
         {/* Brand */}
-        <div className="border-t border-slate-200 pt-6">
+        <div className="border border-slate-400 p-4">
           <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
             Brand
           </h3>
-          <div className="max-h-48 overflow-y-auto overflow-x-hidden space-y-2">
+          <div className="max-h-48 overflow-y-auto overflow-x-hidden scrollbar-on-hover space-y-2">
             {brandsToShow.map((brand) => (
               <label
                 key={brand}
@@ -208,7 +210,7 @@ export default function ProductFilters() {
         </div>
 
         {/* Vehicle fitment */}
-        <div className="border-t border-slate-200 pt-6">
+        <div className="border border-slate-400 p-4">
           <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
             Vehicle fitment
           </h3>
@@ -235,7 +237,7 @@ export default function ProductFilters() {
         </div>
 
         {/* Rating */}
-        <div className="border-t border-slate-200 pt-6">
+        <div className="border border-slate-400 p-4">
           <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
             Rating
           </h3>
@@ -258,7 +260,7 @@ export default function ProductFilters() {
         </div>
 
         {/* Deals */}
-        <div className="border-t border-slate-200 pt-6">
+        <div className="border border-slate-400 p-4">
           <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
             Deals
           </h3>

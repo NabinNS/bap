@@ -132,6 +132,32 @@
     scrollbar-width: none;
   }
 
+  /* Show scrollbar only when hovering over the scroll area */
+  .scrollbar-on-hover {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-on-hover:hover {
+    scrollbar-width: thin;
+    -ms-overflow-style: auto;
+  }
+  /* WebKit: hide by using zero width when not hovered */
+  .scrollbar-on-hover::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+  .scrollbar-on-hover:hover::-webkit-scrollbar {
+    width: 6px;
+    height: 0;
+  }
+  .scrollbar-on-hover::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 3px;
+  }
+  .scrollbar-on-hover::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
   .brand-marquee-track {
     display: flex;
     align-items: center;
