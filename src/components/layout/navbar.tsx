@@ -36,13 +36,6 @@ export default function Navbar() {
           </Link>
 
           <Button className="relative bg-white text-primary hover:bg-gray-100">
-            <Heart className="w-6 h-6" />
-            <span className="absolute -top-1 -right-1 text-xs bg-red-500 text-white rounded-full px-1">
-              2
-            </span>
-          </Button>
-
-          <Button className="relative bg-white text-primary hover:bg-gray-100">
             <ShoppingCart className="w-6 h-6" />
             <span className="absolute -top-1 -right-1 text-xs bg-red-500 text-white rounded-full px-1">
               3
