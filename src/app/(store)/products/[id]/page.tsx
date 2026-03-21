@@ -476,34 +476,44 @@ export default function ProductDetailPage() {
 
                     <aside className="bg-white divide-y divide-slate-300">
                         <div className="p-4 mt-3">
-                            <h3 className="text-sm font-bold text-gray-900 mb-2">Delivery & Availability</h3>
-                            <div className="space-y-1 text-sm text-gray-600">
-                                <p><span className="font-semibold text-gray-900">In stock:</span> Ready to ship</p>
-                                <p><span className="font-semibold text-gray-900">Estimated delivery:</span> 2-4 business days</p>
-                                <p><span className="font-semibold text-gray-900">Shipping:</span> Free above $50</p>
+                            <h3 className="text-[13px] font-black uppercase text-gray-900 mb-3">Delivery & Availability</h3>
+                            <div className="space-y-2 text-sm text-gray-600">
+                                <p>
+                                    <span className="font-semibold text-gray-500">In stock:</span>{" "}
+                                    <span className="font-semibold text-emerald-700">Ready to ship</span>
+                                </p>
+                                <p>
+                                    <span className="font-semibold text-gray-500">Estimated delivery:</span>{" "}
+                                    <span className="font-semibold text-gray-900">2-4 business days</span>
+                                </p>
+                                <p>
+                                    <span className="font-semibold text-gray-500">Shipping:</span>{" "}
+                                    <span className="font-semibold text-gray-900">Free above $50</span>
+                                </p>
                             </div>
                         </div>
 
                         <div className="p-4">
-                            <h3 className="text-sm font-bold text-gray-900 mb-2">Fitment Check</h3>
-                            <p className="text-sm text-gray-600 mb-3">
+                            <h3 className="text-[13px] font-black uppercase  text-gray-900 mb-2">Fitment Check</h3>
+                            <p className="text-sm text-gray-600 leading-6 mb-3">
                                 Confirm compatibility with your vehicle model before checkout.
                             </p>
+                            <p className="text-xs font-semibold text-[#0d3b66]">Recommended before purchase</p>
                         </div>
 
                         <div className="p-4">
-                            <h3 className="text-sm font-bold text-gray-900 mb-2">Warranty & Returns</h3>
-                            <ul className="space-y-1 text-sm text-gray-600">
-                                <li>6-month manufacturer warranty</li>
-                                <li>7-day easy return policy</li>
-                                <li>100% genuine parts assurance</li>
+                            <h3 className="text-[13px] font-black uppercase  text-gray-900 mb-2">Warranty & Returns</h3>
+                            <ul className="space-y-2 text-sm text-gray-600">
+                                <li><span className="font-semibold text-gray-900">6-month</span> manufacturer warranty</li>
+                                <li><span className="font-semibold text-gray-900">7-day</span> easy return policy</li>
+                                <li><span className="font-semibold text-gray-900">100%</span> genuine parts assurance</li>
                             </ul>
                         </div>
 
                         <div className="p-4">
-                            <h3 className="text-sm font-bold text-gray-900 mb-2">Need Help?</h3>
-                            <p className="text-sm text-gray-600">Our support team is available 10 AM - 7 PM.</p>
-                            <p className="text-sm text-[#0d3b66] font-semibold mt-2">+977 9812 345 678</p>
+                            <h3 className="text-[13px] font-black uppercase text-gray-900 mb-2">Need Help?</h3>
+                            <p className="text-sm text-gray-600 leading-6">Our support team is available 10 AM - 7 PM.</p>
+                            <p className="text-[#0d3b66] font-bold mt-1">+977 9812 345 678</p>
                         </div>
                     </aside>
 
