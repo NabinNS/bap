@@ -750,7 +750,7 @@ export default function ProductsPage() {
                             </div>
                         </div>
 
-                        <div className="p-4 overflow-y-auto flex-1 min-h-0 hide-scrollbar">
+                        <div className="p-4 overflow-y-auto flex-1 min-h-0 scrollbar-on-hover">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                 {paginatedProducts.map((product) => (
                                     <ProductCard key={`${product.id}-${start}`} {...product} />
