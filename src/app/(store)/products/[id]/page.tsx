@@ -474,8 +474,8 @@ export default function ProductDetailPage() {
                         </div>
                     </div>
 
-                    <aside className=" bg-white space-y-4">
-                        <div className="border-y border-slate-300 p-4">
+                    <aside className="bg-white divide-y divide-slate-300">
+                        <div className="p-4 mt-3">
                             <h3 className="text-sm font-bold text-gray-900 mb-2">Delivery & Availability</h3>
                             <div className="space-y-1 text-sm text-gray-600">
                                 <p><span className="font-semibold text-gray-900">In stock:</span> Ready to ship</p>
@@ -484,20 +484,14 @@ export default function ProductDetailPage() {
                             </div>
                         </div>
 
-                        <div className="border-y border-slate-300 p-4">
+                        <div className="p-4">
                             <h3 className="text-sm font-bold text-gray-900 mb-2">Fitment Check</h3>
                             <p className="text-sm text-gray-600 mb-3">
                                 Confirm compatibility with your vehicle model before checkout.
                             </p>
-                            <button
-                                type="button"
-                                className="w-full border border-slate-300 text-[#0d3b66] text-sm font-semibold py-2 hover:bg-slate-50 transition-colors cursor-pointer"
-                            >
-                                Check Compatibility
-                            </button>
                         </div>
 
-                        <div className="border-y border-slate-300 p-4">
+                        <div className="p-4">
                             <h3 className="text-sm font-bold text-gray-900 mb-2">Warranty & Returns</h3>
                             <ul className="space-y-1 text-sm text-gray-600">
                                 <li>6-month manufacturer warranty</li>
@@ -506,7 +500,7 @@ export default function ProductDetailPage() {
                             </ul>
                         </div>
 
-                        <div className="border-y border-slate-300 p-4">
+                        <div className="p-4">
                             <h3 className="text-sm font-bold text-gray-900 mb-2">Need Help?</h3>
                             <p className="text-sm text-gray-600">Our support team is available 10 AM - 7 PM.</p>
                             <p className="text-sm text-[#0d3b66] font-semibold mt-2">+977 9812 345 678</p>
@@ -518,7 +512,7 @@ export default function ProductDetailPage() {
 
             <section className="mt-8">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="border border-slate-300 p-4 bg-white flex flex-col h-[460px]">
+                    <div className="border border-slate-300 p-4 bg-white flex flex-col h-[700px]">
                         <div className="mb-4 border-b border-slate-200 pb-3">
                             <div className="flex items-center justify-between gap-3">
                                 <h3 className="text-lg font-black text-gray-900 whitespace-nowrap">Product Reviews</h3>
@@ -593,7 +587,7 @@ export default function ProductDetailPage() {
                         </div>
                     </div>
 
-                    <div className="border border-slate-300 p-4 bg-white flex flex-col h-[460px]">
+                    <div className="border border-slate-300 p-4 bg-white flex flex-col h-[700px]">
                         <h3 className="text-lg font-black text-gray-900 mb-3">Questions About Product</h3>
                         <div className="space-y-3 overflow-y-auto scrollbar-on-hover pr-1 flex-1 min-h-0">
                             {productQuestions.map((item) => (
