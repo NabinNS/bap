@@ -1,10 +1,8 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowRight, Zap, Award, ShieldCheck, Clock } from "lucide-react";
 import HeroSlider from "../../components/hero/HeroSlider";
 import InfoPanel from "@/components/hero/InfoPanel";
 import ProductSlider from "@/components/products/ProductSlider";
-import { Button } from "@/components/ui/button";
 
 const featuredProducts = [
   {
@@ -115,6 +113,7 @@ const featuredProducts = [
 ];
 
 import CategorySlider from "@/components/categories/CategorySlider";
+import BrandsShowcase from "@/components/brands/BrandsShowcase";
 
 const categories = [
   {
@@ -200,7 +199,7 @@ export default function StoreHomePage() {
           <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
             <div className="flex flex-col">
               <h2 className="text-2xl font-black text-gray-900 leading-tight">Shop by Category</h2>
-              <p className="text-gray-500 text-sm mt-1">
+              <p className="text-gray-900 text-sm mt-1">
                 Find parts easily by browsing our most popular categories.
               </p>
             </div>
@@ -222,7 +221,7 @@ export default function StoreHomePage() {
           <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
             <div className="flex flex-col mx-2">
               <h2 className="text-2xl font-black text-gray-900 leading-tight">Featured Products</h2>
-              <p className="text-gray-500 text-sm mt-1">
+              <p className="text-gray-900 text-sm mt-1">
                 Find parts easily by browsing our most popular products.
               </p>
             </div>
@@ -239,34 +238,7 @@ export default function StoreHomePage() {
         </section>
 
 
-        {/* Our Brands */}
-        <section className="-mx-4  my-8 md:-mx-8 lg:-mx-12 py-6 bg-[#ECEEF2]">
-          <h2 className="text-center text-2xl md:text-3xl font-bold mb-8">
-            <span className="inline-block border-b-2 border-gray-900 pb-1 px-4">
-              Our Brands
-            </span>
-          </h2>
-          <div className="overflow-hidden group">
-            <div className="brand-marquee-track px-8">
-              {[...brands, ...brands, ...brands].map((brand, index) => (
-                <div
-                  key={`${brand.name}-${index}`}
-                  className="flex items-center justify-center"
-                >
-                  <div className="relative h-16 w-28 md:h-20 md:w-60">
-                    <Image
-                      src={brand.logo}
-                      alt={brand.name}
-                      fill
-                      sizes="260px"
-                      className="object-contain opacity-90 hover:opacity-100 transition-opacity duration-300"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <BrandsShowcase brands={brands} />
       </div>
     </div>
   );

@@ -30,7 +30,10 @@ export default function ProductCard({
     const [imageError, setImageError] = useState(false);
 
     return (
-        <div className="group relative bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full min-w-[200px] cursor-default transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-md">
+        <Link
+            href={`/products/${id}`}
+            className="group relative bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full min-w-[250px] transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-md"
+        >
             {/* Image Container */}
             <div className="relative aspect-[4/3] overflow-hidden bg-slate-50 shrink-0">
                 {isNew && (
@@ -58,11 +61,9 @@ export default function ProductCard({
 
             {/* Compact Product Details */}
             <div className="p-4 flex flex-col flex-1">
-                <Link href={`/products/${id}`} className="hover:text-[#0d3b66] transition-colors">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2">
-                        {name}
-                    </h3>
-                </Link>
+                <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#0d3b66] transition-colors">
+                    {name}
+                </h3>
 
                 {/* Rating row */}
                 {typeof rating === "number" && rating > 0 && (
@@ -99,8 +100,9 @@ export default function ProductCard({
                         <ShoppingCart className="w-4 h-4 mr-2" />
                         Add to Cart
                     </Button>
+
                 </div>
             </div>
-        </div>
+        </Link>
     );
 }
