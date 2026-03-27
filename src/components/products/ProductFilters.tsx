@@ -82,7 +82,7 @@ export default function ProductFilters() {
   };
 
   return (
-    <div className="bg-white  border border-slate-100 py-4 px-3 shadow-sm flex flex-col">
+    <div className="bg-white border border-slate-100 py-4 px-3 shadow-sm flex flex-col h-full min-h-0">
       {/* Header: Filters + search, or full-width input (in flow so content doesn't hide) */}
       <div className="flex items-center justify-between gap-2 mb-3 shrink-0">
         {searchExpanded ? (

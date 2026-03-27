@@ -1,699 +1,72 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import ProductCard from "@/components/products/ProductCard";
 import ProductFilters from "@/components/products/ProductFilters";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { allProducts as centralizedProducts } from "@/data/products";
 
-const PER_PAGE = 50;
+const PER_PAGE = 24;
 
-const allProducts = [
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "1",
-        name: "Ceramic Brake Pads Set",
-        price: 45.99,
-        originalPrice: 59.99,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=800&auto=format&fit=crop",
-        category: "Brakes",
-        isNew: true,
-    },
-    {
-        id: "2",
-        name: "High-Performance Air Filter",
-        price: 24.50,
-        originalPrice: 32.00,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-    {
-        id: "3",
-        name: "Premium Synthetic Motor Oil",
-        price: 38.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-159742324403d-d19501a66377?q=80&w=800&auto=format&fit=crop",
-        category: "Lubricants",
-        isNew: true,
-    },
-    {
-        id: "4",
-        name: "Halogen Headlight Bulb",
-        price: 15.99,
-        originalPrice: 19.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=800&auto=format&fit=crop",
-        category: "Electrical",
-    },
-    {
-        id: "5",
-        name: "Shock Absorber Front Set",
-        price: 120.00,
-        originalPrice: 150.00,
-        rating: 5,
-        image: "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=800&auto=format&fit=crop",
-        category: "Suspension",
-    },
-    {
-        id: "6",
-        name: "Universal Oil Filter",
-        price: 12.99,
-        rating: 4,
-        image: "https://images.unsplash.com/photo-1486006396193-471ca6193b21?q=80&w=800&auto=format&fit=crop",
-        category: "Engine",
-    },
-];
+const allProducts = centralizedProducts;
 
 export default function ProductsPage() {
     const [currentPage, setCurrentPage] = useState(1);
-    const [filtersHeight, setFiltersHeight] = useState<number | null>(null);
-    const filtersRef = useRef<HTMLElement>(null);
+    const asideRef = useRef<HTMLElement>(null);
+    /** On md+, product column height tracks filter column (CSS can’t do “match shorter sibling” when grid is tall). */
+    const [productColumnHeight, setProductColumnHeight] = useState<number | null>(null);
+
     const totalPages = Math.ceil(allProducts.length / PER_PAGE) || 1;
     const start = (currentPage - 1) * PER_PAGE;
     const paginatedProducts = allProducts.slice(start, start + PER_PAGE);
 
-    useEffect(() => {
-        if (!filtersRef.current) return;
+    useLayoutEffect(() => {
+        const el = asideRef.current;
+        if (!el) return;
 
-        const element = filtersRef.current;
-        const updateFiltersHeight = () => setFiltersHeight(element.offsetHeight);
+        const md = () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
 
-        updateFiltersHeight();
-        const observer = new ResizeObserver(updateFiltersHeight);
-        observer.observe(element);
+        const sync = () => {
+            if (md()) {
+                setProductColumnHeight(el.offsetHeight);
+            } else {
+                setProductColumnHeight(null);
+            }
+        };
 
-        return () => observer.disconnect();
+        sync();
+        const ro = new ResizeObserver(sync);
+        ro.observe(el);
+
+        const mq = window.matchMedia("(min-width: 768px)");
+        mq.addEventListener("change", sync);
+
+        return () => {
+            ro.disconnect();
+            mq.removeEventListener("change", sync);
+        };
     }, []);
 
     return (
-        <div className="w-full max-w-[1700px] mx-auto px-4 md:px-6 py-8">
-            <div className="flex flex-col md:flex-row gap-8">
-                {/* Sidebar Filters */}
-                <aside ref={filtersRef} className="w-full md:w-75 shrink-0">
+        <div className="mx-auto flex w-full max-w-[1700px] flex-1 min-h-0 flex-col px-4 py-8 md:px-6">
+            <div className="flex min-h-0 flex-col gap-8 md:flex-row md:items-start">
+                <aside
+                    ref={asideRef}
+                    className="w-full shrink-0 self-start md:w-75 [&>div]:!h-auto"
+                >
                     <ProductFilters />
                 </aside>
 
-                {/* Product Grid */}
-                <main className="flex-1 min-w-0">
-                    <div
-                        className="border border-slate-300 bg-white flex flex-col overflow-hidden"
-                        style={filtersHeight ? { maxHeight: `${filtersHeight}px` } : undefined}
-                    >
-                        <div className="px-4 py-3 border-b border-slate-300">
+                <main
+                    className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:min-h-0"
+                    style={
+                        productColumnHeight != null
+                            ? { height: productColumnHeight, maxHeight: productColumnHeight }
+                            : undefined
+                    }
+                >
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-slate-300 bg-white md:h-full">
+                        <div className="shrink-0 border-b border-slate-300 px-4 py-3">
                             <div className="flex items-center justify-between flex-wrap gap-4">
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm text-[#0d3b66]">Sort by:</span>
@@ -750,7 +123,7 @@ export default function ProductsPage() {
                             </div>
                         </div>
 
-                        <div className="p-4 overflow-y-auto flex-1 min-h-0 scrollbar-on-hover">
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 scrollbar-on-hover">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                 {paginatedProducts.map((product) => (
                                     <ProductCard key={`${product.id}-${start}`} {...product} />
