@@ -15,10 +15,14 @@ const allProducts = centralizedProducts;
 function ProductsPageContent() {
     const searchParams = useSearchParams();
     const categoryParam = searchParams.get("category")?.trim() || null;
+    const qParam = searchParams.get("q")?.trim() || null;
+    const qLower = qParam ? qParam.toLowerCase() : null;
 
-    const filteredProducts = categoryParam
-        ? allProducts.filter((p) => p.category === categoryParam)
-        : allProducts;
+    const filteredProducts = allProducts.filter((p) => {
+        if (categoryParam && p.category !== categoryParam) return false;
+        if (qLower && !p.name.toLowerCase().includes(qLower)) return false;
+        return true;
+    });
 
     const [currentPage, setCurrentPage] = useState(1);
     const asideRef = useRef<HTMLElement>(null);
@@ -27,7 +31,7 @@ function ProductsPageContent() {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [categoryParam]);
+    }, [categoryParam, qParam]);
 
     const totalPages = Math.ceil(filteredProducts.length / PER_PAGE) || 1;
     const start = (currentPage - 1) * PER_PAGE;
@@ -93,13 +97,16 @@ function ProductsPageContent() {
                                 <div className="flex items-center gap-4">
                                     <span className="text-sm text-[#0d3b66]">
                                         {filteredProducts.length === 0 ? (
-                                            <>No products in this category</>
+                                            <>No matching products</>
                                         ) : (
                                             <>
                                                 Showing {start + 1}–{Math.min(start + PER_PAGE, filteredProducts.length)} of{" "}
                                                 {filteredProducts.length}
                                                 {categoryParam ? (
-                                                    <span className="text-slate-500"> ({categoryParam})</span>
+                                                    <span className="text-slate-500"> · {categoryParam}</span>
+                                                ) : null}
+                                                {qParam ? (
+                                                    <span className="text-slate-500"> · &ldquo;{qParam}&rdquo;</span>
                                                 ) : null}
                                             </>
                                         )}
@@ -149,8 +156,20 @@ function ProductsPageContent() {
                         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
                             {filteredProducts.length === 0 ? (
                                 <p className="text-center text-sm text-slate-600">
-                                    No products match{" "}
-                                    <span className="font-medium text-[#0d3b66]">{categoryParam}</span>.{" "}
+                                    No products found
+                                    {qParam ? (
+                                        <>
+                                            {" "}
+                                            matching <span className="font-medium text-[#0d3b66]">&ldquo;{qParam}&rdquo;</span>
+                                        </>
+                                    ) : null}
+                                    {categoryParam ? (
+                                        <>
+                                            {" "}
+                                            in <span className="font-medium text-[#0d3b66]">{categoryParam}</span>
+                                        </>
+                                    ) : null}
+                                    .{" "}
                                     <Link href="/products" className="text-[#0d3b66] underline hover:no-underline">
                                         View all products
                                     </Link>
