@@ -10,6 +10,7 @@ export default function Navbar() {
         <div className="mx-auto flex w-full max-w-[1700px] items-center gap-4 px-4 py-3 md:gap-6 md:px-8 md:py-4 lg:px-12">
           <Link
             href="/"
+            replace
             className="flex shrink-0 items-center gap-2 text-2xl font-bold text-white"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white font-bold text-primary">

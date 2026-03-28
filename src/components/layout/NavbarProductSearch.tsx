@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -15,12 +16,21 @@ import { Search } from "lucide-react";
 
 const DEBOUNCE_MS = 280;
 
-function useDebouncedValue<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
+/** Debounces `query`, but resets immediately when `pathname` changes so stale text never drives `router.replace` on /products after navigating away. */
+function useDebouncedSearchQuery(query: string, delay: number, pathname: string) {
+  const [debounced, setDebounced] = useState(query);
+  const prevPathname = useRef(pathname);
+
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
+    if (prevPathname.current !== pathname) {
+      prevPathname.current = pathname;
+      setDebounced(query);
+    }
+
+    const t = setTimeout(() => setDebounced(query), delay);
     return () => clearTimeout(t);
-  }, [value, delay]);
+  }, [query, delay, pathname]);
+
   return debounced;
 }
 
@@ -38,7 +48,7 @@ function NavbarSearchProviderInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
-  const debouncedQuery = useDebouncedValue(query, DEBOUNCE_MS);
+  const debouncedQuery = useDebouncedSearchQuery(query, DEBOUNCE_MS, pathname);
   const inputFocusedRef = useRef(false);
 
   const onFocus = useCallback(() => {
@@ -49,19 +59,27 @@ function NavbarSearchProviderInner({ children }: { children: ReactNode }) {
     inputFocusedRef.current = false;
   }, []);
 
-  useEffect(() => {
+  /** Clear search as soon as we leave /products (before paint), so stale debounced text cannot trigger router.push back to /products. */
+  useLayoutEffect(() => {
     if (pathname !== "/products") {
       setQuery("");
-      return;
     }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (pathname !== "/products") return;
     if (inputFocusedRef.current) return;
     setQuery(searchParams.get("q") ?? "");
   }, [pathname, searchParams]);
 
   useEffect(() => {
     const q = debouncedQuery.trim();
+    const live = query.trim();
 
     if (pathname === "/products") {
+      /** Avoid writing /products?q=… from a stale debounce after input was cleared (e.g. user hit Home). */
+      if (live.length === 0 && q.length > 0) return;
+
       const cat = searchParams.get("category")?.trim() ?? "";
       const currentQ = searchParams.get("q")?.trim() ?? "";
       if (q === currentQ && cat === (searchParams.get("category")?.trim() ?? "")) return;
@@ -80,10 +98,11 @@ function NavbarSearchProviderInner({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (q.length > 0) {
+    /** Only navigate from other routes when both debounced and current input agree — avoids redirect after user clicked Home while debounce still held old text. */
+    if (q.length > 0 && live.length > 0) {
       router.push(`/products?q=${encodeURIComponent(q)}`);
     }
-  }, [debouncedQuery, pathname, router, searchParams]);
+  }, [debouncedQuery, query, pathname, router, searchParams]);
 
   const value: NavbarSearchContextValue = {
     query,
