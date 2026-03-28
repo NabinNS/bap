@@ -3,9 +3,10 @@
 import { useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import CategoryCard from "./CategoryCard";
+import type { HomeCategory } from "@/data/storeHome";
 
 interface CategorySliderProps {
-    categories: any[];
+    categories: HomeCategory[];
 }
 
 export default function CategorySlider({ categories }: CategorySliderProps) {

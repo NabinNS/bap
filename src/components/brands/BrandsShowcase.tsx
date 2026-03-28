@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -9,94 +9,104 @@ type Brand = {
   logo: string;
 };
 
-const CARD_MIN_WIDTH = 96;
-const CARD_GAP = 16;
-
 export default function BrandsShowcase({ brands }: { brands: Brand[] }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [itemsPerPage, setItemsPerPage] = useState(1);
-  const [page, setPage] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
 
-  useEffect(() => {
-    if (!containerRef.current) return;
+  const loopedBrands = brands.length === 0 ? [] : [...brands, ...brands, ...brands];
 
-    const element = containerRef.current;
-    const updateItemsPerPage = () => {
-      const width = element.clientWidth;
-      const fitCount = Math.max(1, Math.floor((width + CARD_GAP) / (CARD_MIN_WIDTH + CARD_GAP)));
-      setItemsPerPage(fitCount);
-    };
+  const handleInfiniteScroll = () => {
+    if (!scrollRef.current || isScrolling) return;
 
-    updateItemsPerPage();
-    const observer = new ResizeObserver(updateItemsPerPage);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+    const container = scrollRef.current;
+    const singleSetWidth = container.scrollWidth / 3;
 
-  const totalPages = Math.max(1, Math.ceil(brands.length / itemsPerPage));
+    if (container.scrollLeft >= singleSetWidth * 2) {
+      container.style.scrollBehavior = "auto";
+      container.scrollLeft = container.scrollLeft - singleSetWidth;
+    } else if (container.scrollLeft <= 0) {
+      container.style.scrollBehavior = "auto";
+      container.scrollLeft = container.scrollLeft + singleSetWidth;
+    }
+  };
 
-  useEffect(() => {
-    setPage((prev) => Math.min(prev, totalPages - 1));
-  }, [totalPages]);
+  const scroll = (direction: "left" | "right") => {
+    if (!scrollRef.current) return;
 
-  const visibleBrands = useMemo(() => {
-    const start = page * itemsPerPage;
-    return brands.slice(start, start + itemsPerPage);
-  }, [brands, itemsPerPage, page]);
+    const container = scrollRef.current;
+    const scrollAmount = container.clientWidth * 0.8;
+
+    setIsScrolling(true);
+    container.style.scrollBehavior = "smooth";
+
+    if (direction === "left") {
+      container.scrollLeft -= scrollAmount;
+    } else {
+      container.scrollLeft += scrollAmount;
+    }
+
+    setTimeout(() => {
+      setIsScrolling(false);
+      handleInfiniteScroll();
+    }, 600);
+  };
+
+  if (brands.length === 0) {
+    return null;
+  }
 
   return (
-    <section className="relative mt-8 py-6 px-4 md:px-8 border border-slate-300 bg-slate-100">
-      <div className="flex flex-col items-center mb-5 text-center">
-        <h2 className="text-2xl font-black text-gray-900 leading-tight">Our Brands</h2>
-        <p className="text-gray-900 text-sm mt-1">Trusted names build trusted journeys.</p>
+    <section className="relative mt-8 overflow-x-hidden border border-slate-300 bg-slate-100 py-6 px-4 md:px-8">
+      <div className="mb-5 flex flex-col items-center text-center">
+        <h2 className="text-2xl font-black leading-tight text-gray-900">Our Brands</h2>
+        <p className="mt-1 text-sm text-gray-900">Trusted names build trusted journeys.</p>
       </div>
 
-      <div className="group relative">
+      <div className="group relative min-w-0 overflow-hidden">
         <button
           type="button"
-          onClick={() => setPage((p) => Math.max(0, p - 1))}
-          disabled={page === 0 || totalPages === 1}
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-20 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-100 flex items-center justify-center text-slate-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 hover:bg-[#0d3b66] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
-          aria-label="Show previous brands"
+          onClick={() => scroll("left")}
+          className="absolute left-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-lg transition-all duration-300 hover:bg-[#0d3b66] hover:text-white md:left-0 md:-translate-x-4 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
+          aria-label="Scroll brands left"
         >
-          <ChevronLeft className="w-6 h-6" />
+          <ChevronLeft className="h-6 w-6" />
         </button>
 
-        <div ref={containerRef} className="min-w-0">
-          <div className="flex items-center justify-center gap-3">
-            {visibleBrands.map((brand) => (
-              <div
-                key={brand.name}
-                className="w-[150px] h-[110px] border border-slate-300 bg-white px-2 py-2 flex flex-col items-center justify-center shrink-0"
-              >
-                <div className="relative h-[90px] w-[130px]">
-                  <Image
-                    src={brand.logo}
-                    alt={brand.name}
-                    fill
-                    sizes="120px"
-                    className="object-contain opacity-90 hover:opacity-100 transition-opacity duration-300"
-                  />
-                </div>
-                <p className="mt-2 text-[14px] font-semibold text-gray-700 text-center leading-tight line-clamp-1 w-full">
-                  {brand.name}
-                </p>
+        <button
+          type="button"
+          onClick={() => scroll("right")}
+          className="absolute right-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-lg transition-all duration-300 hover:bg-[#0d3b66] hover:text-white md:right-0 md:translate-x-4 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
+          aria-label="Scroll brands right"
+        >
+          <ChevronRight className="h-6 w-6" />
+        </button>
+
+        <div
+          ref={scrollRef}
+          onScroll={handleInfiniteScroll}
+          className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar"
+        >
+          {loopedBrands.map((brand, index) => (
+            <div
+              key={`${brand.name}-${index}`}
+              className="flex h-[110px] w-[150px] shrink-0 flex-col items-center justify-center border border-slate-300 bg-white px-2 py-2"
+            >
+              <div className="relative h-[90px] w-[130px]">
+                <Image
+                  src={brand.logo}
+                  alt={brand.name}
+                  fill
+                  sizes="130px"
+                  className="object-contain opacity-90 transition-opacity duration-300 hover:opacity-100"
+                />
               </div>
-            ))}
-          </div>
+              <p className="mt-2 w-full line-clamp-1 text-center text-[14px] font-semibold leading-tight text-gray-700">
+                {brand.name}
+              </p>
+            </div>
+          ))}
         </div>
-
-        <button
-          type="button"
-          onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-          disabled={page >= totalPages - 1 || totalPages === 1}
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-20 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-100 flex items-center justify-center text-slate-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 hover:bg-[#0d3b66] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
-          aria-label="Show next brands"
-        >
-          <ChevronRight className="w-6 h-6" />
-        </button>
       </div>
     </section>
   );
 }
-

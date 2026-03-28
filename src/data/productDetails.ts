@@ -126,6 +126,37 @@ export const productCatalog: Record<string, ProductDetail> = {
       "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=1400&auto=format&fit=crop",
     ],
   },
+  "7": {
+    id: "7",
+    name: "12V Maintenance-Free Battery",
+    price: 119.99,
+    originalPrice: 139.99,
+    rating: 4,
+    image: "https://images.unsplash.com/photo-1611250519129-8940b3184feb?q=80&w=1400&auto=format&fit=crop",
+    category: "Batteries",
+    description:
+      "Dependable 12V battery with strong cold-cranking amps and maintenance-free design for everyday driving and short trips.",
+    galleryImages: [
+      "https://images.unsplash.com/photo-1611250519129-8940b3184feb?q=80&w=1400&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=1400&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1549399500-6d710f972e48?q=80&w=1400&auto=format&fit=crop",
+    ],
+  },
+  "8": {
+    id: "8",
+    name: "All-Season Radial Tyre",
+    price: 94.5,
+    rating: 4,
+    image: "https://images.unsplash.com/photo-1558618666-f9e0969db87a?q=80&w=1400&auto=format&fit=crop",
+    category: "Tyres",
+    description:
+      "Balanced tread for wet and dry roads, comfort-oriented construction for daily mileage and longer tread life.",
+    galleryImages: [
+      "https://images.unsplash.com/photo-1558618666-f9e0969db87a?q=80&w=1400&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1620055282005-acc946535d51?q=80&w=1400&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?q=80&w=1400&auto=format&fit=crop",
+    ],
+  },
 };
 
 export const reviewsByProductId: Record<string, Review[]> = {
@@ -156,6 +187,14 @@ export const reviewsByProductId: Record<string, Review[]> = {
     { id: "r14", name: "Nimesh A.", rating: 4, title: "Good filter", comment: "Fits well and works as expected. Good product overall.", date: "Feb 8, 2026" },
     { id: "r15", name: "Hari P.", rating: 5, title: "Very satisfied", comment: "Used for a recent oil change and engine feels smoother.", date: "Jan 22, 2026" },
   ],
+  "7": [
+    { id: "r16", name: "Rina K.", rating: 5, title: "Starts every time", comment: "Replaced an old battery and cold starts are effortless now.", date: "Feb 11, 2026" },
+    { id: "r17", name: "Om S.", rating: 4, title: "Solid buy", comment: "Holds charge well; install was straightforward.", date: "Jan 28, 2026" },
+  ],
+  "8": [
+    { id: "r18", name: "Sita M.", rating: 5, title: "Quiet ride", comment: "Good grip in rain and less road noise than my old tyres.", date: "Feb 9, 2026" },
+    { id: "r19", name: "Raj P.", rating: 4, title: "Good value", comment: "Wear looks even after a few thousand km. Happy so far.", date: "Jan 31, 2026" },
+  ],
 };
 
 export const questionsByProductId: Record<string, ProductQuestion[]> = {
@@ -182,5 +221,13 @@ export const questionsByProductId: Record<string, ProductQuestion[]> = {
   "6": [
     { id: "q11", question: "Can this be used for long oil intervals?", answer: "Yes, it has good contaminant holding capacity for extended intervals." },
     { id: "q12", question: "Is this compatible with synthetic oils?", answer: "Yes, it works with both synthetic and conventional engine oils." },
+  ],
+  "7": [
+    { id: "q13", question: "Is this maintenance-free?", answer: "Yes, it is a sealed maintenance-free design under normal use." },
+    { id: "q14", question: "Will it fit my sedan?", answer: "Check your vehicle manual for group size and terminal layout before purchase." },
+  ],
+  "8": [
+    { id: "q15", question: "Are these all-season?", answer: "Yes, they are intended for year-round use in typical road conditions." },
+    { id: "q16", question: "Sold as a single tyre?", answer: "This listing is per tyre; order four for a full set if needed." },
   ],
 };

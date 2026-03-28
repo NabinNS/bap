@@ -129,64 +129,67 @@ export const featuredProducts: FeaturedProduct[] = [
   },
 ];
 
+/** `href` uses `/products?category=` values that match `Product.category` in `src/data/products.ts`. */
 export const categories: HomeCategory[] = [
   {
     name: "Batteries",
     count: "250+ Items",
     image: "https://images.unsplash.com/photo-1599420186946-7b6fb4e297f0?auto=format&fit=crop&q=80&w=800",
-    href: "/categories/batteries",
+    href: "/products?category=Batteries",
   },
   {
     name: "Lubricants & Oils",
     count: "450+ Items",
     image: "https://images.unsplash.com/photo-1615906655593-ad0386982a0f?auto=format&fit=crop&q=80&w=800",
-    href: "/categories/lubricants",
+    href: "/products?category=Lubricants",
   },
   {
     name: "Brake System",
     count: "800+ Items",
     image: "https://images.unsplash.com/photo-1625047509168-a7026f36de04?auto=format&fit=crop&q=80&w=800",
-    href: "/categories/brakes",
+    href: "/products?category=Brakes",
   },
   {
     name: "Lights & Bulbs",
     count: "350+ Items",
-    image: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=800",
-    href: "/categories/lights",
+    image: "https://images.unsplash.com/photo-1549399500-6d710f972e48?auto=format&fit=crop&q=80&w=800",
+    href: "/products?category=Electrical",
   },
   {
     name: "Cleaning & Care",
     count: "200+ Items",
     image: "https://images.unsplash.com/photo-1607860108855-64acf2078ed9?auto=format&fit=crop&q=80&w=800",
-    href: "/categories/cleaning",
+    href: "/products",
   },
   {
     name: "Miscellaneous",
     count: "500+ Items",
     image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&q=80&w=800",
-    href: "/categories/miscellaneous",
+    href: "/products",
   },
 ];
 
+
 export const brands: HomeBrand[] = [
-  {
-    name: "BOSCH",
-    logo: "https://images.unsplash.com/photo-1588173889591-f5716c263162?auto=format&fit=crop&q=80&w=400",
-  },
-  {
-    name: "Brembo",
-    logo: "https://images.unsplash.com/photo-1584526053134-1334216dd1ba?auto=format&fit=crop&q=80&w=400",
-  },
-  {
-    name: "NGK",
-    logo: "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?auto=format&fit=crop&q=80&w=400",
-  },
-  {
-    name: "MANN+HUMMEL",
-    logo: "https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&q=80&w=400",
-  },
-  {
-    name: "DENSO",
-    logo: "https://images.unsplash.com/photo-1523983388277-336a66bf9bcd?auto=format&fit=crop&q=80&w=400",
-  },
+
+    {
+      name: "BOSCH",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/6/6b/Bosch-logo.png",
+    },
+    {
+      name: "Brembo",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/7/7d/Brembo_logo.png",
+    },
+    {
+      name: "NGK",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/3/3b/NGK_logo.svg",
+    },
+    {
+      name: "MANN+HUMMEL",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/0/0e/Mann%2BHummel_logo.svg",
+    },
+    {
+      name: "DENSO",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/3/3e/Denso_logo.svg",
+    },
 ];

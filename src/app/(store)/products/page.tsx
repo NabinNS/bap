@@ -1,6 +1,8 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import ProductCard from "@/components/products/ProductCard";
 import ProductFilters from "@/components/products/ProductFilters";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -10,15 +12,26 @@ const PER_PAGE = 24;
 
 const allProducts = centralizedProducts;
 
-export default function ProductsPage() {
+function ProductsPageContent() {
+    const searchParams = useSearchParams();
+    const categoryParam = searchParams.get("category")?.trim() || null;
+
+    const filteredProducts = categoryParam
+        ? allProducts.filter((p) => p.category === categoryParam)
+        : allProducts;
+
     const [currentPage, setCurrentPage] = useState(1);
     const asideRef = useRef<HTMLElement>(null);
     /** On md+, product column height tracks filter column (CSS can’t do “match shorter sibling” when grid is tall). */
     const [productColumnHeight, setProductColumnHeight] = useState<number | null>(null);
 
-    const totalPages = Math.ceil(allProducts.length / PER_PAGE) || 1;
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [categoryParam]);
+
+    const totalPages = Math.ceil(filteredProducts.length / PER_PAGE) || 1;
     const start = (currentPage - 1) * PER_PAGE;
-    const paginatedProducts = allProducts.slice(start, start + PER_PAGE);
+    const paginatedProducts = filteredProducts.slice(start, start + PER_PAGE);
 
     useLayoutEffect(() => {
         const el = asideRef.current;
@@ -79,7 +92,17 @@ export default function ProductsPage() {
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <span className="text-sm text-[#0d3b66]">
-                                        Showing {start + 1}–{Math.min(start + PER_PAGE, allProducts.length)} of {allProducts.length}
+                                        {filteredProducts.length === 0 ? (
+                                            <>No products in this category</>
+                                        ) : (
+                                            <>
+                                                Showing {start + 1}–{Math.min(start + PER_PAGE, filteredProducts.length)} of{" "}
+                                                {filteredProducts.length}
+                                                {categoryParam ? (
+                                                    <span className="text-slate-500"> ({categoryParam})</span>
+                                                ) : null}
+                                            </>
+                                        )}
                                     </span>
                                     {totalPages > 1 && (
                                         <div className="flex items-center gap-2">
@@ -123,16 +146,40 @@ export default function ProductsPage() {
                             </div>
                         </div>
 
-                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 scrollbar-on-hover">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                {paginatedProducts.map((product) => (
-                                    <ProductCard key={`${product.id}-${start}`} {...product} />
-                                ))}
-                            </div>
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+                            {filteredProducts.length === 0 ? (
+                                <p className="text-center text-sm text-slate-600">
+                                    No products match{" "}
+                                    <span className="font-medium text-[#0d3b66]">{categoryParam}</span>.{" "}
+                                    <Link href="/products" className="text-[#0d3b66] underline hover:no-underline">
+                                        View all products
+                                    </Link>
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                    {paginatedProducts.map((product, i) => (
+                                        <ProductCard key={`${start}-${i}-${product.id}`} {...product} />
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </main>
             </div>
         </div>
+    );
+}
+
+export default function ProductsPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="mx-auto flex w-full max-w-[1700px] flex-1 items-center justify-center px-4 py-16 text-sm text-slate-600 md:px-6">
+                    Loading products…
+                </div>
+            }
+        >
+            <ProductsPageContent />
+        </Suspense>
     );
 }

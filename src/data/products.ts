@@ -71,12 +71,35 @@ const baseProducts: Omit<Product, "id">[] = [
         description:
             "Durable oil filter with high contaminant holding capacity to support cleaner lubrication and smoother engine life.",
     },
+    {
+        name: "12V Maintenance-Free Battery",
+        price: 119.99,
+        originalPrice: 139.99,
+        rating: 4,
+        image: "https://images.unsplash.com/photo-1611250519129-8940b3184feb?q=80&w=1200&auto=format&fit=crop",
+        category: "Batteries",
+        description:
+            "Reliable 12V battery with strong cold-cranking performance and low maintenance for everyday driving.",
+    },
+    {
+        name: "All-Season Radial Tyre",
+        price: 94.5,
+        rating: 4,
+        image: "https://images.unsplash.com/photo-1558618666-f9e0969db87a?q=80&w=1200&auto=format&fit=crop",
+        category: "Tyres",
+        description:
+            "Balanced tread pattern for wet and dry grip, designed for comfortable daily mileage and longer wear life.",
+    },
 ];
 
+/**
+ * Same `id` as keys in `src/data/productDetails.ts` `productCatalog` so `/products/[id]` resolves.
+ * Multiple rows share one id when we duplicate inventory in the grid; list keys use index in the UI.
+ */
 export const allProducts: Product[] = Array.from({ length: 10 }, (_, round) =>
     baseProducts.map((product, index) => ({
         ...product,
-        id: `${round + 1}-${index + 1}`,
+        id: String(index + 1),
     }))
 ).flat();
 
