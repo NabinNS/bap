@@ -1,42 +1,29 @@
-FROM php:8.3-fpm
+# Stage 1 — PHP dependencies
+FROM composer:2 AS vendor
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    libpq-dev \
-    libzip-dev \
-    zip \
-    unzip \
-    && docker-php-ext-install pdo pdo_pgsql zip \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install \
+    --no-scripts \
+    --no-autoloader \
+    --no-interaction \
+    --prefer-dist \
+    --ignore-platform-reqs \
+    --quiet
+COPY . .
+RUN composer dump-autoload --optimize --quiet
 
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-# Install Node.js + pnpm for Vite
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && npm install -g pnpm
+# Stage 2 — Final image (pre-built extensions, no compilation)
+FROM serversideup/php:8.4-cli
 
 WORKDIR /var/www/api
 
-# Copy composer files first (better layer caching)
-COPY composer.json composer.lock ./
-RUN composer install --no-scripts --no-autoloader
-
-# Copy package files and install JS deps
-COPY package.json ./
-RUN pnpm install
-
-# Copy the rest of the app
+COPY --from=vendor /app/vendor ./vendor
 COPY . .
 
-# Finish composer install
-RUN composer dump-autoload --optimize
-
-# Set permissions for Laravel storage and cache
-RUN chown -R www-data:www-data /var/www/api/storage /var/www/api/bootstrap/cache
+USER root
+RUN chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
 EXPOSE 8000
 

@@ -1,16 +1,25 @@
+# Stage 1 — dependencies
+FROM node:20-alpine AS deps
+
+RUN npm install -g pnpm
+
+WORKDIR /app
+
+# Copy only package.json first — layer cache reused if deps don't change
+COPY package.json ./
+RUN pnpm install
+
+# Stage 2 — Final runtime image
 FROM node:20-alpine
 
-# Install pnpm
 RUN npm install -g pnpm
 
 WORKDIR /var/www/web
 
-# Copy package files first (better layer caching)
-COPY package.json ./
+# Copy node_modules from deps stage (cached unless package.json changed)
+COPY --from=deps /app/node_modules ./node_modules
 
-RUN pnpm install
-
-# Copy the rest of the app
+# Copy app code last
 COPY . .
 
 EXPOSE 3000

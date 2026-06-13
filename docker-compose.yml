@@ -12,6 +12,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - bap_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -26,9 +31,9 @@ services:
     volumes:
       - ./apps/api:/var/www/api
       - /var/www/api/vendor
-      - /var/www/api/node_modules
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - bap_network
 
@@ -41,7 +46,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - ./apps/web:/var/www/web
       - /var/www/web/node_modules
