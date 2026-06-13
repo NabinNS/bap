@@ -19,7 +19,7 @@ export default function PasswordInput() {
         autoComplete="current-password"
         required
         placeholder="Enter your password"
-        className="w-full rounded-xl border border-[#E2E8F0] bg-white pl-10 pr-11 py-3 text-sm text-[#1E293B] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none focus:ring-4 focus:ring-[#2563EB]/10 transition-all"
+        className="w-full rounded-xl border border-slate-200 bg-slate-100 pl-10 pr-11 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
       />
       <button
         type="button"
