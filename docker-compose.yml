@@ -1,0 +1,59 @@
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: bap_postgres
+    restart: unless-stopped
+    env_file:
+      - ./apps/api/.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - bap_network
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: bap_api
+    restart: unless-stopped
+    env_file:
+      - ./apps/api/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/api:/var/www/api
+      - /var/www/api/vendor
+      - /var/www/api/node_modules
+    depends_on:
+      - postgres
+    networks:
+      - bap_network
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: bap_web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/var/www/web
+      - /var/www/web/node_modules
+      - /var/www/web/.next
+    depends_on:
+      - api
+    networks:
+      - bap_network
+
+volumes:
+  postgres_data:
+
+networks:
+  bap_network:
+    driver: bridge

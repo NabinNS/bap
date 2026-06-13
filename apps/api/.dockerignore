@@ -1,0 +1,8 @@
+vendor/
+node_modules/
+.env
+.next/
+storage/logs/*.log
+bootstrap/cache/*.php
+public/build/
+.git/
