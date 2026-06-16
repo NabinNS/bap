@@ -146,7 +146,7 @@ export function NavbarSearchInput({ className = "", inputClassName = "" }: Navba
           onBlur={ctx.onBlur}
           placeholder="Search products..."
           autoComplete="off"
-          className={`w-full rounded-lg border border-white/20 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus:border-white focus:outline-none focus:ring-2 focus:ring-white/90 ${inputClassName}`}
+          className={`w-full rounded-none border border-white/20 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 shadow-none placeholder:text-gray-500 focus:border-white focus:outline-none focus:ring-2 focus:ring-white/90 ${inputClassName}`}
         />
         <Search
           className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"

@@ -31,7 +31,7 @@ export default function Navbar() {
               <Link href="/login">
                 <Button
                   variant="outline"
-                  className="cursor-pointer rounded-full border-white/40 bg-white/10 text-white backdrop-blur-sm hover:border-white/70 hover:bg-white/20 hover:text-white"
+                  className="cursor-pointer rounded-none border-white/20 bg-black/20 text-white backdrop-blur-sm hover:border-white/40 hover:bg-black/30 hover:text-white"
                 >
                   Login
                 </Button>
@@ -39,11 +39,11 @@ export default function Navbar() {
 
               <Button
                 type="button"
-                className="relative cursor-pointer rounded-full bg-gradient-to-br from-white/20 to-white/10 text-white shadow-sm backdrop-blur-sm hover:from-white/30 hover:to-white/20"
+                className="relative cursor-pointer rounded-none bg-black/20 text-white shadow-none hover:bg-black/30"
                 aria-label="Shopping cart, 3 items"
               >
                 <ShoppingCart className="h-6 w-6" />
-                <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white tabular-nums">
+                <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-none bg-red-500 px-1 text-[10px] font-semibold text-white tabular-nums">
                   3
                 </span>
               </Button>
@@ -57,21 +57,21 @@ export default function Navbar() {
         </div>
 
         {/* Category bar */}
-        <div className="overflow-x-auto scrollbar-none">
+        <div className="overflow-x-auto scrollbar-none bg-black/20">
           <div className="flex items-stretch justify-center px-4 md:px-8 lg:px-12">
             {categories.map((cat) => (
               <Link
                 key={cat.name}
                 href={cat.href}
-                className="shrink-0 whitespace-nowrap px-4 py-2.5 text-xs font-semibold text-white/90 transition-all hover:bg-white/15 hover:text-white"
+                className="shrink-0 whitespace-nowrap px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/15 hover:text-white"
               >
                 {cat.name}
               </Link>
             ))}
-            <span className="my-1.5 w-px bg-white/20" />
+            <span className="my-2 w-px bg-white/20" />
             <Link
               href="/products"
-              className="shrink-0 whitespace-nowrap px-4 py-2.5 text-xs font-semibold text-white/90 transition-all hover:bg-white/15 hover:text-white"
+              className="shrink-0 whitespace-nowrap px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/15 hover:text-white"
             >
               All Products →
             </Link>
