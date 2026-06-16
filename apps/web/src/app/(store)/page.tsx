@@ -48,7 +48,7 @@ export default function StoreHomePage() {
 
 
         {/* Featured Products Segment */}
-        <section className="relative mt-8 py-4 px-4 md:px-8 border border-slate-300 bg-slate-100">
+        <section className="relative mt-8 pt-4 pb-0 px-4 md:px-8 border border-slate-300 bg-slate-100">
           <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
             <div className="flex flex-col mx-2">
               <h2 className="text-2xl font-black text-gray-900 leading-tight">Featured Products</h2>
