@@ -66,7 +66,7 @@ export default function BrandsShowcase({ brands }: { brands: Brand[] }) {
         <button
           type="button"
           onClick={() => scroll("left")}
-          className="absolute left-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-lg transition-all duration-300 hover:bg-[#0d3b66] hover:text-white md:left-0 md:-translate-x-4 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
+          className="absolute left-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-lg cursor-pointer transition-all duration-300 hover:bg-[#0d3b66] hover:text-white md:left-0 md:-translate-x-4 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
           aria-label="Scroll brands left"
         >
           <ChevronLeft className="h-6 w-6" />
@@ -75,7 +75,7 @@ export default function BrandsShowcase({ brands }: { brands: Brand[] }) {
         <button
           type="button"
           onClick={() => scroll("right")}
-          className="absolute right-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-lg transition-all duration-300 hover:bg-[#0d3b66] hover:text-white md:right-0 md:translate-x-4 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
+          className="absolute right-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-lg cursor-pointer transition-all duration-300 hover:bg-[#0d3b66] hover:text-white md:right-0 md:translate-x-4 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
           aria-label="Scroll brands right"
         >
           <ChevronRight className="h-6 w-6" />
