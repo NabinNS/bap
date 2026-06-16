@@ -10,7 +10,7 @@ const images = [
   "/images/slider/slider4.jpg",
 ];
 
-const SLIDE_INTERVAL = 4000;
+const SLIDE_INTERVAL = 5000;
 
 export default function HeroSlider() {
   const [currentIndex, setCurrentIndex] = useState(0);

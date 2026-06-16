@@ -20,7 +20,7 @@ export default function CategoryCard({ name, count, image, href }: CategoryCardP
             className="group relative block overflow-hidden rounded-xl bg-white border border-gray-200 shadow-sm flex flex-col h-full min-w-[200px] cursor-pointer transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-md"
         >
             {/* Image Container */}
-            <div className="relative aspect-[4/3] overflow-hidden bg-slate-50 shrink-0">
+            <div className="relative aspect-[3/2] overflow-hidden bg-slate-50 shrink-0">
                 {image && !imageError ? (
                     <Image
                         src={image}
@@ -40,7 +40,7 @@ export default function CategoryCard({ name, count, image, href }: CategoryCardP
             </div>
 
             {/* Category Details */}
-            <div className="p-4 text-center border-t border-slate-50">
+            <div className="p-2 text-center border-t border-slate-50">
                 <h3 className="text-base font-semibold text-gray-800 group-hover:text-[#0d3b66] transition-colors truncate">
                     {name}
                 </h3>

@@ -29,7 +29,7 @@ export default function CategorySlider({ categories }: CategorySliderProps) {
             {/* Left Button */}
             <button
                 onClick={() => scroll("left")}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-20 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-100 flex items-center justify-center text-slate-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 hover:bg-[#0d3b66] hover:text-white"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-20 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-100 flex items-center justify-center text-slate-600 cursor-pointer opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 hover:bg-[#0d3b66] hover:text-white"
                 aria-label="Scroll left"
             >
                 <ChevronLeft className="w-6 h-6" />
@@ -38,7 +38,7 @@ export default function CategorySlider({ categories }: CategorySliderProps) {
             {/* Right Button */}
             <button
                 onClick={() => scroll("right")}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-20 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-100 flex items-center justify-center text-slate-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 hover:bg-[#0d3b66] hover:text-white"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-20 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-100 flex items-center justify-center text-slate-600 cursor-pointer opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 hover:bg-[#0d3b66] hover:text-white"
                 aria-label="Scroll right"
             >
                 <ChevronRight className="w-6 h-6" />
@@ -50,7 +50,7 @@ export default function CategorySlider({ categories }: CategorySliderProps) {
                 className="flex overflow-x-auto gap-4 pb-4 hide-scrollbar scroll-smooth"
             >
                 {categories.map((category) => (
-                    <div key={category.name} className="min-w-[220px] sm:min-w-[240px] flex-shrink-0">
+                    <div key={category.name} className="min-w-[200px] sm:min-w-[200px] flex-shrink-0">
                         <CategoryCard {...category} />
                     </div>
                 ))}
