@@ -35,7 +35,7 @@ export default function ProductCard({
             className="group relative bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full min-w-[250px] transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-md"
         >
             {/* Image Container */}
-            <div className="relative aspect-[4/3] overflow-hidden bg-slate-50 shrink-0">
+            <div className="relative aspect-[3/2] overflow-hidden bg-slate-50 shrink-0">
                 {isNew && (
                     <span className="absolute top-3 right-3 z-10 bg-[#0d3b66] text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
                         New
@@ -60,14 +60,14 @@ export default function ProductCard({
             </div>
 
             {/* Compact Product Details */}
-            <div className="p-4 flex flex-col flex-1">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#0d3b66] transition-colors">
+            <div className="p-3 flex flex-col flex-1">
+                <h3 className="text-sm font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-[#0d3b66] transition-colors">
                     {name}
                 </h3>
 
                 {/* Rating row */}
                 {typeof rating === "number" && rating > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-amber-500 mb-3">
+                    <div className="flex items-center gap-1 text-xs text-amber-500 mb-2">
                         {Array.from({ length: 5 }).map((_, index) => (
                             <Star
                                 key={index}
@@ -79,7 +79,7 @@ export default function ProductCard({
                 )}
 
                 {/* Price & Action */}
-                <div className="mt-auto space-y-3">
+                <div className="mt-auto space-y-2">
                     <div className="flex items-baseline gap-2">
                         <span className="text-lg font-semibold text-[#0d3b66]">${price.toFixed(2)}</span>
                         {originalPrice && (
