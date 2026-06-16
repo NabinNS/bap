@@ -12,7 +12,7 @@ export default function StoreHomePage() {
     <div className="min-h-screen py-2">
       <div className="px-4 md:px-8 lg:px-12">
         {/* Hero Section */}
-        <section className="py-10">
+        <section className="py-6">
           <div className="flex flex-col md:flex-row justify-between gap-4 w-full h-auto md:h-80">
             <div className="flex-[7] h-full overflow-hidden rounded-xl">
               <HeroSlider />

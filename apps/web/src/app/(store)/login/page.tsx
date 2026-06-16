@@ -41,7 +41,7 @@ const features = [
 
 export default function LoginPage() {
   return (
-    <div className="flex flex-1 items-center justify-center bg-[#EEF2F6] px-4 py-8 lg:px-8 lg:py-12">
+    <div className="flex flex-1 items-center justify-center bg-[#EEF2F6] px-4 py-6 lg:px-8 lg:py-12">
       <div
         className="flex w-full max-w-[1400px] min-h-[82vh] overflow-hidden rounded-[2rem] shadow-2xl border border-white/60 bg-white"
         style={{ boxShadow: "0 20px 50px -12px rgba(15,23,42,0.12)" }}
