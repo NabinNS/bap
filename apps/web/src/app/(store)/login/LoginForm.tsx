@@ -4,15 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Mail } from "lucide-react";
-import { apiFetch, saveToken } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import PasswordInput from "./PasswordInput";
 
-interface LoginResponse {
-  token: string;
-  user: { id: number; name: string; email: string };
-}
-
 export default function LoginForm() {
+  const { login } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,22 +21,18 @@ export default function LoginForm() {
     const form = new FormData(e.currentTarget);
 
     try {
-      const data = await apiFetch<LoginResponse>("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({
-          email: (form.get("email") as string).trim(),
-          password: form.get("password"),
-        }),
-      });
-
-      saveToken(data.token);
-      const next = new URLSearchParams(window.location.search).get("next") ?? "/";
+      await login(
+        (form.get("email") as string).trim(),
+        form.get("password") as string,
+      );
+      // TODO: redirect based on user role once role field is added
+      const next = new URLSearchParams(window.location.search).get("next") ?? "/admin/dashboard";
       router.push(next);
     } catch (err: unknown) {
-      const e = err as Record<string, any>;
+      const e = err as Record<string, unknown>;
       const msg =
-        e?.errors?.email?.[0] ??
-        e?.message ??
+        (e?.errors as Record<string, string[]>)?.email?.[0] ??
+        (e?.message as string) ??
         "Something went wrong. Please try again.";
       setError(msg);
     } finally {
@@ -50,7 +42,6 @@ export default function LoginForm() {
 
   return (
     <form className="flex flex-col mt-10" onSubmit={handleSubmit} noValidate>
-      {/* Fields */}
       <div className="space-y-4">
         <div className="space-y-1.5">
           <label htmlFor="email" className="block text-xs font-bold text-slate-700 tracking-wide">
@@ -88,7 +79,6 @@ export default function LoginForm() {
         </div>
       </div>
 
-      {/* Submit */}
       <button
         type="submit"
         disabled={loading}
@@ -97,7 +87,6 @@ export default function LoginForm() {
         {loading ? "Signing in..." : "Sign in"}
       </button>
 
-      {/* Error — shown below button per standard UX */}
       {error && (
         <p className="mt-3 text-sm text-red-500 font-medium">{error}</p>
       )}
