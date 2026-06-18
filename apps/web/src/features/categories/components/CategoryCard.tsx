@@ -32,7 +32,7 @@ export default function CategoryCard({ name, count, image, href }: CategoryCardP
                     />
                 ) : (
                     <div className="absolute inset-0 flex items-center justify-center bg-slate-100/50 p-4">
-                        <span className="text-[10px] font-black text-slate-400 text-center uppercase tracking-widest leading-tight">
+                        <span className="text-[10px] font-black text-slate-400 text-center uppercase tracking-widest ">
                             {name}
                         </span>
                     </div>

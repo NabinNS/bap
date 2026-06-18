@@ -70,7 +70,7 @@ export default function InfoPanel() {
                 <Icon className="w-10 h-10" strokeWidth={1.5} />
               </div>
               <div className="flex flex-col">
-                <span className="text-lg md:text-xl font-extrabold text-[#092d50] leading-tight">
+                <span className="text-lg md:text-xl font-extrabold text-[#092d50] ">
                   {item.title}
                 </span>
                 <span className="text-xs md:text-sm text-gray-500 font-semibold mt-0.5">

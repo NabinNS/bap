@@ -41,14 +41,14 @@ export default function LoginForm() {
   }
 
   return (
-    <form className="flex flex-col mt-10" onSubmit={handleSubmit} noValidate>
+    <form className="flex flex-col mt-8" onSubmit={handleSubmit} noValidate>
       <div className="space-y-4">
         <div className="space-y-1.5">
-          <label htmlFor="email" className="block text-xs font-bold text-slate-700 tracking-wide">
+          <label htmlFor="email" className="block text-xs font-bold text-text-body tracking-wide">
             Email address
           </label>
           <div className="relative">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" strokeWidth={1.8} />
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-subtle" strokeWidth={1.8} />
             <input
               id="email"
               name="email"
@@ -56,20 +56,20 @@ export default function LoginForm() {
               autoComplete="email"
               required
               placeholder="you@example.com"
-              className="w-full rounded-xl border border-slate-200 bg-slate-100 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+              className="w-full rounded-xl border border-slate-200 bg-slate-100 pl-10 pr-4 py-3 text-sm text-text-default placeholder:text-text-subtle focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
             />
           </div>
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-xs font-bold text-slate-700 tracking-wide">
+          <label htmlFor="password" className="block text-xs font-bold text-text-body tracking-wide">
             Password
           </label>
           <PasswordInput />
         </div>
 
         <div className="flex items-center justify-between pt-3">
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+          <label className="flex items-center gap-2 text-xs font-semibold text-text-body cursor-pointer">
             <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300 accent-primary cursor-pointer" />
             <span>Remember me</span>
           </label>
@@ -82,7 +82,7 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-xl py-3.5 text-sm font-bold text-white bg-primary hover:bg-primary/90 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-150 cursor-pointer mt-8 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0"
+        className="w-full rounded-xl py-3.5 text-body font-bold text-white bg-primary hover:bg-primary/90 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-150 cursor-pointer mt-8 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0"
       >
         {loading ? "Signing in..." : "Sign in"}
       </button>

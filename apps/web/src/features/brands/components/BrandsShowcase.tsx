@@ -58,7 +58,7 @@ export default function BrandsShowcase({ brands }: { brands: Brand[] }) {
   return (
     <section className="relative mt-8 overflow-x-hidden border border-slate-300 bg-slate-100 py-6 px-4 md:px-8">
       <div className="mb-5 flex flex-col items-center text-center">
-        <h2 className="text-2xl font-black leading-tight text-gray-900">Our Brands</h2>
+        <h2 className="text-2xl font-black  text-gray-900">Our Brands</h2>
         <p className="mt-1 text-sm text-gray-900">Trusted names build trusted journeys.</p>
       </div>
 
@@ -100,7 +100,7 @@ export default function BrandsShowcase({ brands }: { brands: Brand[] }) {
                   className="object-contain opacity-90 transition-opacity duration-300 hover:opacity-100"
                 />
               </div>
-              <p className="mt-2 w-full line-clamp-1 text-center text-[14px] font-semibold leading-tight text-gray-700">
+              <p className="mt-2 w-full line-clamp-1 text-center text-[14px] font-semibold  text-gray-700">
                 {brand.name}
               </p>
             </div>

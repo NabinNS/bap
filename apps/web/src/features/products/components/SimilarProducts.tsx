@@ -22,7 +22,7 @@ export default function SimilarProducts({
         <section className="relative mt-8 py-10 px-4 md:px-8 border border-slate-300 bg-slate-100">
             <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
                 <div className="flex flex-col mx-2">
-                    <h2 className="text-2xl font-black text-gray-900 leading-tight">Similar Products</h2>
+                    <h2 className="text-2xl font-black text-gray-900 ">Similar Products</h2>
                     <p className="text-gray-900 text-sm mt-1">
                         Discover related parts that pair well with this product.
                     </p>

@@ -5,6 +5,32 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  /* Text scale tokens */
+  --color-text-default: var(--text-default);
+  --color-text-body:    var(--text-body);
+  --color-text-muted:   var(--text-muted);
+  --color-text-subtle:  var(--text-subtle);
+  --color-text-brand:   var(--text-brand);
+  --color-text-brand-mid: var(--text-brand-mid);
+
+  /* Type scale tokens */
+  --font-size-display: 2.75rem;     /* 44px — hero headlines only (login left panel, homepage hero) */
+  --font-size-h1:      2rem;        /* 32px — page titles ("Welcome back!", "Create account") */
+  --font-size-h2:      1.5rem;      /* 24px — section titles ("Our Products", "Top Brands") */
+  --font-size-h3:      1.25rem;     /* 20px — card/widget titles ("Recent Orders") */
+  --font-size-h4:      1rem;        /* 16px — sub-labels, sidebar items, table headers */
+  --font-size-body:    1rem;        /* 16px — body text, descriptions */
+  --font-size-sm:      0.875rem;    /* 14px — captions, timestamps, meta */
+  /* Type scale */
+  --text-display: var(--font-size-display);
+  --text-h1:      var(--font-size-h1);
+  --text-h2:      var(--font-size-h2);
+  --text-h3:      var(--font-size-h3);
+  --text-h4:      var(--font-size-h4);
+  --text-body:    var(--font-size-body);
+  --text-sm:      var(--font-size-sm);
+
   --font-sans: var(--font-plus-jakarta), var(--font-noto-devanagari);
   --font-mono: var(--font-plus-jakarta);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -53,6 +79,14 @@
   --primary: #092d50;
   --secondary: #0A2F51;
   --primary-foreground: #f2f0ea;
+
+  /* ── Text scale ── */
+  --text-default:   #0f1923;   /* headings, product names, nav — near black */
+  --text-body:      #374151;   /* paragraphs, descriptions — dark grey */
+  --text-muted:     #6b7280;   /* labels, meta, secondary info — mid grey */
+  --text-subtle:    #9ca3af;   /* placeholders, disabled, timestamps */
+  --text-brand:     #092d50;   /* links, prices, active states — brand navy */
+  --text-brand-mid: #0d3b66;   /* hover states, slightly lighter navy */
 
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);

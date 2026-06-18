@@ -39,7 +39,7 @@ export default function LoginPage() {
   return (
     <div className="flex flex-1 items-center justify-center bg-[#EEF2F6] px-4 py-6 lg:px-8 lg:py-12">
       <div
-        className="flex w-full max-w-[1400px] min-h-[82vh] overflow-hidden rounded-[2rem] shadow-2xl border border-white/60 bg-white"
+        className="flex w-full max-w-[1400px] min-h-[78vh] overflow-hidden rounded-[2rem] shadow-2xl border border-white/60 bg-white"
         style={{ boxShadow: "0 20px 50px -12px rgba(15,23,42,0.12)" }}
       >
         {/* ── LEFT PANEL ── */}
@@ -64,7 +64,7 @@ export default function LoginPage() {
             {/* Top: Headline & Subtitle */}
             <div className="space-y-6 mt-16">
               <div className="space-y-3">
-                <h1 className="text-4xl font-extrabold leading-tight tracking-tight">
+                <h1 className="text-display font-extrabold leading-tight ">
                   Nepal&apos;s #1 <br />
                   Auto Parts Marketplace
                 </h1>
@@ -94,7 +94,7 @@ export default function LoginPage() {
 
         {/* ── RIGHT PANEL ── */}
         <div className="flex w-full lg:w-1/2 flex-col bg-white px-10 xl:px-10 pt-12 pb-12 relative">
-          
+
           {/* Back button at the top right */}
           <div className="absolute top-6 right-10 z-20">
             <Link
@@ -107,13 +107,13 @@ export default function LoginPage() {
           </div>
 
           {/* Top content wrapper to match Left Panel layout */}
-          <div className="space-y-6 mt-16">
+          <div className="space-y-6 mt-10">
             {/* Heading aligned with Left Panel's heading */}
             <div className="space-y-3">
-              <h2 className="text-4xl font-extrabold leading-tight tracking-tight text-slate-900">
+              <h2 className="text-h1 font-extrabold  text-text-default">
                 Welcome back!
               </h2>
-              <p className="text-slate-500 text-sm max-w-md leading-relaxed">
+              <p className="text-text-body text-sm max-w-md leading-relaxed">
                 Sign in to continue to your account
               </p>
             </div>
@@ -124,14 +124,14 @@ export default function LoginPage() {
             {/* Divider */}
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-slate-100" />
-              <span className="text-[10px] font-bold text-slate-400 tracking-wider">OR</span>
+              <span className="text-[10px] font-bold text-text-subtle tracking-wider">OR</span>
               <div className="h-px flex-1 bg-slate-100" />
             </div>
 
             {/* Google Button */}
             <button
               type="button"
-              className="w-full flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
+              className="w-full flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-text-body hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
             >
               <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -143,7 +143,7 @@ export default function LoginPage() {
             </button>
 
             {/* Register Link */}
-            <p className="text-center text-sm text-slate-500">
+            <p className="text-center text-sm text-text-body">
               Don&apos;t have an account?{" "}
               <Link href="/register" className="font-bold text-primary hover:text-primary/80 transition-colors">
                 Create an account

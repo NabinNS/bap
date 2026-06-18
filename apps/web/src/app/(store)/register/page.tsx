@@ -13,7 +13,7 @@ export default function RegisterPage() {
   return (
     <div className="flex flex-1 items-center justify-center bg-[#EEF2F6] px-4 py-6 lg:px-8 lg:py-12">
       <div
-        className="flex w-full max-w-[1400px] min-h-[82vh] overflow-hidden rounded-[2rem] shadow-2xl border border-white/60 bg-white"
+        className="flex w-full max-w-[1400px] min-h-[78vh] overflow-hidden rounded-[2rem] shadow-2xl border border-white/60 bg-white"
         style={{ boxShadow: "0 20px 50px -12px rgba(15,23,42,0.12)" }}
       >
         {/* ── LEFT PANEL ── */}
@@ -33,9 +33,9 @@ export default function RegisterPage() {
           />
 
           <div className="relative z-10 flex flex-col justify-between h-full p-12 text-white">
-            <div className="space-y-6 mt-10">
+            <div className="space-y-6 mt-6">
               <div className="space-y-3">
-                <h1 className="text-4xl font-extrabold leading-tight tracking-tight">
+                <h1 className="text-display font-extrabold  ">
                   Join Nepal&apos;s #1 <br />
                   Auto Parts Marketplace
                 </h1>
@@ -104,25 +104,25 @@ export default function RegisterPage() {
             </Link>
           </div>
 
-          <div className="space-y-3 mt-10">
-            <h2 className="text-4xl font-extrabold leading-tight tracking-tight text-slate-900">
+          <div className="space-y-3 mt-6">
+            <h2 className="text-h1 font-extrabold   text-text-default">
               Create account
             </h2>
-            <p className="text-slate-500 text-sm leading-relaxed">
+            <p className="text-text-body text-sm leading-relaxed">
               Fill in your details to get started
             </p>
           </div>
 
-          <form className="flex flex-col mt-8 space-y-4 flex-1" noValidate>
+          <form className="flex flex-col mt-6 space-y-4 flex-1" noValidate>
 
             {/* First name + Last name */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="first-name" className="block text-xs font-bold text-slate-700 tracking-wide">
+                <label htmlFor="first-name" className="block text-xs font-bold text-text-body tracking-wide">
                   First name
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" strokeWidth={1.8} />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-subtle" strokeWidth={1.8} />
                   <input
                     id="first-name"
                     name="first_name"
@@ -130,16 +130,16 @@ export default function RegisterPage() {
                     autoComplete="given-name"
                     required
                     placeholder="John"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-100 pl-10 pr-4 py-3 text-sm text-text-default placeholder:text-text-subtle focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
                   />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="last-name" className="block text-xs font-bold text-slate-700 tracking-wide">
+                <label htmlFor="last-name" className="block text-xs font-bold text-text-body tracking-wide">
                   Last name
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" strokeWidth={1.8} />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-subtle" strokeWidth={1.8} />
                   <input
                     id="last-name"
                     name="last_name"
@@ -147,7 +147,7 @@ export default function RegisterPage() {
                     autoComplete="family-name"
                     required
                     placeholder="Doe"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-100 pl-10 pr-4 py-3 text-sm text-text-default placeholder:text-text-subtle focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
                   />
                 </div>
               </div>
@@ -155,11 +155,11 @@ export default function RegisterPage() {
 
             {/* Email */}
             <div className="space-y-1.5">
-              <label htmlFor="email" className="block text-xs font-bold text-slate-700 tracking-wide">
+              <label htmlFor="email" className="block text-xs font-bold text-text-body tracking-wide">
                 Email address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" strokeWidth={1.8} />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-subtle" strokeWidth={1.8} />
                 <input
                   id="email"
                   name="email"
@@ -167,32 +167,32 @@ export default function RegisterPage() {
                   autoComplete="email"
                   required
                   placeholder="you@example.com"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-100 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-100 pl-10 pr-4 py-3 text-sm text-text-default placeholder:text-text-subtle focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
                 />
               </div>
             </div>
 
             {/* Phone */}
             <div className="space-y-1.5">
-              <label htmlFor="phone" className="block text-xs font-bold text-slate-700 tracking-wide">
+              <label htmlFor="phone" className="block text-xs font-bold text-text-body tracking-wide">
                 Phone number
               </label>
               <div className="relative">
-                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" strokeWidth={1.8} />
+                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-subtle" strokeWidth={1.8} />
                 <input
                   id="phone"
                   name="phone"
                   type="tel"
                   autoComplete="tel"
                   placeholder="+977 98XXXXXXXX"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-100 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-100 pl-10 pr-4 py-3 text-sm text-text-default placeholder:text-text-subtle focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label htmlFor="password" className="block text-xs font-bold text-slate-700 tracking-wide">
+              <label htmlFor="password" className="block text-xs font-bold text-text-body tracking-wide">
                 Password
               </label>
               <PasswordInput />
@@ -202,7 +202,7 @@ export default function RegisterPage() {
             <div className="pt-1">
               <label className="flex items-start gap-2.5 cursor-pointer">
                 <input type="checkbox" required className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-primary cursor-pointer shrink-0" />
-                <span className="text-xs text-slate-500 leading-relaxed">
+                <span className="text-xs text-text-body leading-relaxed">
                   I agree to the{" "}
                   <Link href="/terms" className="font-semibold text-primary hover:underline">Terms of Service</Link>
                   {" "}and{" "}
@@ -222,14 +222,14 @@ export default function RegisterPage() {
             {/* Divider */}
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-slate-100" />
-              <span className="text-[10px] font-bold text-slate-400 tracking-wider">OR</span>
+              <span className="text-[10px] font-bold text-text-subtle tracking-wider">OR</span>
               <div className="h-px flex-1 bg-slate-100" />
             </div>
 
             {/* Google */}
             <button
               type="button"
-              className="w-full flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
+              className="w-full flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-text-body hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
             >
               <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -240,7 +240,7 @@ export default function RegisterPage() {
               Continue with Google
             </button>
 
-            <p className="text-center text-sm text-slate-500 pb-2">
+            <p className="text-center text-sm text-text-body pb-2">
               Already have an account?{" "}
               <Link href="/login" className="font-bold text-primary hover:text-primary/80 transition-colors">
                 Sign in

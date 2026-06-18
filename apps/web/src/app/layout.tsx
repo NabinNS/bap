@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Noto_Sans_Devanagari } from "next/font/google";
 import { AuthProvider } from "@/features/auth/AuthProvider";
-import "./globals.css";
+import "@/styles/globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
