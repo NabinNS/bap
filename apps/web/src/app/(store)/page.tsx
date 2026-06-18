@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import HeroSlider from "../../components/hero/HeroSlider";
-import PromoCards from "@/components/hero/PromoCards";
-import ProductSlider from "@/components/products/ProductSlider";
-import CategorySlider from "@/components/categories/CategorySlider";
-import BrandsShowcase from "@/components/brands/BrandsShowcase";
+import HeroSlider from "@/features/home/components/HeroSlider";
+import PromoCards from "@/features/home/components/PromoCards";
+import ProductSlider from "@/features/products/components/ProductSlider";
+import CategorySlider from "@/features/categories/components/CategorySlider";
+import BrandsShowcase from "@/features/brands/components/BrandsShowcase";
 import { featuredProducts, categories, brands } from "@/data/storeHome";
 
 export default function StoreHomePage() {

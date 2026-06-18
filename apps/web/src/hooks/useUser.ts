@@ -1,3 +1,3 @@
 "use client";
 
-export { useAuth as useUser } from "@/lib/auth";
+export { useAuth as useUser } from "@/features/auth/AuthProvider";

@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Mail } from "lucide-react";
-import { useAuth } from "@/lib/auth";
-import PasswordInput from "./PasswordInput";
+import { useAuth } from "@/features/auth/AuthProvider";
+import PasswordInput from "./LoginPasswordInput";
 
 export default function LoginForm() {
   const { login } = useAuth();

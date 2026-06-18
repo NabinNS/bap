@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Star, ShoppingCart } from "lucide-react";
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 interface ProductCardProps {

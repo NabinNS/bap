@@ -8,7 +8,7 @@ import {
   Shield,
   ArrowLeft
 } from "lucide-react";
-import LoginForm from "./LoginForm";
+import LoginForm from "@/features/auth/components/LoginForm";
 
 const stats = [
   { icon: Package, count: "50,000+", label: "Products" },

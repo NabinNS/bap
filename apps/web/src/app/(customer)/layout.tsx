@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { LayoutDashboard, ShoppingBag, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/features/auth/AuthProvider";
 
 const navItems = [
   { label: "Dashboard", href: "/customer/dashboard", icon: LayoutDashboard },

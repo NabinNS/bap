@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import ProductCard from "@/components/products/ProductCard";
-import ProductFilters from "@/components/products/ProductFilters";
+import ProductCard from "@/features/products/components/ProductCard";
+import ProductFilters from "@/features/products/components/ProductFilters";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { allProducts as centralizedProducts } from "@/data/products";
 

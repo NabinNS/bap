@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Mail, Phone, User, ShieldCheck, Truck, Headset, Package, Users, Shield, ArrowLeft } from "lucide-react";
-import PasswordInput from "./PasswordInput";
+import PasswordInput from "@/features/auth/components/RegisterPasswordInput";
 
 const stats = [
   { icon: Package, count: "50,000+", label: "Products" },

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Star, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import SimilarProducts from "@/components/products/SimilarProducts";
+import SimilarProducts from "@/features/products/components/SimilarProducts";
 import { productCatalog, reviewsByProductId, questionsByProductId } from "@/data/productDetails";
 
 export default function ProductDetailPage() {
