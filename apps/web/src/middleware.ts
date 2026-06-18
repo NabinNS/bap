@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Middleware can't inspect the in-memory access token or the httpOnly refresh
-// cookie — route protection is handled client-side by the AuthProvider.
-// This file is kept as a placeholder for future edge-level auth (e.g. JWT verification).
+const AUTH_ROUTES = ["/login", "/register"];
 
-export function middleware(_request: NextRequest) {
+export function middleware(request: NextRequest) {
+  const hasSession = !!request.cookies.get("refresh_token")?.value;
+  const { pathname } = request.nextUrl;
+
+  // Logged-in users should not see login/register — send them to dashboard
+  if (hasSession && AUTH_ROUTES.some((r) => pathname.startsWith(r))) {
+    return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+  }
+
   return NextResponse.next();
 }
 
