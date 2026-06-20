@@ -13,6 +13,8 @@ Thumbs.db
 # Next.js (apps/web)
 apps/web/.next/
 apps/web/node_modules/
+apps/web/.pnpm-store/
+apps/web/pnpm-lock.yaml
 apps/web/.env.local
 
 # Laravel (apps/api) — detailed rules live in apps/api/.gitignore

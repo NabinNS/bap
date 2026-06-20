@@ -24,4 +24,4 @@ COPY . .
 
 EXPOSE 3000
 
-CMD ["pnpm", "run", "dev"]
+CMD ["sh", "-c", "pnpm install && pnpm run dev"]

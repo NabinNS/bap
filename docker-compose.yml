@@ -45,12 +45,12 @@ services:
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
+      CI: "true"
     ports:
       - "3001:3000"
     volumes:
       - ./apps/web:/var/www/web
       - /var/www/web/node_modules
-      - /var/www/web/.next
     depends_on:
       - api
     networks:
