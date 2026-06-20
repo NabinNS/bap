@@ -124,7 +124,7 @@ export function DataTable<TData>({
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="border-b border-slate-200 hover:bg-slate-100 cursor-pointer transition-colors">
+                <TableRow key={row.id} className="border-b border-slate-300 hover:bg-slate-100 cursor-pointer transition-colors">
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} style={{ width: cell.column.columnDef.size ? `${cell.column.columnDef.size}px` : undefined }} className="text-table-data py-3">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
