@@ -16,8 +16,13 @@ log "Database is reachable."
 log "Running migrations (php artisan migrate --force)..."
 php artisan migrate --force
 
-log "Seeding database (php artisan db:seed --force)..."
-php artisan db:seed --force
+USER_COUNT=$(php artisan tinker --execute="echo \App\Models\User::count();" 2>/dev/null | tail -1)
+if [ "${USER_COUNT}" = "0" ]; then
+    log "No users found — seeding database..."
+    php artisan db:seed --force
+else
+    log "Database already has data — skipping seed."
+fi
 
 log "Caching config, routes, and views..."
 php artisan config:cache  >/dev/null
