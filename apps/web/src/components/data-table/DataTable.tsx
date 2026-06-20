@@ -13,7 +13,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useState } from "react";
-import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -62,7 +62,8 @@ export function DataTable<TData>({
   return (
     <div className="space-y-4">
       {/* Search */}
-      <div className="flex items-center gap-3">
+      <div className="relative w-full">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
         <Input
           placeholder={searchPlaceholder}
           value={
@@ -75,19 +76,16 @@ export function DataTable<TData>({
               ? table.getColumn(searchColumn)?.setFilterValue(e.target.value)
               : setGlobalFilter(e.target.value)
           }
-          className="max-w-sm h-9 text-sm border-slate-200 focus-visible:ring-primary/20"
+          className="w-full h-10 pl-9 text-sm border border-slate-300 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-slate-500"
         />
-        <span className="ml-auto text-sm text-text-subtle">
-          {table.getFilteredRowModel().rows.length} result{table.getFilteredRowModel().rows.length !== 1 ? "s" : ""}
-        </span>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="border border-slate-300 bg-slate-50 overflow-hidden">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="bg-slate-50 hover:bg-slate-50 border-slate-200">
+              <TableRow key={headerGroup.id} className="bg-black hover:bg-black border-black">
                 {headerGroup.headers.map((header) => {
                   const sorted = header.column.getIsSorted();
                   const canSort = header.column.getCanSort();
@@ -95,16 +93,17 @@ export function DataTable<TData>({
                     <TableHead
                       key={header.id}
                       onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                      style={{ width: header.column.columnDef.size ? `${header.column.columnDef.size}px` : undefined }}
                       className={cn(
-                        "text-xs font-bold text-text-muted uppercase tracking-wide select-none",
-                        canSort && "cursor-pointer hover:text-text-default"
+                        "text-table-h1 font-bold text-white uppercase tracking-wide select-none",
+                        canSort && "cursor-pointer hover:text-white/80"
                       )}
                     >
                       {header.isPlaceholder ? null : (
                         <span className="flex items-center gap-1">
                           {flexRender(header.column.columnDef.header, header.getContext())}
                           {canSort && (
-                            <span className="text-slate-400">
+                            <span className="text-white/50">
                               {sorted === "asc" ? (
                                 <ChevronUp className="h-3.5 w-3.5" />
                               ) : sorted === "desc" ? (
@@ -125,9 +124,9 @@ export function DataTable<TData>({
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="border-slate-100 hover:bg-slate-50 transition-colors">
+                <TableRow key={row.id} className="border-b border-slate-200 hover:bg-slate-100 cursor-pointer transition-colors">
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="text-sm text-text-body py-3">
+                    <TableCell key={cell.id} style={{ width: cell.column.columnDef.size ? `${cell.column.columnDef.size}px` : undefined }} className="text-table-data py-3">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -135,49 +134,54 @@ export function DataTable<TData>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center text-text-subtle text-sm">
+                <TableCell colSpan={columns.length} className="h-32 text-center text-slate-700 text-sm">
                   No results found.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-text-subtle">
-          Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-        </p>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-text-muted hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          {Array.from({ length: table.getPageCount() }, (_, i) => i).map((pageIndex) => (
+        {/* Pagination */}
+        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-100">
+          <p className="text-sm text-slate-700">
+            {(() => {
+              const { pageIndex, pageSize } = table.getState().pagination;
+              const total = table.getFilteredRowModel().rows.length;
+              const from = total === 0 ? 0 : pageIndex * pageSize + 1;
+              const to = Math.min((pageIndex + 1) * pageSize, total);
+              return `Showing ${from} to ${to} results out of ${total}`;
+            })()}
+          </p>
+          <div className="flex items-center gap-1">
             <button
-              key={pageIndex}
-              onClick={() => table.setPageIndex(pageIndex)}
-              className={cn(
-                "h-8 w-8 rounded-lg text-sm font-semibold transition-colors",
-                table.getState().pagination.pageIndex === pageIndex
-                  ? "bg-black text-white"
-                  : "border border-slate-200 text-text-muted hover:bg-slate-50"
-              )}
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+              className="flex h-8 w-8 items-center justify-center border border-slate-200 text-text-muted hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
-              {pageIndex + 1}
+              <ChevronLeft className="h-4 w-4 text-text-muted" />
             </button>
-          ))}
-          <button
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-text-muted hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+            {Array.from({ length: table.getPageCount() }, (_, i) => i).map((pageIndex) => (
+              <button
+                key={pageIndex}
+                onClick={() => table.setPageIndex(pageIndex)}
+                className={cn(
+                  "h-8 w-8 text-sm font-semibold cursor-pointer transition-colors",
+                  table.getState().pagination.pageIndex === pageIndex
+                    ? "bg-black text-white"
+                    : "border border-slate-200 text-text-muted hover:bg-slate-100"
+                )}
+              >
+                {pageIndex + 1}
+              </button>
+            ))}
+            <button
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+              className="flex h-8 w-8 items-center justify-center border border-slate-200 text-text-muted hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            >
+              <ChevronRight className="h-4 w-4 text-text-muted" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

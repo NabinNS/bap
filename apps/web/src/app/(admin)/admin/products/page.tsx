@@ -2,6 +2,14 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
+import { Plus, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
+import Link from "next/link";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type Product = {
   id: number;
@@ -17,11 +25,12 @@ const columns: ColumnDef<Product, unknown>[] = [
     accessorKey: "image",
     header: "Photo",
     enableSorting: false,
+    size: 60,
     cell: ({ row }) => (
       <img
         src={row.original.image}
         alt={row.original.name}
-        className="h-10 w-10 rounded-lg object-cover border border-slate-200"
+        className="h-14 w-14 rounded-lg object-cover border border-slate-200"
       />
     ),
   },
@@ -47,6 +56,32 @@ const columns: ColumnDef<Product, unknown>[] = [
       </span>
     ),
   },
+  {
+    id: "actions",
+    header: "Actions",
+    enableSorting: false,
+    size: 10,
+    cell: ({ row }) => (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex h-7 w-7 items-center justify-center hover:bg-slate-200 cursor-pointer transition-colors">
+            <MoreVertical className="h-4 w-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-30 rounded-none p-0">
+          <DropdownMenuItem className="gap-3 cursor-pointer text-sm py-2 px-3 rounded-none focus:rounded-none">
+            <Eye className="h-4 w-4" /> View
+          </DropdownMenuItem>
+          <DropdownMenuItem className="gap-3 cursor-pointer text-sm py-2 px-3 rounded-none focus:rounded-none">
+            <Pencil className="h-4 w-4" /> Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem className="gap-3 cursor-pointer text-sm py-2 px-3 rounded-none focus:rounded-none text-red-500 focus:text-red-500">
+            <Trash2 className="h-4 w-4" /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ),
+  },
 ];
 
 const mockProducts: Product[] = [
@@ -61,10 +96,21 @@ const mockProducts: Product[] = [
 export default function AdminProducts() {
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-1.5 text-sm text-text-muted">
+        <Link href="/admin" className="hover:text-text-default transition-colors">Dashboard</Link>
+        <span>/</span>
+        <span className="text-text-default font-medium">Products</span>
+      </nav>
+
       <div className="flex items-center justify-between">
-        <h2 className="text-h3 font-bold text-text-default">Products</h2>
-        <button className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/80 transition-colors">
-          + Add Product
+        <div>
+          <h2 className="text-h3 font-bold text-text-default">Products</h2>
+          <p className="text-sm text-text-muted mt-0.5">Manage your product catalogue, pricing and stock levels.</p>
+        </div>
+        <button className="flex items-center gap-2 bg-black px-4 py-2 text-h4 font-semibold text-white hover:bg-black/80 cursor-pointer transition-colors">
+          <Plus className="h-4 w-4" />
+          Add Product
         </button>
       </div>
       <DataTable
