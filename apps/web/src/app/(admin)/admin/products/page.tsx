@@ -95,7 +95,7 @@ const mockProducts: Product[] = [
 
 export default function AdminProducts() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-sm text-text-muted">
         <Link href="/admin" className="hover:text-text-default transition-colors">Dashboard</Link>

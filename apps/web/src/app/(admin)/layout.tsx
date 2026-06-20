@@ -13,6 +13,7 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/AuthProvider";
@@ -20,6 +21,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 const navItems = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Products", href: "/admin/products", icon: Package },
+  { label: "Categories", href: "/admin/categories", icon: Tag },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag },
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart2 },
@@ -114,7 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             A
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto h-full">{children}</main>
       </div>
     </div>
   );
