@@ -29,18 +29,18 @@ export function SlidePanel({
     >
       <div className="w-[400px] bg-white border-l border-slate-300 flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <div className="flex items-center justify-between px-6 py-4 bg-black">
           <div>
-            <h3 className="text-h4 font-bold text-text-default">{title}</h3>
+            <h3 className="text-h4 font-bold text-white">{title}</h3>
             {description && (
-              <p className="text-sm text-text-muted mt-0.5">{description}</p>
+              <p className="text-sm text-white mt-0.5">{description}</p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center hover:bg-slate-100 cursor-pointer transition-colors"
+            className="flex h-8 w-8 items-center justify-center hover:bg-white/10 cursor-pointer transition-colors"
           >
-            <X className="h-4 w-4 text-text-muted" />
+            <X className="h-4 w-4 text-white" />
           </button>
         </div>
 
