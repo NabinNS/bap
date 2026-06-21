@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { Plus, MoreVertical, Pencil, Eye, Trash2, X } from "lucide-react";
+import { Plus, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
+import { InputField, TextAreaField, SelectField, FileUploadField } from "@/components/ui/form/FormField";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -135,87 +137,25 @@ export default function AdminCategories() {
         />
       </div>
 
-      {/* Form Panel */}
-      <div
-        className={`shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${
-          drawerOpen ? "w-[400px]" : "w-0"
-        }`}
+      <SlidePanel
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title="Add Category"
+        description="Fill in the details to create a new category."
+        submitLabel="Save Category"
       >
-      <div className="w-[400px] bg-white border-l border-slate-300 flex flex-col h-full">
-        {/* Drawer Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <div>
-            <h3 className="text-h4 font-bold text-text-default">Add Category</h3>
-            <p className="text-sm text-text-muted mt-0.5">Fill in the details to create a new category.</p>
-          </div>
-          <button
-            onClick={() => setDrawerOpen(false)}
-            className="flex h-8 w-8 items-center justify-center hover:bg-slate-100 cursor-pointer transition-colors"
-          >
-            <X className="h-4 w-4 text-text-muted" />
-          </button>
-        </div>
-
-        {/* Drawer Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-text-default">Name <span className="text-red-500">*</span></label>
-            <input
-              type="text"
-              placeholder="e.g. Brake Parts"
-              className="w-full h-10 px-3 text-sm border border-slate-300 focus:border-slate-500 focus:outline-none"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-text-default">Slug <span className="text-red-500">*</span></label>
-            <input
-              type="text"
-              placeholder="e.g. brake-parts"
-              className="w-full h-10 px-3 text-sm border border-slate-300 focus:border-slate-500 focus:outline-none font-mono"
-            />
-            <p className="text-xs text-text-muted">Used in URLs. Auto-generated from name.</p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-text-default">Description</label>
-            <textarea
-              rows={3}
-              placeholder="Short description of this category..."
-              className="w-full px-3 py-2 text-sm border border-slate-300 focus:border-slate-500 focus:outline-none resize-none"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-text-default">Status</label>
-            <select className="w-full h-10 px-3 text-sm border border-slate-300 focus:border-slate-500 focus:outline-none bg-white">
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-text-default">Image</label>
-            <div className="flex items-center justify-center h-28 border-2 border-dashed border-slate-300 cursor-pointer hover:border-slate-400 transition-colors">
-              <p className="text-sm text-text-muted">Click to upload image</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Drawer Footer */}
-        <div className="flex items-center gap-3 px-6 py-4 border-t border-slate-200">
-          <button
-            onClick={() => setDrawerOpen(false)}
-            className="flex-1 h-10 border border-slate-300 text-sm font-semibold text-text-default hover:bg-slate-50 cursor-pointer transition-colors"
-          >
-            Cancel
-          </button>
-          <button className="flex-1 h-10 bg-black text-white text-sm font-semibold hover:bg-black/80 cursor-pointer transition-colors">
-            Save Category
-          </button>
-        </div>
-      </div>
-      </div>
+        <InputField label="Name" required placeholder="e.g. Brake Parts" />
+        <InputField label="Slug" required placeholder="e.g. brake-parts" mono hint="Used in URLs. Auto-generated from name." />
+        <TextAreaField label="Description" placeholder="Short description of this category..." />
+        <SelectField
+          label="Status"
+          options={[
+            { label: "Active", value: "active" },
+            { label: "Inactive", value: "inactive" },
+          ]}
+        />
+        <FileUploadField label="Image" />
+      </SlidePanel>
     </div>
   );
 }
