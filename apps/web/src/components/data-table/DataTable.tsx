@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Meta = {
   total: number;
@@ -145,11 +146,35 @@ export function DataTable<TData>({
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center text-slate-500 text-sm">
-                  Loading...
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={i} className="border-b border-slate-300 bg-white/40 dark:bg-slate-900/40">
+                  {columns.map((col, j) => {
+                    const size = col.size;
+                    const isSmall = size && size <= 60;
+
+                    // Vary the width class dynamically to look like organic text data
+                    let widthClass = "w-full";
+                    if (!isSmall) {
+                      const pattern = (i * 3 + j * 7) % 4;
+                      if (pattern === 0) widthClass = "w-3/4";
+                      else if (pattern === 1) widthClass = "w-5/6";
+                      else if (pattern === 2) widthClass = "w-2/3";
+                      else widthClass = "w-1/2";
+                    }
+
+                    return (
+                      <TableCell key={j} className="py-3.5">
+                        <Skeleton
+                          className={cn(
+                            "h-4 rounded-sm",
+                            isSmall ? "h-5 w-5 mx-auto rounded" : widthClass
+                          )}
+                        />
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))
             ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} className="border-b border-slate-300 hover:bg-slate-100 cursor-pointer transition-colors">
