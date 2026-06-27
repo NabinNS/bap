@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('images', function (Blueprint $table) {
             $table->id();
+            $table->ulid('ulid')->unique();
             $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
             $table->morphs('imageable');
             $table->string('path');

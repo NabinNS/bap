@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('tenants', function (Blueprint $table) {
             $table->id();
+            $table->ulid('ulid')->unique();
             $table->string('name');
             $table->string('slug')->unique();
             $table->string('email')->nullable();
