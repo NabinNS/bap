@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ApiResponse;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -14,9 +15,9 @@ class CategoryController extends Controller
         $categories = Category::where('tenant_id', $request->user()->currentTenantId())
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get();
+            ->paginate($request->integer('per_page', 15));
 
-        return response()->json($categories);
+        return ApiResponse::paginated($categories, 'Categories retrieved successfully');
     }
 
     public function store(Request $request)
@@ -35,14 +36,14 @@ class CategoryController extends Controller
 
         $category = Category::create($data);
 
-        return response()->json($category, 201);
+        return ApiResponse::created($category, 'Category created successfully');
     }
 
     public function show(Request $request, Category $category)
     {
         abort_if($category->tenant_id !== $request->user()->currentTenantId(), 403);
 
-        return response()->json($category);
+        return ApiResponse::success($category, 'Category retrieved successfully');
     }
 
     public function update(Request $request, Category $category)
@@ -64,7 +65,7 @@ class CategoryController extends Controller
 
         $category->update($data);
 
-        return response()->json($category);
+        return ApiResponse::success($category, 'Category updated successfully');
     }
 
     public function destroy(Request $request, Category $category)
@@ -73,6 +74,6 @@ class CategoryController extends Controller
 
         $category->delete();
 
-        return response()->json(null, 204);
+        return ApiResponse::noContent('Category deleted successfully');
     }
 }

@@ -54,7 +54,7 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
 export interface AuthResponse {
   access_token: string;
   expires_in: number;
-  user: { id: number; name: string; email: string };
+  user: { ulid: string; name: string; email: string };
 }
 
 async function tryRefresh(): Promise<boolean> {

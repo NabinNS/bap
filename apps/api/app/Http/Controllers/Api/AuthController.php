@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ApiResponse;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -40,10 +40,9 @@ class AuthController extends Controller
         $rawRefreshToken = $request->cookie(self::REFRESH_COOKIE);
 
         if (! $rawRefreshToken) {
-            return response()->json(['message' => 'Refresh token missing.'], 401);
+            return ApiResponse::unauthorized('Refresh token missing.');
         }
 
-        // Sanctum stores tokens as "id|plaintext" — hash the plaintext part to look it up
         [$id, $plain] = explode('|', $rawRefreshToken, 2) + [null, null];
 
         $tokenRecord = PersonalAccessToken::find($id);
@@ -54,12 +53,11 @@ class AuthController extends Controller
             || ! hash_equals($tokenRecord->token, hash('sha256', $plain))
             || ($tokenRecord->expires_at && $tokenRecord->expires_at->isPast())
         ) {
-            return response()->json(['message' => 'Invalid or expired refresh token.'], 401);
+            return ApiResponse::unauthorized('Invalid or expired refresh token.');
         }
 
         $user = $tokenRecord->tokenable;
 
-        // Rotate: delete old refresh token, issue new pair
         $tokenRecord->delete();
 
         return $this->issueTokens($user);
@@ -70,7 +68,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         return response()->json([
-            'id'    => $user->id,
+            'ulid'  => $user->ulid,
             'name'  => $user->name,
             'email' => $user->email,
         ]);
@@ -78,10 +76,8 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        // Revoke current access token
         $request->user()->currentAccessToken()->delete();
 
-        // Also revoke the refresh token if present
         $rawRefreshToken = $request->cookie(self::REFRESH_COOKIE);
         if ($rawRefreshToken) {
             [$id] = explode('|', $rawRefreshToken, 2) + [null, null];
@@ -111,20 +107,20 @@ class AuthController extends Controller
         $refreshCookie = cookie(
             self::REFRESH_COOKIE,
             $refreshToken,
-            self::REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60, // minutes
+            self::REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60,
             '/',
             null,
-            true,  // secure (HTTPS only)
-            true,  // httpOnly (JS cannot read it)
+            true,
+            true,
             false,
             'Lax'
         );
 
         return response()->json([
             'access_token' => $accessToken,
-            'expires_in'   => self::ACCESS_TOKEN_EXPIRY_MINUTES * 60, // seconds
+            'expires_in'   => self::ACCESS_TOKEN_EXPIRY_MINUTES * 60,
             'user'         => [
-                'id'    => $user->id,
+                'ulid'  => $user->ulid,
                 'name'  => $user->name,
                 'email' => $user->email,
             ],

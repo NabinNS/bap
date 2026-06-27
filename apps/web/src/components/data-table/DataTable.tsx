@@ -8,7 +8,6 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
@@ -25,11 +24,24 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
+type Meta = {
+  total: number;
+  per_page: number;
+  current_page: number;
+  last_page: number;
+  from: number;
+  to: number;
+};
+
 interface DataTableProps<TData> {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
   searchColumn?: string;
   searchPlaceholder?: string;
+  loading?: boolean;
+  // server-side pagination
+  meta?: Meta | null;
+  onPageChange?: (page: number) => void;
 }
 
 export function DataTable<TData>({
@@ -37,17 +49,21 @@ export function DataTable<TData>({
   data,
   searchColumn,
   searchPlaceholder = "Search...",
+  loading = false,
+  meta,
+  onPageChange,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [globalFilter, setGlobalFilter] = useState("");
 
+  const isServerPaginated = !!meta && !!onPageChange;
+
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
@@ -56,8 +72,14 @@ export function DataTable<TData>({
     onGlobalFilterChange: setGlobalFilter,
     globalFilterFn: "includesString",
     state: { sorting, columnFilters, columnVisibility, globalFilter },
-    initialState: { pagination: { pageSize: 10 } },
+    // only use client-side pagination when not server paginated
+    ...(isServerPaginated
+      ? { manualPagination: true, pageCount: meta.last_page }
+      : {}),
   });
+
+  const currentPage = meta?.current_page ?? 1;
+  const lastPage = meta?.last_page ?? 1;
 
   return (
     <div className="space-y-4">
@@ -122,7 +144,13 @@ export function DataTable<TData>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-32 text-center text-slate-500 text-sm">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} className="border-b border-slate-300 hover:bg-slate-100 cursor-pointer transition-colors">
                   {row.getVisibleCells().map((cell) => (
@@ -141,42 +169,62 @@ export function DataTable<TData>({
             )}
           </TableBody>
         </Table>
+
         {/* Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-100">
           <p className="text-sm text-slate-700">
-            {(() => {
-              const { pageIndex, pageSize } = table.getState().pagination;
-              const total = table.getFilteredRowModel().rows.length;
-              const from = total === 0 ? 0 : pageIndex * pageSize + 1;
-              const to = Math.min((pageIndex + 1) * pageSize, total);
-              return `Showing ${from} to ${to} results out of ${total}`;
-            })()}
+            {isServerPaginated
+              ? `Showing ${meta.from ?? 0} to ${meta.to ?? 0} of ${meta.total} results`
+              : (() => {
+                  const { pageIndex, pageSize } = table.getState().pagination;
+                  const total = table.getFilteredRowModel().rows.length;
+                  const from = total === 0 ? 0 : pageIndex * pageSize + 1;
+                  const to = Math.min((pageIndex + 1) * pageSize, total);
+                  return `Showing ${from} to ${to} of ${total} results`;
+                })()}
           </p>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
+              onClick={() => isServerPaginated ? onPageChange(currentPage - 1) : table.previousPage()}
+              disabled={isServerPaginated ? currentPage <= 1 : !table.getCanPreviousPage()}
               className="flex h-8 w-8 items-center justify-center border border-slate-200 text-text-muted hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
               <ChevronLeft className="h-4 w-4 text-text-muted" />
             </button>
-            {Array.from({ length: table.getPageCount() }, (_, i) => i).map((pageIndex) => (
-              <button
-                key={pageIndex}
-                onClick={() => table.setPageIndex(pageIndex)}
-                className={cn(
-                  "h-8 w-8 text-sm font-semibold cursor-pointer transition-colors",
-                  table.getState().pagination.pageIndex === pageIndex
-                    ? "bg-black text-white"
-                    : "border border-slate-200 text-text-muted hover:bg-slate-100"
-                )}
-              >
-                {pageIndex + 1}
-              </button>
-            ))}
+
+            {isServerPaginated
+              ? Array.from({ length: lastPage }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => onPageChange(p)}
+                    className={cn(
+                      "h-8 w-8 text-sm font-semibold cursor-pointer transition-colors",
+                      currentPage === p
+                        ? "bg-black text-white"
+                        : "border border-slate-200 text-text-muted hover:bg-slate-100"
+                    )}
+                  >
+                    {p}
+                  </button>
+                ))
+              : Array.from({ length: table.getPageCount() }, (_, i) => i).map((pageIndex) => (
+                  <button
+                    key={pageIndex}
+                    onClick={() => table.setPageIndex(pageIndex)}
+                    className={cn(
+                      "h-8 w-8 text-sm font-semibold cursor-pointer transition-colors",
+                      table.getState().pagination.pageIndex === pageIndex
+                        ? "bg-black text-white"
+                        : "border border-slate-200 text-text-muted hover:bg-slate-100"
+                    )}
+                  >
+                    {pageIndex + 1}
+                  </button>
+                ))}
+
             <button
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
+              onClick={() => isServerPaginated ? onPageChange(currentPage + 1) : table.nextPage()}
+              disabled={isServerPaginated ? currentPage >= lastPage : !table.getCanNextPage()}
               className="flex h-8 w-8 items-center justify-center border border-slate-200 text-text-muted hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
               <ChevronRight className="h-4 w-4 text-text-muted" />

@@ -12,7 +12,7 @@ import {
 } from "@/lib/api";
 
 interface User {
-  id: number;
+  ulid: string;
   name: string;
   email: string;
 }
