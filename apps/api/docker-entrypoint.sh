@@ -24,10 +24,10 @@ else
     log "Database already has data — skipping seed."
 fi
 
-log "Caching config, routes, and views..."
-php artisan config:cache  >/dev/null
-php artisan route:cache   >/dev/null
-php artisan view:cache    >/dev/null
+log "Clearing any stale caches..."
+php artisan config:clear  >/dev/null
+php artisan route:clear   >/dev/null
+php artisan view:clear    >/dev/null
 
 log "Starting HTTP server on 0.0.0.0:8000"
 exec php artisan serve --host=0.0.0.0 --port=8000

@@ -18,16 +18,21 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, HasApiTokens;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function tenants()
+    {
+        return $this->belongsToMany(Tenant::class, 'tenant_users');
+    }
+
+    public function currentTenantId(): int
+    {
+        return $this->tenants()->value('tenant_id');
     }
 }

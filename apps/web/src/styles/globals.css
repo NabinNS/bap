@@ -209,3 +209,118 @@
     animation-play-state: paused;
   }
 }
+/* ── Sonner Toast Customization ── */
+
+/* Base toast container */
+[data-sonner-toast] {
+  position: relative;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: 0px !important;
+  min-width: 320px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+  background: #1a1a1a !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+/* Icon box — colored square on the left */
+[data-sonner-toast] [data-icon] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 0px !important;
+  margin: 8px 0 8px 10px !important;
+}
+
+[data-sonner-toast][data-type="success"] [data-icon] { background: rgba(34,  197, 94,  0.18) !important; }
+[data-sonner-toast][data-type="error"]   [data-icon] { background: rgba(239, 68,  68,  0.18) !important; }
+[data-sonner-toast][data-type="warning"] [data-icon] { background: rgba(245, 158, 11,  0.18) !important; }
+[data-sonner-toast][data-type="info"]    [data-icon] { background: rgba(59,  130, 246, 0.18) !important; }
+[data-sonner-toast][data-type="loading"] [data-icon] { background: rgba(107, 114, 128, 0.18) !important; }
+
+/* Icon SVG size & colors */
+[data-sonner-toast][data-type="success"] [data-icon] svg { color: #22c55e !important; width: 22px !important; height: 22px !important; }
+[data-sonner-toast][data-type="error"]   [data-icon] svg { color: #ef4444 !important; width: 22px !important; height: 22px !important; }
+[data-sonner-toast][data-type="warning"] [data-icon] svg { color: #f59e0b !important; width: 22px !important; height: 22px !important; }
+[data-sonner-toast][data-type="info"]    [data-icon] svg { color: #3b82f6 !important; width: 22px !important; height: 22px !important; }
+[data-sonner-toast][data-type="loading"] [data-icon] svg { color: #9ca3af !important; width: 22px !important; height: 22px !important; }
+
+/* Left accent border */
+[data-sonner-toast]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0px 0 0 0px;
+}
+[data-sonner-toast][data-type="success"]::before { background: #22c55e; }
+[data-sonner-toast][data-type="error"]::before   { background: #ef4444; }
+[data-sonner-toast][data-type="warning"]::before { background: #f59e0b; }
+[data-sonner-toast][data-type="info"]::before    { background: #3b82f6; }
+[data-sonner-toast][data-type="loading"]::before { background: #6b7280; }
+
+/* Text content area */
+[data-sonner-toast] [data-content] {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  padding: 10px 40px 10px 12px !important;
+  gap: 2px !important;
+  flex: 1 !important;
+}
+
+/* Title */
+[data-sonner-toast] [data-title] {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 0.875rem !important;
+  line-height: 1.3 !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* Description */
+[data-sonner-toast] [data-description] {
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-size: 0.78rem !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  margin-top: 1px !important;
+}
+
+/* Close button — clearly visible box */
+[data-sonner-toast] [data-close-button] {
+  position: absolute !important;
+  top: 7px !important;
+  right: 7px !important;
+  left: unset !important;
+  transform: none !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #fff !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 5px !important;
+  opacity: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background 0.15s, border-color 0.15s !important;
+}
+
+[data-sonner-toast] [data-close-button]:hover {
+  background: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+[data-sonner-toast] [data-close-button] svg {
+  width: 13px !important;
+  height: 13px !important;
+}

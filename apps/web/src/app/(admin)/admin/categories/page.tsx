@@ -5,8 +5,10 @@ import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
-import { InputField, TextAreaField, SelectField, FileUploadField } from "@/components/ui/form/FormField";
+import { InputField, TextAreaField, SelectField } from "@/components/ui/form/FormField";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,30 +26,21 @@ type Category = {
 };
 
 const columns: ColumnDef<Category, unknown>[] = [
-  {
-    accessorKey: "name",
-    header: "Name",
-  },
+  { accessorKey: "name", header: "Name" },
   {
     accessorKey: "slug",
     header: "Slug",
-    cell: ({ row }) => (
-      <span>{row.original.slug}</span>
-    ),
+    cell: ({ row }) => <span>{row.original.slug}</span>,
   },
   {
     accessorKey: "description",
     header: "Description",
-    cell: ({ row }) => (
-      <span>{row.original.description || "—"}</span>
-    ),
+    cell: ({ row }) => <span>{row.original.description || "—"}</span>,
   },
   {
     accessorKey: "products",
     header: "Products",
-    cell: ({ row }) => (
-      <span className="font-semibold">{row.original.products}</span>
-    ),
+    cell: ({ row }) => <span className="font-semibold">{row.original.products}</span>,
   },
   {
     accessorKey: "isActive",
@@ -101,14 +94,79 @@ const mockCategories: Category[] = [
   { id: 6, name: "Suspension", slug: "suspension", description: "Shocks, struts and control arms", products: 39, isActive: true },
 ];
 
+type FormState = {
+  name: string;
+  slug: string;
+  description: string;
+  status: string;
+};
+
+type FormErrors = Partial<Record<keyof FormState, string>>;
+
+const INITIAL_FORM: FormState = {
+  name: "",
+  slug: "",
+  description: "",
+  status: "active",
+};
+
+function toSlug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
 export default function AdminCategories() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const name = e.target.value;
+    setForm((f) => ({ ...f, name, slug: toSlug(name) }));
+    setErrors((e) => ({ ...e, name: undefined }));
+  }
+
+  function validate(): boolean {
+    const errs: FormErrors = {};
+    if (!form.name.trim()) errs.name = "Name is required.";
+    if (!form.slug.trim()) errs.slug = "Slug is required.";
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  async function handleSubmit() {
+    if (!validate()) return;
+    setSubmitting(true);
+
+    try {
+      await apiFetch("/categories", {
+        method: "POST",
+        body: JSON.stringify({
+          name: form.name,
+          slug: form.slug,
+          description: form.description,
+          is_active: form.status === "active",
+        }),
+      });
+
+      toast.success("Category created", `"${form.name}" has been added.`);
+      setForm(INITIAL_FORM);
+      setDrawerOpen(false);
+    } catch (err: any) {
+      if (err?.errors) {
+        setErrors(err.errors);
+        toast.warning("Please fix the errors", "Check the highlighted fields.");
+      } else {
+        toast.error("Failed to create category", err?.message ?? "Something went wrong.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="flex gap-0 transition-all duration-300 min-h-full">
-      {/* Main content */}
       <div className="flex-1 min-w-0 space-y-6 p-6">
-        {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-sm text-text-muted">
           <Link href="/admin" className="hover:text-text-default transition-colors">Dashboard</Link>
           <span>/</span>
@@ -139,22 +197,45 @@ export default function AdminCategories() {
 
       <SlidePanel
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => { setDrawerOpen(false); setForm(INITIAL_FORM); setErrors({}); }}
         title="Add Category"
         description="Fill in the details to create a new category."
-        submitLabel="Save Category"
+        submitLabel={submitting ? "Saving..." : "Save Category"}
+        onSubmit={handleSubmit}
       >
-        <InputField label="Name" required placeholder="e.g. Brake Parts" />
-        <InputField label="Slug" required placeholder="e.g. brake-parts" mono hint="Used in URLs. Auto-generated from name." />
-        <TextAreaField label="Description" placeholder="Short description of this category..." />
+        <InputField
+          label="Name"
+          required
+          placeholder="e.g. Brake Parts"
+          value={form.name}
+          onChange={handleNameChange}
+          error={errors.name}
+        />
+        <InputField
+          label="Slug"
+          required
+          placeholder="e.g. brake-parts"
+          mono
+          hint="Auto-generated from name."
+          value={form.slug}
+          onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+          error={errors.slug}
+        />
+        <TextAreaField
+          label="Description"
+          placeholder="Short description of this category..."
+          value={form.description}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+        />
         <SelectField
           label="Status"
+          value={form.status}
+          onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
           options={[
             { label: "Active", value: "active" },
             { label: "Inactive", value: "inactive" },
           ]}
         />
-        <FileUploadField label="Image" />
       </SlidePanel>
     </div>
   );
