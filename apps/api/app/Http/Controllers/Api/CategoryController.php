@@ -2,77 +2,58 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Application\Categories\Actions\CreateCategoryAction;
+use App\Application\Categories\Actions\DeleteCategoryAction;
+use App\Application\Categories\Actions\ListCategoriesAction;
+use App\Application\Categories\Actions\UpdateCategoryAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Categories\StoreCategoryRequest;
+use App\Http\Requests\Categories\UpdateCategoryRequest;
 use App\Http\Resources\ApiResponse;
 use App\Models\Category;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, ListCategoriesAction $action): JsonResponse
     {
-        $categories = Category::where('tenant_id', $request->user()->currentTenantId())
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->paginate($request->integer('per_page', 15));
-
-        return ApiResponse::paginated($categories, 'Categories retrieved successfully');
+        return ApiResponse::paginated(
+            $action->execute($request->user()->currentTenantId(), $request->integer('per_page', 15)),
+            'Categories retrieved successfully'
+        );
     }
 
-    public function store(Request $request)
+    public function store(StoreCategoryRequest $request, CreateCategoryAction $action): JsonResponse
     {
-        $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'slug'        => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'image'       => ['nullable', 'string'],
-            'is_active'   => ['boolean'],
-            'sort_order'  => ['integer'],
-        ]);
-
-        $data['tenant_id'] = $request->user()->currentTenantId();
-        $data['slug'] = $data['slug'] ?? Str::slug($data['name']);
-
-        $category = Category::create($data);
-
-        return ApiResponse::created($category, 'Category created successfully');
+        return ApiResponse::created(
+            $action->execute($request->user()->currentTenantId(), $request->toDTO()),
+            'Category created successfully'
+        );
     }
 
-    public function show(Request $request, Category $category)
+    public function show(Request $request, Category $category): JsonResponse
     {
         abort_if($category->tenant_id !== $request->user()->currentTenantId(), 403);
 
         return ApiResponse::success($category, 'Category retrieved successfully');
     }
 
-    public function update(Request $request, Category $category)
+    public function update(UpdateCategoryRequest $request, Category $category, UpdateCategoryAction $action): JsonResponse
     {
         abort_if($category->tenant_id !== $request->user()->currentTenantId(), 403);
 
-        $data = $request->validate([
-            'name'        => ['sometimes', 'string', 'max:255'],
-            'slug'        => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'image'       => ['nullable', 'string'],
-            'is_active'   => ['boolean'],
-            'sort_order'  => ['integer'],
-        ]);
-
-        if (isset($data['name']) && !isset($data['slug'])) {
-            $data['slug'] = Str::slug($data['name']);
-        }
-
-        $category->update($data);
-
-        return ApiResponse::success($category, 'Category updated successfully');
+        return ApiResponse::success(
+            $action->execute($category, $request->toDTO()),
+            'Category updated successfully'
+        );
     }
 
-    public function destroy(Request $request, Category $category)
+    public function destroy(Request $request, Category $category, DeleteCategoryAction $action): JsonResponse
     {
         abort_if($category->tenant_id !== $request->user()->currentTenantId(), 403);
 
-        $category->delete();
+        $action->execute($category);
 
         return ApiResponse::noContent('Category deleted successfully');
     }

@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Infrastructure\Storage\R2ImageUploader;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class UploadController extends Controller
 {
+    public function __construct(
+        private R2ImageUploader $uploader,
+    ) {}
+
     public function image(Request $request, string $folder)
     {
         $request->validate([
@@ -17,16 +20,8 @@ class UploadController extends Controller
 
         abort_unless(in_array($folder, config('upload.allowed_folders')), 422, 'Invalid upload folder.');
 
-        $file = $request->file('image');
-        $path = $folder . '/' . Str::uuid() . '.' . $file->getClientOriginalExtension();
-
-        $stream = fopen($file->getRealPath(), 'r');
-        Storage::disk('r2')->writeStream($path, $stream, ['visibility' => 'public']);
-        fclose($stream);
-
-        return response()->json([
-            'url' => Storage::disk('r2')->url($path),
-            'path' => $path,
-        ]);
+        return response()->json(
+            $this->uploader->upload($request->file('image'), $folder)
+        );
     }
 }

@@ -2,21 +2,17 @@
 
 namespace App\Providers;
 
+use App\Domain\Categories\Repositories\CategoryRepositoryInterface;
+use App\Infrastructure\Repositories\Categories\EloquentCategoryRepository;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
-        //
+        $this->app->bind(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         //
