@@ -19,6 +19,17 @@ class StoreCategoryRequest extends FormRequest
         ];
     }
 
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'Category name is required.',
+            'name.max'      => 'Category name cannot exceed 255 characters.',
+            'slug.max'      => 'Slug cannot exceed 255 characters.',
+            'is_active.boolean' => 'The active status must be true or false.',
+            'sort_order.integer' => 'Sort order must be a whole number.',
+        ];
+    }
+
     public function toDTO(): CategoryData
     {
         $v = $this->validated();

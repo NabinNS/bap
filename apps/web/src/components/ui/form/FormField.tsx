@@ -1,8 +1,9 @@
 "use client";
 
-import { ChangeEvent, useRef } from "react";
+import { ChangeEvent, forwardRef, useRef } from "react";
 import { Upload } from "lucide-react";
 
+// BaseProps are shared across every field type
 type BaseProps = {
   label: string;
   required?: boolean;
@@ -10,24 +11,13 @@ type BaseProps = {
   error?: string;
 };
 
-type InputFieldProps = BaseProps & {
-  type?: "text" | "email" | "number" | "password" | "url" | "tel";
-  placeholder?: string;
-  value?: string;
-  onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
+type InputFieldProps = BaseProps & React.InputHTMLAttributes<HTMLInputElement> & {
   mono?: boolean;
 };
 
-type TextAreaFieldProps = BaseProps & {
-  placeholder?: string;
-  value?: string;
-  rows?: number;
-  onChange?: (e: ChangeEvent<HTMLTextAreaElement>) => void;
-};
+type TextAreaFieldProps = BaseProps & React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
-type SelectFieldProps = BaseProps & {
-  value?: string;
-  onChange?: (e: ChangeEvent<HTMLSelectElement>) => void;
+type SelectFieldProps = BaseProps & React.SelectHTMLAttributes<HTMLSelectElement> & {
   options: { label: string; value: string }[];
 };
 
@@ -55,61 +45,71 @@ function FieldWrapper({ children, hint, error }: { children: React.ReactNode; hi
   );
 }
 
-export function InputField({ label, required, hint, error, type = "text", placeholder, value, onChange, mono }: InputFieldProps) {
-  return (
-    <FieldWrapper hint={hint} error={error}>
-      <Label label={label} required={required} />
-      <input
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        className={`mt-1 w-full h-10 px-3 text-sm border focus:outline-none transition-colors ${
-          error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
-        } ${mono ? "font-mono" : ""}`}
-      />
-    </FieldWrapper>
-  );
-}
+// forwardRef lets React Hook Form attach its internal ref to the real <input> element
+// Without this, register() cannot read the input's value
+export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
+  ({ label, required, hint, error, mono, ...props }, ref) => {
+    return (
+      <FieldWrapper hint={hint} error={error}>
+        <Label label={label} required={required} />
+        <input
+          ref={ref}
+          {...props}
+          className={`mt-1 w-full h-10 px-3 text-sm border focus:outline-none transition-colors ${
+            error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
+          } ${mono ? "font-mono" : ""}`}
+        />
+      </FieldWrapper>
+    );
+  }
+);
+InputField.displayName = "InputField";
 
-export function TextAreaField({ label, required, hint, error, placeholder, value, rows = 3, onChange }: TextAreaFieldProps) {
-  return (
-    <FieldWrapper hint={hint} error={error}>
-      <Label label={label} required={required} />
-      <textarea
-        rows={rows}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        className={`mt-1 w-full px-3 py-2 text-sm border focus:outline-none resize-none transition-colors ${
-          error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
-        }`}
-      />
-    </FieldWrapper>
-  );
-}
+export const TextAreaField = forwardRef<HTMLTextAreaElement, TextAreaFieldProps>(
+  ({ label, required, hint, error, rows = 3, ...props }, ref) => {
+    return (
+      <FieldWrapper hint={hint} error={error}>
+        <Label label={label} required={required} />
+        <textarea
+          ref={ref}
+          rows={rows}
+          {...props}
+          className={`mt-1 w-full px-3 py-2 text-sm border focus:outline-none resize-none transition-colors ${
+            error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
+          }`}
+        />
+      </FieldWrapper>
+    );
+  }
+);
+TextAreaField.displayName = "TextAreaField";
 
-export function SelectField({ label, required, hint, error, value, onChange, options }: SelectFieldProps) {
-  return (
-    <FieldWrapper hint={hint} error={error}>
-      <Label label={label} required={required} />
-      <select
-        value={value}
-        onChange={onChange}
-        className={`mt-1 w-full h-10 px-3 text-sm border focus:outline-none bg-white transition-colors ${
-          error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
-        }`}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </FieldWrapper>
-  );
-}
+export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
+  ({ label, required, hint, error, options, ...props }, ref) => {
+    return (
+      <FieldWrapper hint={hint} error={error}>
+        <Label label={label} required={required} />
+        <select
+          ref={ref}
+          {...props}
+          className={`mt-1 w-full h-10 px-3 text-sm border focus:outline-none bg-white transition-colors ${
+            error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
+          }`}
+        >
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </FieldWrapper>
+    );
+  }
+);
+SelectField.displayName = "SelectField";
 
+// FileUploadField is not registered with React Hook Form directly —
+// file inputs are handled separately via Controller or a manual onChange
 export function FileUploadField({ label, required, hint, error, accept = "image/*", preview, onChange }: FileUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
