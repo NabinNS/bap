@@ -18,6 +18,14 @@ class EloquentProductRepository implements ProductRepositoryInterface
             ->paginate($perPage);
     }
 
+    public function findByUlid(int $tenantId, string $ulid): Product
+    {
+        return Product::where('tenant_id', $tenantId)
+            ->where('ulid', $ulid)
+            ->with('category')
+            ->firstOrFail();
+    }
+
     public function create(int $tenantId, ProductData $data): Product
     {
         return Product::create([

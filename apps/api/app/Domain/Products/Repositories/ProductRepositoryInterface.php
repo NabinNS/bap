@@ -10,6 +10,8 @@ interface ProductRepositoryInterface
 {
     public function paginate(int $tenantId, int $perPage): LengthAwarePaginator;
 
+    public function findByUlid(int $tenantId, string $ulid): Product;
+
     public function create(int $tenantId, ProductData $data): Product;
 
     public function update(Product $product, ProductData $data): Product;
