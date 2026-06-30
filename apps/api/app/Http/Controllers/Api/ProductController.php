@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Products\StoreProductRequest;
 use App\Http\Requests\Products\UpdateProductRequest;
 use App\Http\Resources\ApiResponse;
+use App\Http\Resources\Products\ProductResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,6 +21,7 @@ class ProductController extends Controller
     {
         return ApiResponse::paginated(
             $action->execute($request->user()->currentTenantId(), $request->integer('per_page', 15)),
+            ProductResource::class,
             'Products retrieved successfully'
         );
     }
@@ -27,7 +29,7 @@ class ProductController extends Controller
     public function store(StoreProductRequest $request, CreateProductAction $action): JsonResponse
     {
         return ApiResponse::created(
-            $action->execute($request->user()->currentTenantId(), $request->toDTO()),
+            new ProductResource($action->execute($request->user()->currentTenantId(), $request->toDTO())),
             'Product created successfully'
         );
     }
@@ -38,7 +40,7 @@ class ProductController extends Controller
 
         $this->authorize('view', $product);
 
-        return ApiResponse::success($product, 'Product retrieved successfully');
+        return ApiResponse::success(new ProductResource($product), 'Product retrieved successfully');
     }
 
     public function update(UpdateProductRequest $request, string $ulid, UpdateProductAction $action, ShowProductAction $show): JsonResponse
@@ -48,7 +50,7 @@ class ProductController extends Controller
         $this->authorize('update', $product);
 
         return ApiResponse::success(
-            $action->execute($product, $request->toDTO()),
+            new ProductResource($action->execute($product, $request->toDTO())),
             'Product updated successfully'
         );
     }

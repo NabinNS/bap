@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Application\Auth\IssueTokensService;
+use App\Application\Auth\Actions\IssueTokensAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ApiResponse;
 use App\Models\User;
@@ -15,7 +15,7 @@ use Laravel\Sanctum\PersonalAccessToken;
 class AuthController extends Controller
 {
     public function __construct(
-        private IssueTokensService $issueTokensService,
+        private IssueTokensAction $issueTokens,
     ) {}
 
     public function login(Request $request): JsonResponse
@@ -33,12 +33,12 @@ class AuthController extends Controller
             ]);
         }
 
-        return $this->issueTokensService->issue($user);
+        return $this->issueTokens->execute($user);
     }
 
     public function refresh(Request $request): JsonResponse
     {
-        $rawRefreshToken = $request->cookie($this->issueTokensService->cookieName());
+        $rawRefreshToken = $request->cookie($this->issueTokens->cookieName());
 
         if (! $rawRefreshToken) {
             return ApiResponse::unauthorized('Refresh token missing.');
@@ -61,7 +61,7 @@ class AuthController extends Controller
 
         $tokenRecord->delete();
 
-        return $this->issueTokensService->issue($user);
+        return $this->issueTokens->execute($user);
     }
 
     public function me(Request $request): JsonResponse
@@ -79,13 +79,13 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
 
-        $rawRefreshToken = $request->cookie($this->issueTokensService->cookieName());
+        $rawRefreshToken = $request->cookie($this->issueTokens->cookieName());
         if ($rawRefreshToken) {
             [$id] = explode('|', $rawRefreshToken, 2) + [null, null];
             PersonalAccessToken::find($id)?->delete();
         }
 
         return response()->json(['message' => 'Logged out successfully.'])
-            ->withCookie(cookie()->forget($this->issueTokensService->cookieName()));
+            ->withCookie(cookie()->forget($this->issueTokens->cookieName()));
     }
 }

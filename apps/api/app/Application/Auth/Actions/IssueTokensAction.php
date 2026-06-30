@@ -1,17 +1,17 @@
 <?php
 
-namespace App\Application\Auth;
+namespace App\Application\Auth\Actions;
 
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 
-class IssueTokensService
+class IssueTokensAction
 {
     private const ACCESS_TOKEN_EXPIRY_MINUTES = 15;
     private const REFRESH_TOKEN_EXPIRY_DAYS   = 30;
     private const REFRESH_COOKIE              = 'refresh_token';
 
-    public function issue(User $user): JsonResponse
+    public function execute(User $user): JsonResponse
     {
         $accessToken = $user->createToken(
             'access_token',

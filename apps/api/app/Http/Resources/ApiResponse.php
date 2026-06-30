@@ -30,12 +30,12 @@ class ApiResponse
         ], 200);
     }
 
-    public static function paginated(LengthAwarePaginator $paginator, string $message = 'Success'): JsonResponse
+    public static function paginated(LengthAwarePaginator $paginator, string $resourceClass, string $message = 'Success'): JsonResponse
     {
         return response()->json([
             'success' => true,
             'message' => $message,
-            'data'    => $paginator->items(),
+            'data'    => $resourceClass::collection($paginator->getCollection()),
             'meta'    => [
                 'total'        => $paginator->total(),
                 'per_page'     => $paginator->perPage(),

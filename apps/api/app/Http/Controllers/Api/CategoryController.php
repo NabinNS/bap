@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Categories\StoreCategoryRequest;
 use App\Http\Requests\Categories\UpdateCategoryRequest;
 use App\Http\Resources\ApiResponse;
+use App\Http\Resources\Categories\CategoryResource;
 use App\Models\Category;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ class CategoryController extends Controller
     {
         return ApiResponse::paginated(
             $action->execute($request->user()->currentTenantId(), $request->integer('per_page', 15)),
+            CategoryResource::class,
             'Categories retrieved successfully'
         );
     }
@@ -27,7 +29,7 @@ class CategoryController extends Controller
     public function store(StoreCategoryRequest $request, CreateCategoryAction $action): JsonResponse
     {
         return ApiResponse::created(
-            $action->execute($request->user()->currentTenantId(), $request->toDTO()),
+            new CategoryResource($action->execute($request->user()->currentTenantId(), $request->toDTO())),
             'Category created successfully'
         );
     }
@@ -36,7 +38,7 @@ class CategoryController extends Controller
     {
         $this->authorize('view', $category);
 
-        return ApiResponse::success($category, 'Category retrieved successfully');
+        return ApiResponse::success(new CategoryResource($category), 'Category retrieved successfully');
     }
 
     public function update(UpdateCategoryRequest $request, Category $category, UpdateCategoryAction $action): JsonResponse
@@ -44,7 +46,7 @@ class CategoryController extends Controller
         $this->authorize('update', $category);
 
         return ApiResponse::success(
-            $action->execute($category, $request->toDTO()),
+            new CategoryResource($action->execute($category, $request->toDTO())),
             'Category updated successfully'
         );
     }
