@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Domain\Categories\Services;
+namespace App\Application\Shared\Services;
 
 use Illuminate\Support\Str;
 

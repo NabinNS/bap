@@ -34,14 +34,14 @@ class CategoryController extends Controller
 
     public function show(Request $request, Category $category): JsonResponse
     {
-        abort_if($category->tenant_id !== $request->user()->currentTenantId(), 403);
+        $this->authorize('view', $category);
 
         return ApiResponse::success($category, 'Category retrieved successfully');
     }
 
     public function update(UpdateCategoryRequest $request, Category $category, UpdateCategoryAction $action): JsonResponse
     {
-        abort_if($category->tenant_id !== $request->user()->currentTenantId(), 403);
+        $this->authorize('update', $category);
 
         return ApiResponse::success(
             $action->execute($category, $request->toDTO()),
@@ -51,7 +51,7 @@ class CategoryController extends Controller
 
     public function destroy(Request $request, Category $category, DeleteCategoryAction $action): JsonResponse
     {
-        abort_if($category->tenant_id !== $request->user()->currentTenantId(), 403);
+        $this->authorize('delete', $category);
 
         $action->execute($category);
 

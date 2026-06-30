@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { apiFetch } from "@/lib/api";
+import { toast } from "@/lib/toast";
+import { useCallback } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, MoreVertical } from "lucide-react";
@@ -18,12 +21,14 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Product = {
-  id: number;
+  ulid: string;
   name: string;
-  category: string;
+  description: string | null;
+  image: string | null;
   price: number;
   stock: number;
-  image: string;
+  is_active: boolean;
+  category: { ulid: string; name: string } | null;
 };
 
 // FormValues is what React Hook Form tracks — the shape of every field in the form
@@ -34,6 +39,13 @@ type FormValues = {
   stock: string;
   description: string;
   status: string;
+};
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Category = {
+  ulid: string;
+  name: string;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -47,30 +59,35 @@ const INITIAL_VALUES: FormValues = {
   status: "active",
 };
 
-const mockCategories = [
-  { label: "Select a category", value: "" },
-  { label: "Filters", value: "filters" },
-  { label: "Ignition", value: "ignition" },
-  { label: "Brakes", value: "brakes" },
-  { label: "Engine", value: "engine" },
-  { label: "Cooling", value: "cooling" },
-];
-
-const mockProducts: Product[] = [
-  { id: 1, name: "Bosch Oil Filter", category: "Filters", price: 1200, stock: 45, image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=80" },
-  { id: 2, name: "NGK Spark Plug", category: "Ignition", price: 850, stock: 120, image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=80" },
-  { id: 3, name: "Brake Pad Set", category: "Brakes", price: 3200, stock: 30, image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=80" },
-  { id: 4, name: "Air Filter", category: "Filters", price: 950, stock: 0, image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=80" },
-  { id: 5, name: "Timing Belt", category: "Engine", price: 2400, stock: 18, image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=80" },
-  { id: 6, name: "Radiator Cap", category: "Cooling", price: 450, stock: 67, image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=80" },
-];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminProducts() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch<{ data: Product[] }>("/products?per_page=50");
+      setProducts(res.data);
+    } catch {
+      toast.error("Failed to load products");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+    apiFetch<{ data: Category[] }>("/categories?per_page=100")
+      .then((res) => setCategories(res.data))
+      .catch(() => toast.error("Failed to load categories"));
+  }, [fetchProducts]);
 
   // useForm is the single call that replaces:
   //   useState for form values
@@ -100,14 +117,13 @@ export default function AdminProducts() {
   function openEdit(product: Product) {
     setEditingProduct(product);
     setImagePreview(product.image);
-    // reset() pre-fills the form with the product's existing values
     reset({
       name:        product.name,
-      category:    product.category.toLowerCase(),
+      category:    product.category?.ulid ?? "",
       price:       String(product.price),
       stock:       String(product.stock),
-      description: "",
-      status:      "active",
+      description: product.description ?? "",
+      status:      product.is_active ? "active" : "inactive",
     });
     setDrawerOpen(true);
   }
@@ -119,12 +135,42 @@ export default function AdminProducts() {
     reset(INITIAL_VALUES);
   }
 
-  // onSubmit only runs if all register() validations pass
-  // React Hook Form calls this with the validated form data already typed as FormValues
   async function onSubmit(data: FormValues) {
-    console.log("Submit payload:", data);
-    // API call goes here when backend is ready
-    closeDrawer();
+    const payload = {
+      name:          data.name,
+      category_ulid: data.category || null, // backend resolves ulid → integer id
+      price:         Number(data.price),
+      stock:         Number(data.stock),
+      description:   data.description,
+      is_active:     data.status === "active",
+    };
+
+    try {
+      if (editingProduct) {
+        await apiFetch(`/products/${editingProduct.ulid}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        toast.success("Product updated", `"${data.name}" has been updated.`);
+      } else {
+        await apiFetch("/products", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        toast.success("Product created", `"${data.name}" has been added.`);
+      }
+      closeDrawer();
+      fetchProducts();
+    } catch (err: any) {
+      if (err?.errors) {
+        toast.warning("Please fix the errors", "Check the highlighted fields.");
+      } else {
+        toast.error(
+          editingProduct ? "Failed to update product" : "Failed to create product",
+          err?.message ?? "Something went wrong."
+        );
+      }
+    }
   }
 
   const columns: ColumnDef<Product, unknown>[] = [
@@ -142,7 +188,11 @@ export default function AdminProducts() {
       ),
     },
     { accessorKey: "name", header: "Product" },
-    { accessorKey: "category", header: "Category" },
+    {
+      accessorKey: "category",
+      header: "Category",
+      cell: ({ row }) => row.original.category?.name ?? "—",
+    },
     {
       accessorKey: "price",
       header: "Price",
@@ -213,7 +263,8 @@ export default function AdminProducts() {
 
         <DataTable
           columns={columns}
-          data={mockProducts}
+          data={products}
+          loading={loading}
           searchColumn="name"
           searchPlaceholder="Search products..."
         />
@@ -243,7 +294,10 @@ export default function AdminProducts() {
         <SelectField
           label="Category"
           required
-          options={mockCategories}
+          options={[
+            { label: "Select a category", value: "" },
+            ...categories.map((c) => ({ label: c.name, value: c.ulid })),
+          ]}
           error={errors.category?.message}
           {...register("category", { required: "Category is required." })}
         />

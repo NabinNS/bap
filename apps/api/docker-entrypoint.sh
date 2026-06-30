@@ -24,6 +24,9 @@ else
     log "Database already has data — skipping seed."
 fi
 
+log "Regenerating Composer autoload map..."
+composer dump-autoload --optimize >/dev/null
+
 log "Clearing any stale caches..."
 php artisan config:clear  >/dev/null
 php artisan route:clear   >/dev/null

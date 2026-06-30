@@ -4,7 +4,7 @@ namespace App\Application\Categories\Actions;
 
 use App\Domain\Categories\DTOs\CategoryData;
 use App\Domain\Categories\Repositories\CategoryRepositoryInterface;
-use App\Domain\Categories\Services\SlugService;
+use App\Application\Shared\Services\SlugService;
 use App\Models\Category;
 
 class CreateCategoryAction
