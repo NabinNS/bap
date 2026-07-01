@@ -1,7 +1,7 @@
 "use client";
 
-import { ChangeEvent, forwardRef, useRef } from "react";
-import { Upload } from "lucide-react";
+import { ChangeEvent, forwardRef, useRef, useState, useEffect, useId, useCallback } from "react";
+import { Upload, ChevronDown, Loader2 } from "lucide-react";
 
 // BaseProps are shared across every field type
 type BaseProps = {
@@ -15,10 +15,26 @@ type InputFieldProps = BaseProps & React.InputHTMLAttributes<HTMLInputElement> &
   mono?: boolean;
 };
 
+type NumberFieldProps = BaseProps & Omit<React.InputHTMLAttributes<HTMLInputElement>, "type" | "inputMode" | "pattern"> & {
+  allowDecimal?: boolean;
+};
+
 type TextAreaFieldProps = BaseProps & React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
 type SelectFieldProps = BaseProps & React.SelectHTMLAttributes<HTMLSelectElement> & {
   options: { label: string; value: string }[];
+};
+
+type ComboboxOption = { label: string; value: string };
+
+type ComboboxFieldProps = BaseProps & {
+  options: ComboboxOption[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  loading?: boolean;
+  emptyMessage?: string;
 };
 
 type FileUploadFieldProps = BaseProps & {
@@ -65,6 +81,46 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
 );
 InputField.displayName = "InputField";
 
+// NumberField uses type="text" so the browser never renders the up/down spinner arrows.
+// inputMode="numeric" still shows a numeric keyboard on mobile.
+// Only digits (and optionally a decimal point) are allowed — anything else is silently dropped.
+export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
+  ({ label, required, hint, error, allowDecimal = false, onChange, ...props }, ref) => {
+    function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+      const allowed = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Home", "End"];
+      if (allowDecimal && e.key === ".") return;
+      if (allowed.includes(e.key)) return;
+      if (e.ctrlKey || e.metaKey) return; // allow copy/paste/select-all
+      if (!/^\d$/.test(e.key)) e.preventDefault();
+    }
+
+    function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+      const pattern = allowDecimal ? /[^\d.]/g : /\D/g;
+      e.target.value = e.target.value.replace(pattern, "");
+      onChange?.(e);
+    }
+
+    return (
+      <FieldWrapper hint={hint} error={error}>
+        <Label label={label} required={required} />
+        <input
+          ref={ref}
+          type="text"
+          inputMode={allowDecimal ? "decimal" : "numeric"}
+          pattern={allowDecimal ? "[0-9]*\\.?[0-9]*" : "[0-9]*"}
+          onKeyDown={handleKeyDown}
+          onChange={handleChange}
+          {...props}
+          className={`mt-1 w-full h-10 px-3 text-sm border focus:outline-none transition-colors ${
+            error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
+          }`}
+        />
+      </FieldWrapper>
+    );
+  }
+);
+NumberField.displayName = "NumberField";
+
 export const TextAreaField = forwardRef<HTMLTextAreaElement, TextAreaFieldProps>(
   ({ label, required, hint, error, rows = 3, ...props }, ref) => {
     return (
@@ -107,6 +163,186 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
   }
 );
 SelectField.displayName = "SelectField";
+
+// ComboboxField — type directly in the field to filter options, click or press Enter to select.
+// Supports keyboard navigation, ARIA accessibility, clearable value, disabled, and loading state.
+// Must be wired up via React Hook Form's <Controller> since it has no native select element.
+export function ComboboxField({
+  label, required, hint, error,
+  options, value, onChange,
+  placeholder = "Select...",
+  disabled = false,
+  loading = false,
+  emptyMessage = "No results found.",
+}: ComboboxFieldProps) {
+  const listboxId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
+  const [inputValue, setInputValue] = useState(selectedLabel);
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  const filtered = inputValue.trim()
+    ? options.filter((o) => o.label.toLowerCase().includes(inputValue.toLowerCase()))
+    : options;
+
+  // Sync display text when value changes externally (e.g. form reset)
+  useEffect(() => {
+    setInputValue(options.find((o) => o.value === value)?.label ?? "");
+  }, [value, options]);
+
+  // Reset active highlight when filtered list changes
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [inputValue]);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (activeIndex < 0 || !listRef.current) return;
+    const item = listRef.current.children[activeIndex] as HTMLElement | undefined;
+    item?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
+  const closeAndRevert = useCallback(() => {
+    setInputValue(options.find((o) => o.value === value)?.label ?? "");
+    setOpen(false);
+    setActiveIndex(-1);
+  }, [value, options]);
+
+  // Close on outside click
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        closeAndRevert();
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [closeAndRevert]);
+
+  function select(opt: ComboboxOption) {
+    onChange(opt.value);
+    setInputValue(opt.label);
+    setOpen(false);
+    setActiveIndex(-1);
+    inputRef.current?.blur();
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setInputValue(e.target.value);
+    setOpen(true);
+    if (e.target.value === "") onChange("");
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (disabled) return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setOpen(true);
+        setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
+        break;
+
+      case "ArrowUp":
+        e.preventDefault();
+        setActiveIndex((i) => Math.max(i - 1, 0));
+        break;
+
+      case "Enter":
+        e.preventDefault();
+        if (open && activeIndex >= 0 && filtered[activeIndex]) {
+          select(filtered[activeIndex]);
+        }
+        break;
+
+      case "Escape":
+        closeAndRevert();
+        inputRef.current?.blur();
+        break;
+
+      case "Tab":
+        closeAndRevert();
+        break;
+    }
+  }
+
+  const borderClass = error
+    ? "border-red-400 focus:border-red-500"
+    : "border-slate-300 focus:border-slate-500";
+
+  return (
+    <FieldWrapper hint={hint} error={error}>
+      <Label label={label} required={required} />
+      <div ref={containerRef} className="relative mt-1">
+        <input
+          ref={inputRef}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-activedescendant={activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined}
+          aria-autocomplete="list"
+          aria-required={required}
+          aria-invalid={!!error}
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onFocus={() => !disabled && setOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          disabled={disabled}
+          className={`w-full h-10 px-3 pr-8 text-sm border focus:outline-none bg-white transition-colors ${borderClass} ${
+            disabled ? "opacity-50 cursor-not-allowed bg-slate-50" : ""
+          }`}
+        />
+
+        {/* Right-side icons */}
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          {loading
+            ? <Loader2 className="h-3.5 w-3.5 text-text-muted animate-spin" />
+            : <ChevronDown className={`h-4 w-4 text-text-muted pointer-events-none transition-transform ${open ? "rotate-180" : ""}`} />
+          }
+        </div>
+
+        {open && (
+          <ul
+            ref={listRef}
+            id={listboxId}
+            role="listbox"
+            aria-label={label}
+            className="absolute z-50 mt-1 w-full bg-white border border-slate-200 shadow-lg max-h-48 overflow-y-auto"
+          >
+            {filtered.length === 0 ? (
+              <li role="option" aria-selected={false} className="px-3 py-2 text-sm text-text-muted">
+                {emptyMessage}
+              </li>
+            ) : (
+              filtered.map((opt, i) => (
+                <li
+                  key={opt.value}
+                  id={`${listboxId}-option-${i}`}
+                  role="option"
+                  aria-selected={opt.value === value}
+                  onMouseDown={(e) => e.preventDefault()} // keep input focused so onKeyDown still fires
+                  onClick={() => select(opt)}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${
+                    i === activeIndex ? "bg-slate-100" : "hover:bg-slate-50"
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                </li>
+              ))
+            )}
+          </ul>
+        )}
+      </div>
+    </FieldWrapper>
+  );
+}
 
 // FileUploadField is not registered with React Hook Form directly —
 // file inputs are handled separately via Controller or a manual onChange

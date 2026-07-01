@@ -12,8 +12,7 @@ class EloquentCategoryRepository implements CategoryRepositoryInterface
     public function paginate(int $tenantId, int $perPage): LengthAwarePaginator
     {
         return Category::where('tenant_id', $tenantId)
-            ->orderBy('sort_order')
-            ->orderBy('name')
+            ->orderBy('created_at', 'desc')
             ->paginate($perPage);
     }
 

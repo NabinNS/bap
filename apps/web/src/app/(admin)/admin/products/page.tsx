@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { useCallback } from "react";
@@ -10,7 +10,7 @@ import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, MoreVertical } from "lucide-react";
 import Link from "next/link";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
-import { InputField, TextAreaField, SelectField, FileUploadField } from "@/components/ui/form/FormField";
+import { InputField, NumberField, TextAreaField, SelectField, ComboboxField, FileUploadField } from "@/components/ui/form/FormField";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,6 +103,7 @@ export default function AdminProducts() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
     reset,
   } = useForm<FormValues>({ defaultValues: INITIAL_VALUES });
@@ -291,21 +292,26 @@ export default function AdminProducts() {
           // register("name") returns: { name, ref, onChange, onBlur }
           // spreading it on the input wires it up — no manual value or onChange needed
         />
-        <SelectField
-          label="Category"
-          required
-          options={[
-            { label: "Select a category", value: "" },
-            ...categories.map((c) => ({ label: c.name, value: c.ulid })),
-          ]}
-          error={errors.category?.message}
-          {...register("category", { required: "Category is required." })}
+        <Controller
+          name="category"
+          control={control}
+          rules={{ required: "Category is required." }}
+          render={({ field }) => (
+            <ComboboxField
+              label="Category"
+              required
+              placeholder="Select a category"
+              options={categories.map((c) => ({ label: c.name, value: c.ulid }))}
+              value={field.value}
+              onChange={field.onChange}
+              error={errors.category?.message}
+            />
+          )}
         />
         <div className="grid grid-cols-2 gap-4">
-          <InputField
+          <NumberField
             label="Price (NPR)"
             required
-            type="number"
             placeholder="e.g. 1200"
             error={errors.price?.message}
             {...register("price", {
@@ -313,10 +319,9 @@ export default function AdminProducts() {
               min: { value: 1, message: "Price must be greater than 0." },
             })}
           />
-          <InputField
+          <NumberField
             label="Stock"
             required
-            type="number"
             placeholder="e.g. 50"
             error={errors.stock?.message}
             {...register("stock", {
