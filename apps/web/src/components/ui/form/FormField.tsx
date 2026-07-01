@@ -315,25 +315,12 @@ export function ComboboxField({
             aria-label={label}
             className="absolute z-50 mt-1 w-full bg-white border border-slate-200 shadow-lg max-h-48 overflow-y-auto"
           >
-            {filtered.length === 0 ? (
-              <>
-                <li role="option" aria-selected={false} className="px-3 py-2 text-sm text-text-muted">
-                  {emptyMessage}
-                </li>
-                {onAddNew && inputValue.trim() && (
-                  <li
-                    role="option"
-                    aria-selected={false}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => { onAddNew(inputValue.trim()); setOpen(false); }}
-                    className="px-3 py-2 text-sm font-bold text-black cursor-pointer hover:bg-slate-50 border-t border-slate-100 transition-colors"
-                  >
-                    + Add "{inputValue.trim()}"
-                  </li>
-                )}
-              </>
-            ) : (
-              filtered.map((opt, i) => (
+            {filtered.length === 0 && (
+              <li role="option" aria-selected={false} className="px-3 py-2 text-sm text-text-muted">
+                {emptyMessage}
+              </li>
+            )}
+            {filtered.length > 0 && filtered.map((opt, i) => (
                 <li
                   key={opt.value}
                   id={`${listboxId}-option-${i}`}
@@ -355,7 +342,17 @@ export function ComboboxField({
                     <span className="text-xs text-slate-400 shrink-0 ml-2">selected</span>
                   )}
                 </li>
-              ))
+            ))}
+            {onAddNew && inputValue.trim() && (
+              <li
+                role="option"
+                aria-selected={false}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { onAddNew(inputValue.trim()); setOpen(false); }}
+                className="px-3 py-2 text-sm font-bold text-black cursor-pointer hover:bg-slate-50 border-t border-slate-100 transition-colors"
+              >
+                + Add "{inputValue.trim()}"
+              </li>
             )}
           </ul>
         )}

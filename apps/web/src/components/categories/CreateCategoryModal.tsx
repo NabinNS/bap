@@ -25,6 +25,7 @@ export function CreateCategoryModal({ open, onClose, initialName = "", onCreated
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
+    setError,
   } = useForm<FormValues>({ defaultValues: { name: initialName, description: "" } });
 
   // When the modal opens with a pre-filled name, reset the form to that name
@@ -42,7 +43,11 @@ export function CreateCategoryModal({ open, onClose, initialName = "", onCreated
       onCreated(res.data);
       onClose();
     } catch (err: any) {
-      toast.error("Failed to create category", err?.message ?? "Something went wrong.");
+      if (err?.errors?.slug) {
+        setError("name", { message: "A category with this name or slug already exists." });
+      } else {
+        toast.error("Failed to create category", err?.message ?? "Something went wrong.");
+      }
     }
   }
 
