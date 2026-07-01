@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, forwardRef, useRef, useState, useEffect, useId, useCallback } from "react";
-import { Upload, ChevronDown, Loader2 } from "lucide-react";
+import { Upload, Loader2 } from "lucide-react";
 
 // BaseProps are shared across every field type
 type BaseProps = {
@@ -35,6 +35,7 @@ type ComboboxFieldProps = BaseProps & {
   disabled?: boolean;
   loading?: boolean;
   emptyMessage?: string;
+  onAddNew?: (query: string) => void;
 };
 
 type FileUploadFieldProps = BaseProps & {
@@ -148,7 +149,7 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
         <select
           ref={ref}
           {...props}
-          className={`mt-1 w-full h-10 px-3 text-sm border focus:outline-none bg-white transition-colors ${
+          className={`mt-1 w-full h-10 px-3 text-sm border focus:outline-none bg-white appearance-none transition-colors ${
             error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
           }`}
         >
@@ -174,6 +175,7 @@ export function ComboboxField({
   disabled = false,
   loading = false,
   emptyMessage = "No results found.",
+  onAddNew,
 }: ComboboxFieldProps) {
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -299,13 +301,11 @@ export function ComboboxField({
           }`}
         />
 
-        {/* Right-side icons */}
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          {loading
-            ? <Loader2 className="h-3.5 w-3.5 text-text-muted animate-spin" />
-            : <ChevronDown className={`h-4 w-4 text-text-muted pointer-events-none transition-transform ${open ? "rotate-180" : ""}`} />
-          }
-        </div>
+        {loading && (
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+            <Loader2 className="h-3.5 w-3.5 text-text-muted animate-spin" />
+          </div>
+        )}
 
         {open && (
           <ul
@@ -316,9 +316,22 @@ export function ComboboxField({
             className="absolute z-50 mt-1 w-full bg-white border border-slate-200 shadow-lg max-h-48 overflow-y-auto"
           >
             {filtered.length === 0 ? (
-              <li role="option" aria-selected={false} className="px-3 py-2 text-sm text-text-muted">
-                {emptyMessage}
-              </li>
+              <>
+                <li role="option" aria-selected={false} className="px-3 py-2 text-sm text-text-muted">
+                  {emptyMessage}
+                </li>
+                {onAddNew && inputValue.trim() && (
+                  <li
+                    role="option"
+                    aria-selected={false}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => { onAddNew(inputValue.trim()); setOpen(false); }}
+                    className="px-3 py-2 text-sm font-bold text-black cursor-pointer hover:bg-slate-50 border-t border-slate-100 transition-colors"
+                  >
+                    + Add "{inputValue.trim()}"
+                  </li>
+                )}
+              </>
             ) : (
               filtered.map((opt, i) => (
                 <li
@@ -330,10 +343,17 @@ export function ComboboxField({
                   onClick={() => select(opt)}
                   onMouseEnter={() => setActiveIndex(i)}
                   className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${
-                    i === activeIndex ? "bg-slate-100" : "hover:bg-slate-50"
+                    opt.value === value
+                      ? "bg-slate-100 font-semibold"
+                      : i === activeIndex
+                      ? "bg-slate-50"
+                      : "hover:bg-slate-50"
                   }`}
                 >
                   <span>{opt.label}</span>
+                  {opt.value === value && (
+                    <span className="text-xs text-slate-400 shrink-0 ml-2">selected</span>
+                  )}
                 </li>
               ))
             )}

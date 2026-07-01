@@ -11,6 +11,7 @@ import { Plus, MoreVertical } from "lucide-react";
 import Link from "next/link";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, NumberField, TextAreaField, SelectField, ComboboxField, FileUploadField } from "@/components/ui/form/FormField";
+import { CreateCategoryModal } from "@/components/categories/CreateCategoryModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +70,8 @@ export default function AdminProducts() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -106,6 +109,7 @@ export default function AdminProducts() {
     control,
     formState: { errors, isSubmitting },
     reset,
+    setValue,
   } = useForm<FormValues>({ defaultValues: INITIAL_VALUES });
 
   function openCreate() {
@@ -271,6 +275,16 @@ export default function AdminProducts() {
         />
       </div>
 
+      <CreateCategoryModal
+        open={categoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+        initialName={newCategoryName}
+        onCreated={(category) => {
+          setCategories((prev) => [category, ...prev]);
+          setValue("category", category.ulid);
+        }}
+      />
+
       <SlidePanel
         open={drawerOpen}
         onClose={closeDrawer}
@@ -305,6 +319,10 @@ export default function AdminProducts() {
               value={field.value}
               onChange={field.onChange}
               error={errors.category?.message}
+              onAddNew={(query) => {
+                setNewCategoryName(query);
+                setCategoryModalOpen(true);
+              }}
             />
           )}
         />
