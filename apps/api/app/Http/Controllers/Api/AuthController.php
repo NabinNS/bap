@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Application\Auth\Actions\IssueTokensAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\ApiResponse;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -18,13 +19,8 @@ class AuthController extends Controller
         private IssueTokensAction $issueTokens,
     ) {}
 
-    public function login(Request $request): JsonResponse
+    public function login(LoginRequest $request): JsonResponse
     {
-        $request->validate([
-            'email'    => 'required|email',
-            'password' => 'required|string',
-        ]);
-
         $user = User::where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {

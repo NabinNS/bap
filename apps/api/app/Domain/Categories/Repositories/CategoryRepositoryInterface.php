@@ -10,6 +10,8 @@ interface CategoryRepositoryInterface
 {
     public function paginate(int $tenantId, int $perPage): LengthAwarePaginator;
 
+    public function findByUlid(int $tenantId, string $ulid): Category;
+
     public function create(int $tenantId, CategoryData $data): Category;
 
     public function update(Category $category, CategoryData $data): Category;

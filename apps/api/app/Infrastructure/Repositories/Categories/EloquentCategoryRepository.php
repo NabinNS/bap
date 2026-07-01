@@ -17,6 +17,13 @@ class EloquentCategoryRepository implements CategoryRepositoryInterface
             ->paginate($perPage);
     }
 
+    public function findByUlid(int $tenantId, string $ulid): Category
+    {
+        return Category::where('tenant_id', $tenantId)
+            ->where('ulid', $ulid)
+            ->firstOrFail();
+    }
+
     public function create(int $tenantId, CategoryData $data): Category
     {
         return Category::create([
