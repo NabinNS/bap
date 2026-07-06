@@ -40,10 +40,9 @@ class UpdateProductRequest extends FormRequest
         ];
     }
 
-    public function toDTO(): ProductData
+    public function toDTO(Product $product): ProductData
     {
-        $v       = $this->validated();
-        $product = $this->route('product');
+        $v = $this->validated();
 
         return new ProductData(
             name:        $v['name']        ?? $product->name,

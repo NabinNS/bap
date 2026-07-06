@@ -7,10 +7,14 @@ use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Infrastructure\Repositories\Categories\EloquentCategoryRepository;
 use App\Infrastructure\Repositories\Products\EloquentProductRepository;
 use App\Models\Category;
+use App\Models\ImageItem;
 use App\Models\Product;
+use App\Models\Tenant;
+use App\Observers\ImageItemObserver;
 use App\Policies\CategoryPolicy;
 use App\Policies\ProductPolicy;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -25,6 +29,18 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::preventLazyLoading(app()->isLocal());
+
+        // Mitigation 4 — store short aliases instead of full class names in imageable_type.
+        // If a model class is ever renamed, only this map needs updating — the DB rows stay valid.
+        Relation::morphMap([
+            'product'  => Product::class,
+            'category' => Category::class,
+            'tenant'   => Tenant::class,
+        ]);
+
+        // Mitigation 3 — delete the R2 file whenever an ImageItem row is deleted.
+        // cascadeOnDelete on the FK handles the DB rows; the observer handles the file.
+        ImageItem::observe(ImageItemObserver::class);
 
         Gate::policy(Category::class, CategoryPolicy::class);
         Gate::policy(Product::class, ProductPolicy::class);

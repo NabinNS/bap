@@ -73,7 +73,7 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
           ref={ref}
           {...props}
           className={`mt-1 w-full h-10 px-3 text-sm border focus:outline-none transition-colors ${
-            error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
+            error ? "border-red-500 focus:border-red-600" : "border-slate-400 focus:border-slate-600"
           } ${mono ? "font-mono" : ""}`}
         />
       </FieldWrapper>
@@ -113,7 +113,7 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
           onChange={handleChange}
           {...props}
           className={`mt-1 w-full h-10 px-3 text-sm border focus:outline-none transition-colors ${
-            error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
+            error ? "border-red-500 focus:border-red-600" : "border-slate-400 focus:border-slate-600"
           }`}
         />
       </FieldWrapper>
@@ -132,7 +132,7 @@ export const TextAreaField = forwardRef<HTMLTextAreaElement, TextAreaFieldProps>
           rows={rows}
           {...props}
           className={`mt-1 w-full px-3 py-2 text-sm border focus:outline-none resize-none transition-colors ${
-            error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
+            error ? "border-red-500 focus:border-red-600" : "border-slate-400 focus:border-slate-600"
           }`}
         />
       </FieldWrapper>
@@ -150,7 +150,7 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
           ref={ref}
           {...props}
           className={`mt-1 w-full h-10 px-3 text-sm border focus:outline-none bg-white appearance-none transition-colors ${
-            error ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-slate-500"
+            error ? "border-red-500 focus:border-red-600" : "border-slate-400 focus:border-slate-600"
           }`}
         >
           {options.map((opt) => (
@@ -273,8 +273,8 @@ export function ComboboxField({
   }
 
   const borderClass = error
-    ? "border-red-400 focus:border-red-500"
-    : "border-slate-300 focus:border-slate-500";
+    ? "border-red-500 focus:border-red-600"
+    : "border-slate-400 focus:border-slate-600";
 
   return (
     <FieldWrapper hint={hint} error={error}>
@@ -377,7 +377,7 @@ export function FileUploadField({ label, required, hint, error, accept = "image/
       <div
         onClick={() => inputRef.current?.click()}
         className={`mt-1 flex flex-col items-center justify-center h-28 border-2 border-dashed cursor-pointer transition-colors ${
-          error ? "border-red-400 hover:border-red-500" : "border-slate-300 hover:border-slate-400"
+          error ? "border-red-500 hover:border-red-600" : "border-slate-400 hover:border-slate-500"
         }`}
       >
         {preview ? (

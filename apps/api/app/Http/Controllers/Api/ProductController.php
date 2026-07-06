@@ -50,7 +50,7 @@ class ProductController extends Controller
         $this->authorize('update', $product);
 
         return ApiResponse::success(
-            new ProductResource($action->execute($product, $request->toDTO())),
+            new ProductResource($action->execute($product, $request->toDTO($product))),
             'Product updated successfully'
         );
     }
