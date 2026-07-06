@@ -72,6 +72,8 @@ export default function AdminProducts() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [groupName, setGroupName] = useState("");
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
@@ -109,6 +111,7 @@ export default function AdminProducts() {
     register,
     handleSubmit,
     control,
+    getValues,
     formState: { errors, isSubmitting },
     reset,
     setValue,
@@ -116,6 +119,7 @@ export default function AdminProducts() {
 
   function openCreate() {
     setEditingProduct(null);
+    setIsEditMode(false);
     setImages([]);
     reset(INITIAL_VALUES);
     setDrawerOpen(true);
@@ -123,6 +127,7 @@ export default function AdminProducts() {
 
   function openEdit(product: Product) {
     setEditingProduct(product);
+    setIsEditMode(true);
     setImages(product.image ? [{ url: product.image, path: "" }] : []);
     reset({
       name:        product.name,
@@ -141,6 +146,52 @@ export default function AdminProducts() {
     setImages([]);
     setGroupName("");
     reset(INITIAL_VALUES);
+  }
+
+  async function autoSave() {
+    const data = getValues();
+
+    const payload = {
+      name:          data.name,
+      category_ulid: data.category || null,
+      price:         Number(data.price) || 0,
+      stock:         Number(data.stock) || 0,
+      description:   data.description,
+      is_active:     data.status === "active",
+    };
+
+    setAutoSaving(true);
+    try {
+      if (editingProduct) {
+        // Product exists — update via PUT
+        await apiFetch(`/products/${editingProduct.ulid}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+      } else if (data.name.trim() && data.price && data.stock !== "") {
+        // Minimum required fields filled — create via POST
+        const res = await apiFetch<{ data: Product }>("/products", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        setEditingProduct(res.data);
+        fetchProducts();
+      }
+    } catch {
+      // silent — user can still manually save
+    } finally {
+      setAutoSaving(false);
+    }
+  }
+
+  function withAutoSave<T extends { onBlur: (...args: any[]) => any }>(field: T): T {
+    return {
+      ...field,
+      onBlur: (...args: any[]) => {
+        field.onBlur(...args);
+        autoSave();
+      },
+    };
   }
 
   function handleGroupSubmit(name: string, groupImages: UploadedImage[]) {
@@ -298,9 +349,9 @@ export default function AdminProducts() {
       <SlidePanel
         open={drawerOpen}
         onClose={closeDrawer}
-        title={editingProduct ? "Edit Product" : "Add Product"}
-        description={editingProduct ? "Update the product details." : "Fill in the details to add a new product."}
-        submitLabel={isSubmitting ? "Saving..." : editingProduct ? "Update Product" : "Save Product"}
+        title={isEditMode ? "Edit Product" : "Add Product"}
+        description={isEditMode ? "Update the product details." : "Fill in the details to add a new product."}
+        submitLabel={isSubmitting ? "Saving..." : isEditMode ? "Update Product" : "Save Product"}
         onSubmit={handleSubmit(onSubmit)}
         // handleSubmit(onSubmit) means:
         //   1. Run all validation rules from register()
@@ -312,9 +363,7 @@ export default function AdminProducts() {
           required
           placeholder="e.g. Bosch Oil Filter"
           error={errors.name?.message}
-          {...register("name", { required: "Name is required." })}
-          // register("name") returns: { name, ref, onChange, onBlur }
-          // spreading it on the input wires it up — no manual value or onChange needed
+          {...withAutoSave(register("name", { required: "Name is required." }))}
         />
         <Controller
           name="category"
@@ -327,7 +376,7 @@ export default function AdminProducts() {
               placeholder="Select a category"
               options={categories.map((c) => ({ label: c.name, value: c.ulid }))}
               value={field.value}
-              onChange={field.onChange}
+              onChange={(val) => { field.onChange(val); autoSave(); }}
               error={errors.category?.message}
               onAddNew={(query) => {
                 setNewCategoryName(query);
@@ -342,26 +391,26 @@ export default function AdminProducts() {
             required
             placeholder="e.g. 1200"
             error={errors.price?.message}
-            {...register("price", {
+            {...withAutoSave(register("price", {
               required: "Price is required.",
               min: { value: 1, message: "Price must be greater than 0." },
-            })}
+            }))}
           />
           <NumberField
             label="Stock"
             required
             placeholder="e.g. 50"
             error={errors.stock?.message}
-            {...register("stock", {
+            {...withAutoSave(register("stock", {
               required: "Stock is required.",
               min: { value: 0, message: "Stock cannot be negative." },
-            })}
+            }))}
           />
         </div>
         <TextAreaField
           label="Description"
           placeholder="Short description of this product..."
-          {...register("description")}
+          {...withAutoSave(register("description"))}
         />
         <SelectField
           label="Status"
@@ -369,7 +418,7 @@ export default function AdminProducts() {
             { label: "Active", value: "active" },
             { label: "Inactive", value: "inactive" },
           ]}
-          {...register("status")}
+          {...withAutoSave(register("status"))}
         />
         <MultiImageUpload
           label="Product Photos"
