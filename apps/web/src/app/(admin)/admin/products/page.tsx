@@ -11,7 +11,7 @@ import { Plus, MoreVertical } from "lucide-react";
 import Link from "next/link";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, NumberField, TextAreaField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
-import { MultiImageUpload, type UploadedImage } from "@/components/ui/form/MultiImageUpload";
+import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
 import { CreateCategoryModal } from "@/components/categories/CreateCategoryModal";
 import {
   DropdownMenu,
@@ -70,8 +70,8 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [images, setImages] = useState<UploadedImage[]>([]);
-  const [groupName, setGroupName] = useState("");
+  const [images, setImages] = useState<File[]>([]);
+  const [groupName, setGroupName] = useState("product image");
   const [autoSaving, setAutoSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
@@ -121,6 +121,7 @@ export default function AdminProducts() {
     setEditingProduct(null);
     setIsEditMode(false);
     setImages([]);
+    setGroupName("");
     reset(INITIAL_VALUES);
     setDrawerOpen(true);
   }
@@ -128,7 +129,7 @@ export default function AdminProducts() {
   function openEdit(product: Product) {
     setEditingProduct(product);
     setIsEditMode(true);
-    setImages(product.image ? [{ url: product.image, path: "" }] : []);
+    setImages([]);
     reset({
       name:        product.name,
       category:    product.category?.ulid ?? "",
@@ -144,7 +145,7 @@ export default function AdminProducts() {
     setDrawerOpen(false);
     setEditingProduct(null);
     setImages([]);
-    setGroupName("");
+    setGroupName("product image");
     reset(INITIAL_VALUES);
   }
 
@@ -192,13 +193,6 @@ export default function AdminProducts() {
         autoSave();
       },
     };
-  }
-
-  function handleGroupSubmit(name: string, groupImages: UploadedImage[]) {
-    // Handle group submission — save group with its images
-    console.log(`Group "${name}" added with ${groupImages.length} images`);
-    toast.success("Group added", `"${name}" with ${groupImages.length} images`);
-    // You can extend this to save groups to a list if needed
   }
 
   async function onSubmit(data: FormValues) {
@@ -397,7 +391,7 @@ export default function AdminProducts() {
             }))}
           />
           <NumberField
-            label="Stock"
+            label="Opening Stock"
             required
             placeholder="e.g. 50"
             error={errors.stock?.message}
@@ -422,12 +416,11 @@ export default function AdminProducts() {
         />
         <MultiImageUpload
           label="Product Photos"
-          folder="products"
           value={images}
           onChange={setImages}
           groupName={groupName}
           onGroupNameChange={setGroupName}
-          onGroupSubmit={handleGroupSubmit}
+          max={5}
         />
       </SlidePanel>
     </div>
