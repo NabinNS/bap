@@ -13,6 +13,9 @@ until php -r "exit(@fsockopen(getenv('DB_HOST')?:'postgres', (int)(getenv('DB_PO
 done
 log "Database is reachable."
 
+log "Regenerating Composer autoload map..."
+composer dump-autoload --optimize >/dev/null
+
 log "Running migrations (php artisan migrate --force)..."
 php artisan migrate --force
 
@@ -23,9 +26,6 @@ if [ "${USER_COUNT}" = "0" ]; then
 else
     log "Database already has data — skipping seed."
 fi
-
-log "Regenerating Composer autoload map..."
-composer dump-autoload --optimize >/dev/null
 
 log "Clearing any stale caches..."
 php artisan config:clear  >/dev/null

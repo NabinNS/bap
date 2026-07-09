@@ -22,7 +22,7 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
     ...options,
     credentials: "include", // sends httpOnly refresh_token cookie automatically
     headers: {
-      "Content-Type": "application/json",
+      ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
       Accept: "application/json",
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...options.headers,

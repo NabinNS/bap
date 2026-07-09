@@ -11,7 +11,7 @@ import { Plus, MoreVertical } from "lucide-react";
 import Link from "next/link";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, NumberField, TextAreaField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
-import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
+import { MultiImageUpload, type SavedImage } from "@/components/ui/form/MultiImageUpload";
 import { CreateCategoryModal } from "@/components/categories/CreateCategoryModal";
 import {
   DropdownMenu,
@@ -71,8 +71,11 @@ export default function AdminProducts() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [images, setImages] = useState<File[]>([]);
+  const [savedImages, setSavedImages] = useState<SavedImage[]>([]);
   const [groupName, setGroupName] = useState("product image");
+  const [savedGroupUlid, setSavedGroupUlid] = useState<string | null>(null);
   const [autoSaving, setAutoSaving] = useState(false);
+  const [savingPhotos, setSavingPhotos] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -121,15 +124,31 @@ export default function AdminProducts() {
     setEditingProduct(null);
     setIsEditMode(false);
     setImages([]);
-    setGroupName("");
+    setSavedImages([]);
+    setSavedGroupUlid(null);
+    setGroupName("product image");
     reset(INITIAL_VALUES);
     setDrawerOpen(true);
   }
 
-  function openEdit(product: Product) {
+  async function openEdit(product: Product) {
     setEditingProduct(product);
     setIsEditMode(true);
     setImages([]);
+    setSavedImages([]);
+    try {
+      const res = await apiFetch<{ data: { ulid: string; name: string; items: SavedImage[] }[] }>(
+        `/image-groups?imageable_type=product&imageable_ulid=${product.ulid}`
+      );
+      const items = res.data.flatMap((g) => g.items);
+      setSavedImages(items);
+      if (res.data[0]) {
+        setSavedGroupUlid(res.data[0].ulid);
+        setGroupName(res.data[0].name);
+      }
+    } catch {
+      // non-critical, images just won't show
+    }
     reset({
       name:        product.name,
       category:    product.category?.ulid ?? "",
@@ -145,8 +164,100 @@ export default function AdminProducts() {
     setDrawerOpen(false);
     setEditingProduct(null);
     setImages([]);
+    setSavedImages([]);
+    setSavedGroupUlid(null);
     setGroupName("product image");
     reset(INITIAL_VALUES);
+  }
+
+  async function updateGroupName() {
+    if (!savedGroupUlid || !groupName.trim()) return;
+    try {
+      await apiFetch(`/image-groups/${savedGroupUlid}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: groupName }),
+      });
+    } catch {
+      toast.error("Failed to update group name", "Something went wrong.");
+    }
+  }
+
+  async function removeSavedImage(ulid: string) {
+    try {
+      await apiFetch(`/image-items/${ulid}`, { method: "DELETE" });
+      setSavedImages((prev) => prev.filter((img) => img.ulid !== ulid));
+    } catch {
+      toast.error("Failed to delete image", "Something went wrong.");
+    }
+  }
+
+  async function savePhotos() {
+    const data = getValues();
+    if (!data.name.trim()) {
+      toast.error("Product name required", "Fill in the product name before adding photos.");
+      return;
+    }
+    if (!data.price) {
+      toast.error("Price required", "Fill in the price before adding photos.");
+      return;
+    }
+    if (data.stock === "") {
+      toast.error("Stock required", "Fill in the stock before adding photos.");
+      return;
+    }
+    if (!editingProduct) {
+      toast.error("Save product first", "The product must be saved before you can upload photos.");
+      return;
+    }
+    if (images.length === 0) {
+      toast.error("No images selected", "Pick at least one image first.");
+      return;
+    }
+
+    setSavingPhotos(true);
+    try {
+      // 1. Upload each file to R2
+      const uploaded = await Promise.all(
+        images.map(async (file) => {
+          const form = new FormData();
+          form.append("image", file);
+          return apiFetch<{ url: string; path: string }>("/upload/products", {
+            method: "POST",
+            body: form,
+          });
+        })
+      );
+
+      // 2. Create image group
+      const group = await apiFetch<{ data: { ulid: string } }>("/image-groups", {
+        method: "POST",
+        body: JSON.stringify({
+          imageable_type: "product",
+          imageable_ulid:  editingProduct.ulid,
+          slug:            "product-image",
+          name:            groupName || "product image",
+        }),
+      });
+
+      // 3. Save image items
+      await apiFetch(`/image-groups/${group.data.ulid}/items`, {
+        method: "POST",
+        body: JSON.stringify({
+          items: uploaded.map((img, i) => ({ url: img.url, path: img.path, sort_order: i })),
+        }),
+      });
+
+      setSavedImages((prev) => [
+        ...prev,
+        ...uploaded.map((img, i) => ({ ulid: `temp-${Date.now()}-${i}`, url: img.url, path: img.path })),
+      ]);
+      setImages([]);
+      toast.success("Photos saved", `${uploaded.length} photo(s) added to "${groupName || "product image"}".`);
+    } catch (err: any) {
+      toast.error("Upload failed", err?.message ?? "Something went wrong.");
+    } finally {
+      setSavingPhotos(false);
+    }
   }
 
   async function autoSave() {
@@ -418,8 +529,13 @@ export default function AdminProducts() {
           label="Product Photos"
           value={images}
           onChange={setImages}
+          savedImages={savedImages}
           groupName={groupName}
           onGroupNameChange={setGroupName}
+          onSave={savePhotos}
+          onGroupNameBlur={updateGroupName}
+          onRemoveSaved={removeSavedImage}
+          saving={savingPhotos}
           max={5}
         />
       </SlidePanel>
