@@ -12,6 +12,9 @@ class ProductResource extends JsonResource
         return [
             'ulid'        => $this->ulid,
             'name'        => $this->name,
+            'thumbnail'   => $this->whenLoaded('imageGroups', fn() =>
+                $this->imageGroups->first()?->imageItems->first()?->url
+            ),
             'slug'        => $this->slug,
             'description' => $this->description,
             'image'       => $this->image,

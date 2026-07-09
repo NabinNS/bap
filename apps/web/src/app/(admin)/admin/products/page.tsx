@@ -26,7 +26,7 @@ type Product = {
   ulid: string;
   name: string;
   description: string | null;
-  image: string | null;
+  thumbnail: string | null;
   price: number;
   stock: number;
   is_active: boolean;
@@ -350,13 +350,16 @@ export default function AdminProducts() {
       header: "Photo",
       enableSorting: false,
       size: 60,
-      cell: ({ row }) => (
-        <img
-          src={row.original.image}
-          alt={row.original.name}
-          className="h-14 w-14 rounded-lg object-cover border border-slate-200"
-        />
-      ),
+      cell: ({ row }) =>
+        row.original.thumbnail ? (
+          <img
+            src={row.original.thumbnail}
+            alt={row.original.name}
+            className="h-14 w-14 rounded-lg object-cover border border-slate-200"
+          />
+        ) : (
+          <div className="h-14 w-14 rounded-lg border border-slate-200 bg-slate-100" />
+        ),
     },
     { accessorKey: "name", header: "Product" },
     {

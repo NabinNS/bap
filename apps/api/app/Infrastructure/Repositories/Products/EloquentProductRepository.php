@@ -12,7 +12,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
     public function paginate(int $tenantId, int $perPage): LengthAwarePaginator
     {
         return Product::where('tenant_id', $tenantId)
-            ->with('category')
+            ->with(['category', 'imageGroups.imageItems'])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->paginate($perPage);
