@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Domain\Categories\Repositories\CategoryRepositoryInterface;
+use App\Domain\Images\Repositories\ImageGroupRepositoryInterface;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Infrastructure\Repositories\Categories\EloquentCategoryRepository;
+use App\Infrastructure\Repositories\Images\EloquentImageGroupRepository;
 use App\Infrastructure\Repositories\Products\EloquentProductRepository;
 use App\Models\Category;
 use App\Models\ImageItem;
@@ -24,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
         $this->app->bind(ProductRepositoryInterface::class, EloquentProductRepository::class);
+        $this->app->bind(ImageGroupRepositoryInterface::class, EloquentImageGroupRepository::class);
     }
 
     public function boot(): void
