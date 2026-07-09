@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { Plus, X, ChevronLeft, ChevronRight, CheckCircle, Clock } from "lucide-react";
+import { Plus, X, ChevronLeft, ChevronRight, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/dialog/ConfirmDialog";
+import type { FileUploadState } from "@/lib/upload";
 
 export type SavedImage = {
   ulid: string;
@@ -25,6 +26,7 @@ type Props = {
   onGroupNameBlur?: () => void;
   onRemoveSaved?: (ulid: string) => void;
   saving?: boolean;
+  uploadStates?: FileUploadState[];
 };
 
 const MAX_FILE_SIZE_MB = 10;
@@ -45,7 +47,7 @@ function validateFiles(files: File[]): { valid: File[]; errors: string[] } {
   return { valid, errors };
 }
 
-export function MultiImageUpload({ label, required, hint, error, value, onChange, savedImages = [], max, groupName, onGroupNameChange, onGroupNameBlur, onSave, onRemoveSaved, saving }: Props) {
+export function MultiImageUpload({ label, required, hint, error, value, onChange, savedImages = [], max, groupName, onGroupNameChange, onGroupNameBlur, onSave, onRemoveSaved, saving, uploadStates = [] }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   // Track object URLs per-file to avoid recreating URLs for unchanged files
@@ -194,27 +196,62 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
               </button>
             </div>
           ))}
-          {previewUrls.map((url, i) => (
-            <div key={`local-${i}`} className="relative group">
-              <div
-                className="aspect-square rounded-lg overflow-hidden bg-slate-100 border-2 border-amber-400 border-dashed cursor-pointer"
-                onClick={() => setLightboxIndex(savedImages.length + i)}
-              >
-                <img src={url} alt="preview" className="h-full w-full object-cover transition-transform group-hover:scale-110" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
+          {previewUrls.map((url, i) => {
+            const state = uploadStates[i];
+            const isUploading = state && (state.status === "compressing" || state.status === "uploading");
+            const isError = state?.status === "error";
+
+            return (
+              <div key={`local-${i}`} className="relative group">
+                <div
+                  className={`aspect-square rounded-lg overflow-hidden bg-slate-100 border-2 border-dashed cursor-pointer ${isError ? "border-red-400" : "border-amber-400"}`}
+                  onClick={() => !isUploading && setLightboxIndex(savedImages.length + i)}
+                >
+                  <img src={url} alt="preview" className="h-full w-full object-cover transition-transform group-hover:scale-110" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
+
+                  {/* Progress overlay */}
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-1 px-2">
+                      <span className="text-white text-[10px] font-medium">
+                        {state.status === "compressing" ? "Compressing..." : `${state.progress}%`}
+                      </span>
+                      <div className="w-full h-1 bg-white/30 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-white rounded-full transition-all duration-200"
+                          style={{ width: state.status === "compressing" ? "100%" : `${state.progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error overlay */}
+                  {isError && (
+                    <div className="absolute inset-0 bg-red-900/60 flex items-center justify-center">
+                      <AlertCircle className="h-5 w-5 text-white" />
+                    </div>
+                  )}
+                </div>
+
+                <div className={`absolute top-1 left-1 h-4 w-4 rounded-full flex items-center justify-center shadow ${isError ? "bg-red-500" : "bg-amber-400"}`}>
+                  {isError
+                    ? <AlertCircle className="h-2.5 w-2.5 text-white" />
+                    : <Clock className="h-2.5 w-2.5 text-white" />
+                  }
+                </div>
+
+                {!isUploading && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete({ type: "local", index: i })}
+                    className="absolute top-1 right-1 h-6 w-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-red-600 shadow-md"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
-              <div className="absolute top-1 left-1 h-4 w-4 bg-amber-400 rounded-full flex items-center justify-center shadow">
-                <Clock className="h-2.5 w-2.5 text-white" />
-              </div>
-              <button
-                type="button"
-                onClick={() => setConfirmDelete({ type: "local", index: i })}
-                className="absolute top-1 right-1 h-6 w-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-red-600 shadow-md"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

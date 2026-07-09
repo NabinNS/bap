@@ -12,6 +12,7 @@ import Link from "next/link";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, NumberField, TextAreaField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
 import { MultiImageUpload, type SavedImage } from "@/components/ui/form/MultiImageUpload";
+import { uploadImages, type FileUploadState } from "@/lib/upload";
 import { CreateCategoryModal } from "@/components/categories/CreateCategoryModal";
 import {
   DropdownMenu,
@@ -76,6 +77,7 @@ export default function AdminProducts() {
   const [savedGroupUlid, setSavedGroupUlid] = useState<string | null>(null);
   const [autoSaving, setAutoSaving] = useState(false);
   const [savingPhotos, setSavingPhotos] = useState(false);
+  const [uploadStates, setUploadStates] = useState<FileUploadState[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -167,6 +169,7 @@ export default function AdminProducts() {
     setSavedImages([]);
     setSavedGroupUlid(null);
     setGroupName("product image");
+    setUploadStates([]);
     reset(INITIAL_VALUES);
   }
 
@@ -215,18 +218,10 @@ export default function AdminProducts() {
     }
 
     setSavingPhotos(true);
+    setUploadStates([]);
     try {
-      // 1. Upload each file to R2
-      const uploaded = await Promise.all(
-        images.map(async (file) => {
-          const form = new FormData();
-          form.append("image", file);
-          return apiFetch<{ url: string; path: string }>("/upload/products", {
-            method: "POST",
-            body: form,
-          });
-        })
-      );
+      // 1. Compress + upload files (max 2 at a time, 1 retry each, with progress)
+      const uploaded = await uploadImages(images, "products", setUploadStates);
 
       // 2. Create image group
       const group = await apiFetch<{ data: { ulid: string } }>("/image-groups", {
@@ -539,6 +534,7 @@ export default function AdminProducts() {
           onGroupNameBlur={updateGroupName}
           onRemoveSaved={removeSavedImage}
           saving={savingPhotos}
+          uploadStates={uploadStates}
           max={5}
         />
       </SlidePanel>
