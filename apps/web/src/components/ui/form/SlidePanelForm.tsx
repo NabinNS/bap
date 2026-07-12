@@ -23,7 +23,7 @@ export function SlidePanel({
 }: SlidePanelProps) {
   return (
     <div
-      className={`shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${
+      className={`shrink-0 transition-all duration-300 ease-in-out overflow-hidden h-full ${
         open ? "w-[400px]" : "w-0"
       }`}
     >

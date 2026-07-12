@@ -408,7 +408,7 @@ export default function AdminProducts() {
   ];
 
   return (
-    <div className="flex gap-0 transition-all duration-300 min-h-full">
+    <div className="flex gap-0 transition-all duration-300 h-full">
       <div className="flex-1 min-w-0 space-y-6 p-6">
         <nav className="flex items-center gap-1.5 text-sm text-text-muted">
           <Link href="/admin" className="hover:text-text-default transition-colors">Dashboard</Link>
