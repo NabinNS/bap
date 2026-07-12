@@ -1,6 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 type SlidePanelProps = {
   open: boolean;
@@ -9,6 +10,7 @@ type SlidePanelProps = {
   description?: string;
   onSubmit?: () => void;
   submitLabel?: string;
+  editHref?: string;
   children: React.ReactNode;
 };
 
@@ -19,6 +21,7 @@ export function SlidePanel({
   description,
   onSubmit,
   submitLabel = "Save",
+  editHref,
   children,
 }: SlidePanelProps) {
   return (
@@ -49,8 +52,21 @@ export function SlidePanel({
           {children}
         </div>
 
+        {/* Edit Full Details */}
+        {editHref && (
+          <div className="border-t border-slate-200">
+            <Link
+              href={editHref}
+              className="flex items-center justify-between w-full px-6 py-3 text-sm text-text-muted hover:text-text-default hover:bg-slate-50 transition-colors group"
+            >
+              <span>Edit Full Details</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+        )}
+
         {/* Footer */}
-        <div className="flex items-center ">
+        <div className="flex items-center">
           <button
             onClick={onClose}
             className="flex-1 h-12 border border-slate-300 text-sm font-semibold text-text-default hover:bg-slate-50 cursor-pointer transition-colors"

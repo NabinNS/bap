@@ -65,6 +65,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         <nav className="flex-1 py-4 space-y-1">
+          {collapsed && (
+            <button
+              onClick={() => setCollapsed(false)}
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+              className="flex w-full items-center justify-center px-0 py-2.5 border-l-2 border-transparent text-white/80 hover:bg-white/15 hover:text-white transition-all cursor-pointer"
+            >
+              <ChevronLeft className="h-4 w-4 rotate-180" />
+            </button>
+          )}
           {navItems.map(({ label, href, icon: Icon }) => (
             <Link
               key={href}
@@ -98,14 +108,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </div>
 
-        {/* Toggle Button */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute -right-2 top-[20px] z-20 flex h-10 w-8 items-center justify-center  hover:text-white transition-colors duration-200 cursor-pointer"
-        >
-          <ChevronLeft className={cn("h-6 w-6 transition-transform duration-300", collapsed && "rotate-180")} />
-        </button>
+        {/* Toggle Button — visible only when expanded */}
+        {!collapsed && (
+          <button
+            onClick={() => setCollapsed(true)}
+            aria-label="Collapse sidebar"
+            className="absolute right-0 top-0 z-20 flex h-[76px] w-8 items-center justify-center hover:bg-white/15 transition-colors duration-200 cursor-pointer"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
       </aside>
 
       {/* Main */}

@@ -456,6 +456,7 @@ export default function AdminProducts() {
         description={isEditMode ? "Update the product details." : "Fill in the details to add a new product."}
         submitLabel={isSubmitting ? "Saving..." : isEditMode ? "Update Product" : "Save Product"}
         onSubmit={handleSubmit(onSubmit)}
+        editHref={editingProduct ? `/admin/products/${editingProduct.ulid}/edit` : undefined}
         // handleSubmit(onSubmit) means:
         //   1. Run all validation rules from register()
         //   2. If any fail, show errors — do NOT call onSubmit
