@@ -31,7 +31,7 @@ class IssueTokensAction
             self::REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60,
             '/',
             null,
-            true,
+            app()->isProduction(), // secure: true only in production (HTTPS)
             true,
             false,
             'Lax'

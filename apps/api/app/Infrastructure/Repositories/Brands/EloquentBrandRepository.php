@@ -30,7 +30,6 @@ class EloquentBrandRepository implements BrandRepositoryInterface
             'name'        => $data->name,
             'slug'        => $data->slug,
             'description' => $data->description,
-            'image'       => $data->image,
             'is_active'   => $data->isActive,
             'sort_order'  => $data->sortOrder,
         ]);
@@ -42,7 +41,6 @@ class EloquentBrandRepository implements BrandRepositoryInterface
             'name'        => $data->name,
             'slug'        => $data->slug,
             'description' => $data->description,
-            'image'       => $data->image,
             'is_active'   => $data->isActive,
             'sort_order'  => $data->sortOrder,
         ]);

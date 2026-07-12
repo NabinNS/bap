@@ -13,7 +13,6 @@ class UpdateBrandRequest extends FormRequest
             'name'        => ['sometimes', 'string', 'max:255'],
             'slug'        => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'image'       => ['nullable', 'string'],
             'is_active'   => ['boolean'],
             'sort_order'  => ['integer'],
         ];
@@ -27,7 +26,6 @@ class UpdateBrandRequest extends FormRequest
             name:        $v['name'] ?? $this->route('brand')->name,
             slug:        $v['slug'] ?? null,
             description: $v['description'] ?? null,
-            image:       $v['image'] ?? $this->route('brand')->image,
             isActive:    $v['is_active'] ?? $this->route('brand')->is_active,
             sortOrder:   $v['sort_order'] ?? $this->route('brand')->sort_order,
         );

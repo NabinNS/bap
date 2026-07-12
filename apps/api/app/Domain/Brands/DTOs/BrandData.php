@@ -8,7 +8,6 @@ readonly class BrandData
         public string  $name,
         public ?string $slug,
         public ?string $description,
-        public ?string $image,
         public bool    $isActive,
         public int     $sortOrder,
     ) {}

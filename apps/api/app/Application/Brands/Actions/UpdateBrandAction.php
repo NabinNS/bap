@@ -20,7 +20,6 @@ class UpdateBrandAction
             name:        $data->name,
             slug:        $this->slugService->resolve($data->slug, $data->name),
             description: $data->description,
-            image:       $data->image,
             isActive:    $data->isActive,
             sortOrder:   $data->sortOrder,
         );

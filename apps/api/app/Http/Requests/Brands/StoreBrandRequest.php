@@ -13,7 +13,6 @@ class StoreBrandRequest extends FormRequest
             'name'        => ['required', 'string', 'max:255'],
             'slug'        => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'image'       => ['nullable', 'string'],
             'is_active'   => ['boolean'],
             'sort_order'  => ['integer'],
         ];
@@ -38,7 +37,6 @@ class StoreBrandRequest extends FormRequest
             name:        $v['name'],
             slug:        $v['slug'] ?? null,
             description: $v['description'] ?? null,
-            image:       $v['image'] ?? null,
             isActive:    $v['is_active'] ?? true,
             sortOrder:   $v['sort_order'] ?? 0,
         );

@@ -9,7 +9,7 @@ class ListImageGroupsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'imageable_type' => ['required', 'string', 'in:product'],
+            'imageable_type' => ['required', 'string'],
             'imageable_ulid' => ['required', 'string'],
         ];
     }

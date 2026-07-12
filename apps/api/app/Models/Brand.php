@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasPublicUlid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Brand extends Model
@@ -16,7 +17,6 @@ class Brand extends Model
         'name',
         'slug',
         'description',
-        'image',
         'is_active',
         'sort_order',
     ];
@@ -28,5 +28,10 @@ class Brand extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function imageGroups(): MorphMany
+    {
+        return $this->morphMany(ImageGroup::class, 'imageable')->orderBy('sort_order');
     }
 }

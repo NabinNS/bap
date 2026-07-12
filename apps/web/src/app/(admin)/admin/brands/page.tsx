@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, MoreVertical } from "lucide-react";
@@ -9,7 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, TextAreaField, SelectField } from "@/components/ui/form/FormField";
-import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
+import { MultiImageUpload, type SavedImage } from "@/components/ui/form/MultiImageUpload";
 import { uploadImages, type FileUploadState } from "@/lib/upload";
 import {
   DropdownMenu,
@@ -23,7 +23,6 @@ type Brand = {
   name: string;
   slug: string;
   description: string;
-  image: string | null;
   is_active: boolean;
   sort_order: number;
 };
@@ -65,12 +64,17 @@ export default function AdminBrands() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
+  const [autoSaving, setAutoSaving] = useState(false);
   const [images, setImages] = useState<File[]>([]);
-  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [savedImages, setSavedImages] = useState<SavedImage[]>([]);
+  const [savedGroupUlid, setSavedGroupUlid] = useState<string | null>(null);
+  const [groupName, setGroupName] = useState("brand logo");
+  const [savingPhotos, setSavingPhotos] = useState(false);
   const [uploadStates, setUploadStates] = useState<FileUploadState[]>([]);
 
   const fetchBrands = useCallback(async (p: number) => {
@@ -92,16 +96,20 @@ export default function AdminBrands() {
 
   function openCreate() {
     setEditingBrand(null);
+    setIsEditMode(false);
     setForm(INITIAL_FORM);
     setErrors({});
     setImages([]);
-    setExistingImageUrl(null);
+    setSavedImages([]);
+    setSavedGroupUlid(null);
+    setGroupName("brand logo");
     setUploadStates([]);
     setDrawerOpen(true);
   }
 
-  function openEdit(brand: Brand) {
+  async function openEdit(brand: Brand) {
     setEditingBrand(brand);
+    setIsEditMode(true);
     setForm({
       name: brand.name,
       slug: brand.slug,
@@ -110,19 +118,77 @@ export default function AdminBrands() {
     });
     setErrors({});
     setImages([]);
-    setExistingImageUrl(brand.image);
+    setSavedImages([]);
+    setSavedGroupUlid(null);
     setUploadStates([]);
+    try {
+      const res = await apiFetch<{ data: { ulid: string; name: string; items: SavedImage[] }[] }>(
+        `/image-groups?imageable_type=brand&imageable_ulid=${brand.ulid}`
+      );
+      const items = res.data.flatMap((g) => g.items);
+      setSavedImages(items);
+      if (res.data[0]) {
+        setSavedGroupUlid(res.data[0].ulid);
+        setGroupName(res.data[0].name);
+      }
+    } catch {
+      // non-critical
+    }
     setDrawerOpen(true);
   }
 
   function closeDrawer() {
     setDrawerOpen(false);
     setEditingBrand(null);
+    setIsEditMode(false);
     setForm(INITIAL_FORM);
     setErrors({});
     setImages([]);
-    setExistingImageUrl(null);
+    setSavedImages([]);
+    setSavedGroupUlid(null);
+    setGroupName("brand logo");
     setUploadStates([]);
+  }
+
+  // editingBrandRef lets autoSave always read the latest editingBrand without stale closure issues
+  const editingBrandRef = React.useRef<Brand | null>(null);
+  editingBrandRef.current = editingBrand;
+
+  const formRef = React.useRef<FormState>(form);
+  formRef.current = form;
+
+  async function autoSave() {
+    const current = formRef.current;
+    if (!current.name.trim()) return;
+
+    const payload = {
+      name:        current.name,
+      slug:        current.slug,
+      description: current.description,
+      is_active:   current.status === "active",
+    };
+
+    setAutoSaving(true);
+    try {
+      if (editingBrandRef.current) {
+        await apiFetch(`/brands/${editingBrandRef.current.ulid}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+      } else if (current.name.trim() && current.slug.trim()) {
+        const res = await apiFetch<{ data: Brand }>("/brands", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        setEditingBrand(res.data);
+        editingBrandRef.current = res.data;
+        fetchBrands(page);
+      }
+    } catch {
+      // silent
+    } finally {
+      setAutoSaving(false);
+    }
   }
 
   function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -139,27 +205,88 @@ export default function AdminBrands() {
     return Object.keys(errs).length === 0;
   }
 
+  async function updateGroupName() {
+    if (!savedGroupUlid || !groupName.trim()) return;
+    try {
+      await apiFetch(`/image-groups/${savedGroupUlid}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: groupName }),
+      });
+    } catch {
+      toast.error("Failed to update group name", "Something went wrong.");
+    }
+  }
+
+  async function savePhotos() {
+    if (!formRef.current.name.trim()) {
+      toast.error("Brand name required", "Fill in the brand name before adding a logo.");
+      return;
+    }
+    if (images.length === 0) {
+      toast.error("No image selected", "Pick an image first.");
+      return;
+    }
+
+    // Auto-save brand first if it doesn't exist yet
+    if (!editingBrandRef.current) {
+      await autoSave();
+    }
+    const brand = editingBrandRef.current;
+    if (!brand) return;
+
+    setSavingPhotos(true);
+    setUploadStates([]);
+    try {
+      const uploaded = await uploadImages(images, "brands", setUploadStates);
+      const group = await apiFetch<{ data: { ulid: string } }>("/image-groups", {
+        method: "POST",
+        body: JSON.stringify({
+          imageable_type: "brand",
+          imageable_ulid:  brand.ulid,
+          slug:            "brand-logo",
+          name:            groupName || "brand logo",
+        }),
+      });
+      await apiFetch(`/image-groups/${group.data.ulid}/items`, {
+        method: "POST",
+        body: JSON.stringify({
+          items: uploaded.map((img, i) => ({ url: img.url, path: img.path, sort_order: i })),
+        }),
+      });
+      setSavedImages((prev) => [
+        ...prev,
+        ...uploaded.map((img, i) => ({ ulid: `temp-${Date.now()}-${i}`, url: img.url, path: img.path })),
+      ]);
+      setImages([]);
+      toast.success("Logo saved", "Brand logo has been uploaded.");
+    } catch (err: any) {
+      toast.error("Upload failed", err?.message ?? "Something went wrong.");
+    } finally {
+      setSavingPhotos(false);
+    }
+  }
+
+  async function removeSavedImage(ulid: string) {
+    try {
+      await apiFetch(`/image-items/${ulid}`, { method: "DELETE" });
+      setSavedImages((prev) => prev.filter((img) => img.ulid !== ulid));
+    } catch {
+      toast.error("Failed to delete image", "Something went wrong.");
+    }
+  }
+
   async function handleSubmit() {
     if (!validate()) return;
     setSubmitting(true);
 
+    const payload = {
+      name: form.name,
+      slug: form.slug,
+      description: form.description,
+      is_active: form.status === "active",
+    };
+
     try {
-      let imageUrl = existingImageUrl ?? null;
-
-      if (images.length > 0) {
-        setUploadStates([]);
-        const uploaded = await uploadImages(images, "brands", setUploadStates);
-        imageUrl = uploaded[0]?.url ?? imageUrl;
-      }
-
-      const payload = {
-        name: form.name,
-        slug: form.slug,
-        description: form.description,
-        image: imageUrl,
-        is_active: form.status === "active",
-      };
-
       if (editingBrand) {
         await apiFetch(`/brands/${editingBrand.ulid}`, {
           method: "PUT",
@@ -167,11 +294,14 @@ export default function AdminBrands() {
         });
         toast.success("Brand updated", `"${form.name}" has been updated.`);
       } else {
-        await apiFetch("/brands", {
+        const res = await apiFetch<{ data: Brand }>("/brands", {
           method: "POST",
           body: JSON.stringify(payload),
         });
+        setEditingBrand(res.data);
         toast.success("Brand created", `"${form.name}" has been added.`);
+        fetchBrands(page);
+        return;
       }
 
       closeDrawer();
@@ -192,22 +322,6 @@ export default function AdminBrands() {
   }
 
   const columns: ColumnDef<Brand, unknown>[] = [
-    {
-      accessorKey: "image",
-      header: "Logo",
-      enableSorting: false,
-      size: 60,
-      cell: ({ row }) =>
-        row.original.image ? (
-          <img
-            src={row.original.image}
-            alt={row.original.name}
-            className="h-10 w-10 rounded object-contain border border-slate-200 bg-white p-1"
-          />
-        ) : (
-          <div className="h-10 w-10 rounded border border-slate-200 bg-slate-100" />
-        ),
-    },
     { accessorKey: "name", header: "Name" },
     {
       accessorKey: "slug",
@@ -302,9 +416,9 @@ export default function AdminBrands() {
       <SlidePanel
         open={drawerOpen}
         onClose={closeDrawer}
-        title={editingBrand ? "Edit Brand" : "Add Brand"}
-        description={editingBrand ? "Update the brand details." : "Fill in the details to create a new brand."}
-        submitLabel={submitting ? "Saving..." : editingBrand ? "Update Brand" : "Save Brand"}
+        title={isEditMode ? "Edit Brand" : "Add Brand"}
+        description={isEditMode ? "Update the brand details." : "Fill in the details to create a new brand."}
+        submitLabel={submitting ? "Saving..." : isEditMode ? "Update Brand" : "Save Brand"}
         onSubmit={handleSubmit}
       >
         <InputField
@@ -313,6 +427,7 @@ export default function AdminBrands() {
           placeholder="e.g. Toyota"
           value={form.name}
           onChange={handleNameChange}
+          onBlur={autoSave}
           error={errors.name}
         />
         <InputField
@@ -323,6 +438,7 @@ export default function AdminBrands() {
           hint="Auto-generated from name."
           value={form.slug}
           onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+          onBlur={autoSave}
           error={errors.slug}
         />
         <TextAreaField
@@ -330,11 +446,12 @@ export default function AdminBrands() {
           placeholder="Short description of this brand..."
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+          onBlur={autoSave}
         />
         <SelectField
           label="Status"
           value={form.status}
-          onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+          onChange={(e) => { setForm((f) => ({ ...f, status: e.target.value })); autoSave(); }}
           options={[
             { label: "Active", value: "active" },
             { label: "Inactive", value: "inactive" },
@@ -344,8 +461,13 @@ export default function AdminBrands() {
           label="Brand Logo"
           value={images}
           onChange={setImages}
-          savedImages={existingImageUrl ? [{ ulid: "existing", url: existingImageUrl, path: "" }] : []}
-          onRemoveSaved={() => setExistingImageUrl(null)}
+          savedImages={savedImages}
+          groupName={groupName}
+          onGroupNameChange={setGroupName}
+          onGroupNameBlur={updateGroupName}
+          onSave={savePhotos}
+          onRemoveSaved={removeSavedImage}
+          saving={savingPhotos}
           uploadStates={uploadStates}
           max={1}
         />
