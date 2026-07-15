@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, Controller } from "react-hook-form";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
-import { useCallback } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, MoreVertical } from "lucide-react";
@@ -34,7 +34,6 @@ type Product = {
   category: { ulid: string; name: string } | null;
 };
 
-// FormValues is what React Hook Form tracks — the shape of every field in the form
 type FormValues = {
   name: string;
   category: string;
@@ -44,11 +43,18 @@ type FormValues = {
   status: string;
 };
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type Category = {
   ulid: string;
   name: string;
+};
+
+type ProductPayload = {
+  name: string;
+  category_ulid: string | null;
+  price: number;
+  stock: number;
+  description: string;
+  is_active: boolean;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -62,65 +68,97 @@ const INITIAL_VALUES: FormValues = {
   status: "active",
 };
 
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [images, setImages] = useState<File[]>([]);
   const [savedImages, setSavedImages] = useState<SavedImage[]>([]);
   const [groupName, setGroupName] = useState("product image");
   const [savedGroupUlid, setSavedGroupUlid] = useState<string | null>(null);
-  const [autoSaving, setAutoSaving] = useState(false);
   const [savingPhotos, setSavingPhotos] = useState(false);
   const [uploadStates, setUploadStates] = useState<FileUploadState[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiFetch<{ data: Product[] }>("/products?per_page=50");
-      setProducts(res.data);
-    } catch {
-      toast.error("Failed to load products");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: productsData, isLoading } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => apiFetch<{ data: Product[] }>("/products?per_page=50"),
+  });
 
-  useEffect(() => {
-    fetchProducts();
-    apiFetch<{ data: Category[] }>("/categories?per_page=100")
-      .then((res) => setCategories(res.data))
-      .catch(() => toast.error("Failed to load categories"));
-  }, [fetchProducts]);
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories", "all"],
+    queryFn: () => apiFetch<{ data: Category[] }>("/categories?per_page=100"),
+  });
 
-  // useForm is the single call that replaces:
-  //   useState for form values
-  //   useState for errors
-  //   useState for submitting
-  //   handleChange function
-  //   validate function
-  //
-  // register  → connects an input to React Hook Form
-  // handleSubmit → wraps your submit function, runs validation first
-  // formState → gives you errors and isSubmitting
-  // reset     → clears the form or pre-fills it with new values
+  const products = productsData?.data ?? [];
+  const categories = categoriesData?.data ?? [];
+
   const {
     register,
     handleSubmit,
     control,
     getValues,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     reset,
     setValue,
   } = useForm<FormValues>({ defaultValues: INITIAL_VALUES });
+
+  const autoSaveMutation = useMutation({
+    mutationFn: ({ ulid, payload }: { ulid?: string; payload: ProductPayload }) =>
+      ulid
+        ? apiFetch(`/products/${ulid}`, { method: "PUT", body: JSON.stringify(payload) })
+        : apiFetch<{ data: Product }>("/products", { method: "POST", body: JSON.stringify(payload) }),
+
+    onSuccess: (data, variables) => {
+      if (!variables.ulid) {
+        setEditingProduct((data as { data: Product }).data);
+        queryClient.invalidateQueries({ queryKey: ["products"] });
+      }
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: ({ ulid, payload }: { ulid?: string; payload: ProductPayload }) =>
+      ulid
+        ? apiFetch(`/products/${ulid}`, { method: "PUT", body: JSON.stringify(payload) })
+        : apiFetch<{ data: Product }>("/products", { method: "POST", body: JSON.stringify(payload) }),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success(
+        variables.ulid ? "Product updated" : "Product created",
+        variables.ulid ? `"${variables.payload.name}" has been updated.` : `"${variables.payload.name}" has been added.`
+      );
+      closeDrawer();
+    },
+
+    onError: (err: any) => {
+      if (err?.errors) {
+        toast.warning("Please fix the errors", "Check the highlighted fields.");
+      } else {
+        toast.error(
+          editingProduct ? "Failed to update product" : "Failed to create product",
+          err?.message ?? "Something went wrong."
+        );
+      }
+    },
+  });
+
+  function buildPayload(data: FormValues): ProductPayload {
+    return {
+      name:          data.name,
+      category_ulid: data.category || null,
+      price:         Number(data.price) || 0,
+      stock:         Number(data.stock) || 0,
+      description:   data.description,
+      is_active:     data.status === "active",
+    };
+  }
 
   function openCreate() {
     setEditingProduct(null);
@@ -220,10 +258,8 @@ export default function AdminProducts() {
     setSavingPhotos(true);
     setUploadStates([]);
     try {
-      // 1. Compress + upload files (max 2 at a time, 1 retry each, with progress)
       const uploaded = await uploadImages(images, "products", setUploadStates);
 
-      // 2. Create image group
       const group = await apiFetch<{ data: { ulid: string } }>("/image-groups", {
         method: "POST",
         body: JSON.stringify({
@@ -234,7 +270,6 @@ export default function AdminProducts() {
         }),
       });
 
-      // 3. Save image items
       await apiFetch(`/image-groups/${group.data.ulid}/items`, {
         method: "POST",
         body: JSON.stringify({
@@ -247,6 +282,7 @@ export default function AdminProducts() {
         ...uploaded.map((img, i) => ({ ulid: `temp-${Date.now()}-${i}`, url: img.url, path: img.path })),
       ]);
       setImages([]);
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       toast.success("Photos saved", `${uploaded.length} photo(s) added to "${groupName || "product image"}".`);
     } catch (err: any) {
       toast.error("Upload failed", err?.message ?? "Something went wrong.");
@@ -255,40 +291,10 @@ export default function AdminProducts() {
     }
   }
 
-  async function autoSave() {
+  function autoSave() {
     const data = getValues();
-
-    const payload = {
-      name:          data.name,
-      category_ulid: data.category || null,
-      price:         Number(data.price) || 0,
-      stock:         Number(data.stock) || 0,
-      description:   data.description,
-      is_active:     data.status === "active",
-    };
-
-    setAutoSaving(true);
-    try {
-      if (editingProduct) {
-        // Product exists — update via PUT
-        await apiFetch(`/products/${editingProduct.ulid}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-      } else if (data.name.trim() && data.price && data.stock !== "") {
-        // Minimum required fields filled — create via POST
-        const res = await apiFetch<{ data: Product }>("/products", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        setEditingProduct(res.data);
-        fetchProducts();
-      }
-    } catch {
-      // silent — user can still manually save
-    } finally {
-      setAutoSaving(false);
-    }
+    if (!data.name.trim() || !data.price || data.stock === "") return;
+    autoSaveMutation.mutate({ ulid: editingProduct?.ulid, payload: buildPayload(data) });
   }
 
   function withAutoSave<T extends { onBlur: (...args: any[]) => any }>(field: T): T {
@@ -301,42 +307,8 @@ export default function AdminProducts() {
     };
   }
 
-  async function onSubmit(data: FormValues) {
-    const payload = {
-      name:          data.name,
-      category_ulid: data.category || null, // backend resolves ulid → integer id
-      price:         Number(data.price),
-      stock:         Number(data.stock),
-      description:   data.description,
-      is_active:     data.status === "active",
-    };
-
-    try {
-      if (editingProduct) {
-        await apiFetch(`/products/${editingProduct.ulid}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-        toast.success("Product updated", `"${data.name}" has been updated.`);
-      } else {
-        await apiFetch("/products", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        toast.success("Product created", `"${data.name}" has been added.`);
-      }
-      closeDrawer();
-      fetchProducts();
-    } catch (err: any) {
-      if (err?.errors) {
-        toast.warning("Please fix the errors", "Check the highlighted fields.");
-      } else {
-        toast.error(
-          editingProduct ? "Failed to update product" : "Failed to create product",
-          err?.message ?? "Something went wrong."
-        );
-      }
-    }
+  function onSubmit(data: FormValues) {
+    saveMutation.mutate({ ulid: editingProduct?.ulid, payload: buildPayload(data) });
   }
 
   const columns: ColumnDef<Product, unknown>[] = [
@@ -433,7 +405,7 @@ export default function AdminProducts() {
         <DataTable
           columns={columns}
           data={products}
-          loading={loading}
+          loading={isLoading}
           searchColumn="name"
           searchPlaceholder="Search products..."
         />
@@ -444,7 +416,6 @@ export default function AdminProducts() {
         onClose={() => setCategoryModalOpen(false)}
         initialName={newCategoryName}
         onCreated={(category) => {
-          setCategories((prev) => [category, ...prev]);
           setValue("category", category.ulid);
         }}
       />
@@ -454,13 +425,9 @@ export default function AdminProducts() {
         onClose={closeDrawer}
         title={isEditMode ? "Edit Product" : "Add Product"}
         description={isEditMode ? "Update the product details." : "Fill in the details to add a new product."}
-        submitLabel={isSubmitting ? "Saving..." : isEditMode ? "Update Product" : "Save Product"}
+        submitLabel={saveMutation.isPending ? "Saving..." : isEditMode ? "Update Product" : "Save Product"}
         onSubmit={handleSubmit(onSubmit)}
         editHref={editingProduct ? `/admin/products/${editingProduct.ulid}/edit` : undefined}
-        // handleSubmit(onSubmit) means:
-        //   1. Run all validation rules from register()
-        //   2. If any fail, show errors — do NOT call onSubmit
-        //   3. If all pass, call onSubmit(data) with the clean form values
       >
         <InputField
           label="Name"

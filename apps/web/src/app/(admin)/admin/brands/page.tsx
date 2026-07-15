@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, MoreVertical } from "lucide-react";
@@ -25,6 +26,7 @@ type Brand = {
   description: string;
   is_active: boolean;
   sort_order: number;
+  thumbnail: string | null;
 };
 
 type Meta = {
@@ -43,6 +45,13 @@ type FormState = {
   status: string;
 };
 
+type BrandPayload = {
+  name: string;
+  slug: string;
+  description: string;
+  is_active: boolean;
+};
+
 type FormErrors = Partial<Record<keyof FormState, string>>;
 
 const INITIAL_FORM: FormState = {
@@ -57,19 +66,15 @@ function toSlug(value: string) {
 }
 
 export default function AdminBrands() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [meta, setMeta] = useState<Meta | null>(null);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
+  const [page, setPage] = useState(1);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [submitting, setSubmitting] = useState(false);
 
-  const [autoSaving, setAutoSaving] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [savedImages, setSavedImages] = useState<SavedImage[]>([]);
   const [savedGroupUlid, setSavedGroupUlid] = useState<string | null>(null);
@@ -77,22 +82,57 @@ export default function AdminBrands() {
   const [savingPhotos, setSavingPhotos] = useState(false);
   const [uploadStates, setUploadStates] = useState<FileUploadState[]>([]);
 
-  const fetchBrands = useCallback(async (p: number) => {
-    setLoading(true);
-    try {
-      const res = await apiFetch<{ data: Brand[]; meta: Meta }>(`/brands?page=${p}&per_page=15`);
-      setBrands(res.data);
-      setMeta(res.meta);
-    } catch {
-      toast.error("Failed to load brands");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data, isLoading } = useQuery({
+    queryKey: ["brands", page],
+    queryFn: () => apiFetch<{ data: Brand[]; meta: Meta }>(`/brands?page=${page}&per_page=15`),
+  });
 
-  useEffect(() => {
-    fetchBrands(page);
-  }, [page, fetchBrands]);
+  const brands = data?.data ?? [];
+  const meta = data?.meta ?? null;
+
+  const autoSaveMutation = useMutation({
+    mutationFn: ({ ulid, payload }: { ulid?: string; payload: BrandPayload }) =>
+      ulid
+        ? apiFetch(`/brands/${ulid}`, { method: "PUT", body: JSON.stringify(payload) })
+        : apiFetch<{ data: Brand }>("/brands", { method: "POST", body: JSON.stringify(payload) }),
+
+    onSuccess: (data, variables) => {
+      if (!variables.ulid) {
+        setEditingBrand((data as { data: Brand }).data);
+        queryClient.invalidateQueries({ queryKey: ["brands"] });
+      }
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: ({ ulid, payload }: { ulid?: string; payload: BrandPayload }) =>
+      ulid
+        ? apiFetch(`/brands/${ulid}`, { method: "PUT", body: JSON.stringify(payload) })
+        : apiFetch<{ data: Brand }>("/brands", { method: "POST", body: JSON.stringify(payload) }),
+
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["brands"] });
+      if (!variables.ulid) {
+        setEditingBrand((data as { data: Brand }).data);
+        toast.success("Brand created", `"${form.name}" has been added.`);
+      } else {
+        toast.success("Brand updated", `"${form.name}" has been updated.`);
+        closeDrawer();
+      }
+    },
+
+    onError: (err: any) => {
+      if (err?.errors) {
+        setErrors(err.errors);
+        toast.warning("Please fix the errors", "Check the highlighted fields.");
+      } else {
+        toast.error(
+          editingBrand ? "Failed to update brand" : "Failed to create brand",
+          err?.message ?? "Something went wrong."
+        );
+      }
+    },
+  });
 
   function openCreate() {
     setEditingBrand(null);
@@ -150,45 +190,18 @@ export default function AdminBrands() {
     setUploadStates([]);
   }
 
-  // editingBrandRef lets autoSave always read the latest editingBrand without stale closure issues
-  const editingBrandRef = React.useRef<Brand | null>(null);
-  editingBrandRef.current = editingBrand;
-
-  const formRef = React.useRef<FormState>(form);
-  formRef.current = form;
-
-  async function autoSave() {
-    const current = formRef.current;
-    if (!current.name.trim()) return;
-
-    const payload = {
-      name:        current.name,
-      slug:        current.slug,
-      description: current.description,
-      is_active:   current.status === "active",
+  function buildPayload(f: FormState): BrandPayload {
+    return {
+      name: f.name,
+      slug: f.slug,
+      description: f.description,
+      is_active: f.status === "active",
     };
+  }
 
-    setAutoSaving(true);
-    try {
-      if (editingBrandRef.current) {
-        await apiFetch(`/brands/${editingBrandRef.current.ulid}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-      } else if (current.name.trim() && current.slug.trim()) {
-        const res = await apiFetch<{ data: Brand }>("/brands", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        setEditingBrand(res.data);
-        editingBrandRef.current = res.data;
-        fetchBrands(page);
-      }
-    } catch {
-      // silent
-    } finally {
-      setAutoSaving(false);
-    }
+  function autoSave(currentForm: FormState = form) {
+    if (!currentForm.name.trim()) return;
+    autoSaveMutation.mutate({ ulid: editingBrand?.ulid, payload: buildPayload(currentForm) });
   }
 
   function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -218,7 +231,7 @@ export default function AdminBrands() {
   }
 
   async function savePhotos() {
-    if (!formRef.current.name.trim()) {
+    if (!form.name.trim()) {
       toast.error("Brand name required", "Fill in the brand name before adding a logo.");
       return;
     }
@@ -227,11 +240,14 @@ export default function AdminBrands() {
       return;
     }
 
-    // Auto-save brand first if it doesn't exist yet
-    if (!editingBrandRef.current) {
-      await autoSave();
+    let brand = editingBrand;
+    if (!brand) {
+      const res = await autoSaveMutation.mutateAsync({
+        ulid: undefined,
+        payload: buildPayload(form),
+      }) as { data: Brand };
+      brand = res.data;
     }
-    const brand = editingBrandRef.current;
     if (!brand) return;
 
     setSavingPhotos(true);
@@ -258,6 +274,7 @@ export default function AdminBrands() {
         ...uploaded.map((img, i) => ({ ulid: `temp-${Date.now()}-${i}`, url: img.url, path: img.path })),
       ]);
       setImages([]);
+      queryClient.invalidateQueries({ queryKey: ["brands"] });
       toast.success("Logo saved", "Brand logo has been uploaded.");
     } catch (err: any) {
       toast.error("Upload failed", err?.message ?? "Something went wrong.");
@@ -275,53 +292,28 @@ export default function AdminBrands() {
     }
   }
 
-  async function handleSubmit() {
+  function handleSubmit() {
     if (!validate()) return;
-    setSubmitting(true);
-
-    const payload = {
-      name: form.name,
-      slug: form.slug,
-      description: form.description,
-      is_active: form.status === "active",
-    };
-
-    try {
-      if (editingBrand) {
-        await apiFetch(`/brands/${editingBrand.ulid}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-        toast.success("Brand updated", `"${form.name}" has been updated.`);
-      } else {
-        const res = await apiFetch<{ data: Brand }>("/brands", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        setEditingBrand(res.data);
-        toast.success("Brand created", `"${form.name}" has been added.`);
-        fetchBrands(page);
-        return;
-      }
-
-      closeDrawer();
-      fetchBrands(page);
-    } catch (err: any) {
-      if (err?.errors) {
-        setErrors(err.errors);
-        toast.warning("Please fix the errors", "Check the highlighted fields.");
-      } else {
-        toast.error(
-          editingBrand ? "Failed to update brand" : "Failed to create brand",
-          err?.message ?? "Something went wrong."
-        );
-      }
-    } finally {
-      setSubmitting(false);
-    }
+    saveMutation.mutate({ ulid: editingBrand?.ulid, payload: buildPayload(form) });
   }
 
   const columns: ColumnDef<Brand, unknown>[] = [
+    {
+      accessorKey: "thumbnail",
+      header: "Logo",
+      enableSorting: false,
+      size: 60,
+      cell: ({ row }) =>
+        row.original.thumbnail ? (
+          <img
+            src={row.original.thumbnail}
+            alt={row.original.name}
+            className="h-14 w-14 rounded-lg object-cover border border-slate-200"
+          />
+        ) : (
+          <div className="h-14 w-14 rounded-lg border border-slate-200 bg-slate-100" />
+        ),
+    },
     { accessorKey: "name", header: "Name" },
     {
       accessorKey: "slug",
@@ -405,7 +397,7 @@ export default function AdminBrands() {
         <DataTable
           columns={columns}
           data={brands}
-          loading={loading}
+          loading={isLoading}
           meta={meta}
           onPageChange={setPage}
           searchColumn="name"
@@ -418,7 +410,7 @@ export default function AdminBrands() {
         onClose={closeDrawer}
         title={isEditMode ? "Edit Brand" : "Add Brand"}
         description={isEditMode ? "Update the brand details." : "Fill in the details to create a new brand."}
-        submitLabel={submitting ? "Saving..." : isEditMode ? "Update Brand" : "Save Brand"}
+        submitLabel={saveMutation.isPending ? "Saving..." : isEditMode ? "Update Brand" : "Save Brand"}
         onSubmit={handleSubmit}
       >
         <InputField
@@ -427,7 +419,7 @@ export default function AdminBrands() {
           placeholder="e.g. Toyota"
           value={form.name}
           onChange={handleNameChange}
-          onBlur={autoSave}
+          onBlur={() => autoSave()}
           error={errors.name}
         />
         <InputField
@@ -438,7 +430,7 @@ export default function AdminBrands() {
           hint="Auto-generated from name."
           value={form.slug}
           onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-          onBlur={autoSave}
+          onBlur={() => autoSave()}
           error={errors.slug}
         />
         <TextAreaField
@@ -446,12 +438,16 @@ export default function AdminBrands() {
           placeholder="Short description of this brand..."
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-          onBlur={autoSave}
+          onBlur={() => autoSave()}
         />
         <SelectField
           label="Status"
           value={form.status}
-          onChange={(e) => { setForm((f) => ({ ...f, status: e.target.value })); autoSave(); }}
+          onChange={(e) => {
+            const status = e.target.value;
+            setForm((f) => ({ ...f, status }));
+            autoSave({ ...form, status });
+          }}
           options={[
             { label: "Active", value: "active" },
             { label: "Inactive", value: "inactive" },

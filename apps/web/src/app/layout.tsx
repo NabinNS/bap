@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Noto_Sans_Devanagari } from "next/font/google";
 import { AuthProvider } from "@/features/auth/AuthProvider";
+import { QueryProvider } from "@/components/QueryProvider";
 import { Toaster } from "sonner";
 import "@/styles/globals.css";
 
@@ -28,7 +29,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${plusJakarta.variable} ${notoDevanagari.variable} antialiased`}>
-        <AuthProvider>{children}</AuthProvider>
+        <QueryProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryProvider>
         <Toaster
           position="top-right"
           visibleToasts={5}

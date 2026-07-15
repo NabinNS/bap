@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, MoreVertical } from "lucide-react";
@@ -55,33 +56,49 @@ function toSlug(value: string) {
 }
 
 export default function AdminCategories() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [meta, setMeta] = useState<Meta | null>(null);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
+  const [page, setPage] = useState(1);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [submitting, setSubmitting] = useState(false);
 
-  const fetchCategories = useCallback(async (p: number) => {
-    setLoading(true);
-    try {
-      const res = await apiFetch<{ data: Category[]; meta: Meta }>(`/categories?page=${p}&per_page=15`);
-      setCategories(res.data);
-      setMeta(res.meta);
-    } catch {
-      toast.error("Failed to load categories");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data, isLoading } = useQuery({
+    queryKey: ["categories", page],
+    queryFn: () => apiFetch<{ data: Category[]; meta: Meta }>(`/categories?page=${page}&per_page=15`),
+  });
 
-  useEffect(() => {
-    fetchCategories(page);
-  }, [page, fetchCategories]);
+  const categories = data?.data ?? [];
+  const meta = data?.meta ?? null;
+
+  const saveMutation = useMutation({
+    mutationFn: (payload: { name: string; slug: string; description: string; is_active: boolean }) =>
+      editingCategory
+        ? apiFetch(`/categories/${editingCategory.ulid}`, { method: "PUT", body: JSON.stringify(payload) })
+        : apiFetch("/categories", { method: "POST", body: JSON.stringify(payload) }),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success(
+        editingCategory ? "Category updated" : "Category created",
+        editingCategory ? `"${form.name}" has been updated.` : `"${form.name}" has been added.`
+      );
+      closeDrawer();
+    },
+
+    onError: (err: any) => {
+      if (err?.errors) {
+        setErrors(err.errors);
+        toast.warning("Please fix the errors", "Check the highlighted fields.");
+      } else {
+        toast.error(
+          editingCategory ? "Failed to update category" : "Failed to create category",
+          err?.message ?? "Something went wrong."
+        );
+      }
+    },
+  });
 
   function openCreate() {
     setEditingCategory(null);
@@ -123,47 +140,14 @@ export default function AdminCategories() {
     return Object.keys(errs).length === 0;
   }
 
-  async function handleSubmit() {
+  function handleSubmit() {
     if (!validate()) return;
-    setSubmitting(true);
-
-    const payload = {
+    saveMutation.mutate({
       name: form.name,
       slug: form.slug,
       description: form.description,
       is_active: form.status === "active",
-    };
-
-    try {
-      if (editingCategory) {
-        await apiFetch(`/categories/${editingCategory.ulid}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-        toast.success("Category updated", `"${form.name}" has been updated.`);
-      } else {
-        await apiFetch("/categories", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        toast.success("Category created", `"${form.name}" has been added.`);
-      }
-
-      closeDrawer();
-      fetchCategories(page);
-    } catch (err: any) {
-      if (err?.errors) {
-        setErrors(err.errors);
-        toast.warning("Please fix the errors", "Check the highlighted fields.");
-      } else {
-        toast.error(
-          editingCategory ? "Failed to update category" : "Failed to create category",
-          err?.message ?? "Something went wrong."
-        );
-      }
-    } finally {
-      setSubmitting(false);
-    }
+    });
   }
 
   const columns: ColumnDef<Category, unknown>[] = [
@@ -250,7 +234,7 @@ export default function AdminCategories() {
         <DataTable
           columns={columns}
           data={categories}
-          loading={loading}
+          loading={isLoading}
           meta={meta}
           onPageChange={setPage}
           searchColumn="name"
@@ -263,7 +247,7 @@ export default function AdminCategories() {
         onClose={closeDrawer}
         title={editingCategory ? "Edit Category" : "Add Category"}
         description={editingCategory ? "Update the category details." : "Fill in the details to create a new category."}
-        submitLabel={submitting ? "Saving..." : editingCategory ? "Update Category" : "Save Category"}
+        submitLabel={saveMutation.isPending ? "Saving..." : editingCategory ? "Update Category" : "Save Category"}
         onSubmit={handleSubmit}
       >
         <InputField

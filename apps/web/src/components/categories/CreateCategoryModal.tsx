@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
 import { InputField, TextAreaField } from "@/components/ui/form/FormField";
 import { apiFetch } from "@/lib/api";
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export function CreateCategoryModal({ open, onClose, initialName = "", onCreated }: Props) {
+  const queryClient = useQueryClient();
   const {
     register,
     handleSubmit,
@@ -40,6 +42,7 @@ export function CreateCategoryModal({ open, onClose, initialName = "", onCreated
         body: JSON.stringify({ name: data.name, description: data.description }),
       });
       toast.success("Category created", `"${data.name}" has been added.`);
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
       onCreated(res.data);
       onClose();
     } catch (err: any) {

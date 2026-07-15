@@ -12,6 +12,7 @@ class EloquentBrandRepository implements BrandRepositoryInterface
     public function paginate(int $tenantId, int $perPage): LengthAwarePaginator
     {
         return Brand::where('tenant_id', $tenantId)
+            ->with('imageGroups.imageItems')
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
     }
