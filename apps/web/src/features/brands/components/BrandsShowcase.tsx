@@ -130,7 +130,7 @@ export default function BrandsShowcase() {
                   </div>
                 )}
               </div>
-              <p className="mt-2 w-full line-clamp-1 text-center text-[14px] font-semibold text-gray-700">
+              <p title={brand.name} className="mt-2 w-full line-clamp-1 text-center text-sm-custom font-semibold text-gray-700">
                 {brand.name}
               </p>
             </div>

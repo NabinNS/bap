@@ -16,7 +16,7 @@ export default function CategoryCard({ name, image, href }: CategoryCardProps) {
     return (
         <Link
             href={href}
-            className="group relative block overflow-hidden rounded-xl bg-white border border-gray-200 shadow-sm flex flex-col h-full min-w-[200px] cursor-pointer transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-md"
+            className="group relative block overflow-hidden rounded-xl bg-white border border-gray-200 shadow-sm flex flex-col h-full w-full min-w-0 cursor-pointer transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-md"
         >
             {/* Image Container */}
             <div className="relative aspect-[3/2] overflow-hidden bg-slate-50 shrink-0">
@@ -39,8 +39,8 @@ export default function CategoryCard({ name, image, href }: CategoryCardProps) {
             </div>
 
             {/* Category Details */}
-            <div className="p-2 text-center border-t border-slate-50">
-                <h3 className="text-base font-semibold text-gray-800 group-hover:text-[#0d3b66] transition-colors truncate">
+            <div className="p-2 text-center border-t border-slate-50 min-w-0 w-full">
+                <h3 title={name} className="text-sm-custom font-semibold text-gray-800 group-hover:text-[#0d3b66] transition-colors truncate">
                     {name}
                 </h3>
             </div>

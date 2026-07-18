@@ -60,7 +60,7 @@ export default function CategorySlider() {
         className="flex overflow-x-auto gap-4 pb-4 hide-scrollbar scroll-smooth"
       >
         {categories.map((category) => (
-          <div key={category.ulid} className="min-w-[200px] sm:min-w-[200px] flex-shrink-0">
+          <div key={category.ulid} className="w-[200px] flex-shrink-0">
             <CategoryCard
               name={category.name}
               image={category.thumbnail ?? undefined}
