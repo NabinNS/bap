@@ -39,12 +39,10 @@ export default function SimilarProducts({
                 {products.map((product) => (
                     <div key={product.id} className="min-w-[220px] sm:min-w-[240px] flex-shrink-0">
                         <ProductCard
-                            id={product.id}
+                            ulid={product.id}
                             name={product.name}
                             price={product.price}
-                            originalPrice={product.originalPrice}
-                            rating={product.rating}
-                            image={product.image}
+                            thumbnail={product.image}
                             category={product.category}
                         />
                     </div>

@@ -19,7 +19,7 @@ export default function CategorySlider() {
 
   const { data } = useQuery({
     queryKey: ["public-categories"],
-    queryFn: () => apiFetch<{ data: ApiCategory[] }>("/categories?per_page=50&is_active=true"),
+    queryFn: () => apiFetch<{ data: ApiCategory[] }>("/categories?per_page=10&is_active=true"),
   });
 
   const categories = data?.data ?? [];

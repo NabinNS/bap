@@ -177,7 +177,14 @@ function ProductsPageContent() {
                             ) : (
                                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                     {paginatedProducts.map((product, i) => (
-                                        <ProductCard key={`${start}-${i}-${product.id}`} {...product} />
+                                        <ProductCard
+                                            key={`${start}-${i}-${product.id}`}
+                                            ulid={product.id}
+                                            name={product.name}
+                                            price={product.price}
+                                            thumbnail={product.image}
+                                            category={product.category}
+                                        />
                                     ))}
                                 </div>
                             )}
