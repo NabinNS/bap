@@ -15,12 +15,16 @@ import {
   ChevronLeft,
   Tag,
   Bookmark,
+  Images,
+  BadgePercent,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/AuthProvider";
 
 const navItems = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "Sliders", href: "/admin/sliders", icon: Images },
+  { label: "Offers", href: "/admin/offers", icon: BadgePercent },
   { label: "Products", href: "/admin/products", icon: Package },
   { label: "Categories", href: "/admin/categories", icon: Tag },
   { label: "Brands", href: "/admin/brands", icon: Bookmark },

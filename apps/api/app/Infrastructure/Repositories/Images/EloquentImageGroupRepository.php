@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\ImageGroup;
 use App\Models\ImageItem;
 use App\Models\Product;
+use App\Models\Slider;
 use Illuminate\Support\Collection;
 
 class EloquentImageGroupRepository implements ImageGroupRepositoryInterface
@@ -72,6 +73,7 @@ class EloquentImageGroupRepository implements ImageGroupRepositoryInterface
             'product'  => Product::where('ulid', $ulid)->where('tenant_id', $tenantId)->firstOrFail()->id,
             'brand'    => Brand::where('ulid', $ulid)->where('tenant_id', $tenantId)->firstOrFail()->id,
             'category' => Category::where('ulid', $ulid)->where('tenant_id', $tenantId)->firstOrFail()->id,
+            'slider'   => Slider::where('ulid', $ulid)->where('tenant_id', $tenantId)->firstOrFail()->id,
             default    => abort(422, 'Unsupported imageable type.'),
         };
     }

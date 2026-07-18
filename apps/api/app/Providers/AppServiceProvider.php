@@ -3,10 +3,12 @@
 namespace App\Providers;
 
 use App\Domain\Brands\Repositories\BrandRepositoryInterface;
+use App\Domain\Sliders\Repositories\SliderRepositoryInterface;
 use App\Domain\Categories\Repositories\CategoryRepositoryInterface;
 use App\Domain\Images\Repositories\ImageGroupRepositoryInterface;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Infrastructure\Repositories\Brands\EloquentBrandRepository;
+use App\Infrastructure\Repositories\Sliders\EloquentSliderRepository;
 use App\Infrastructure\Repositories\Categories\EloquentCategoryRepository;
 use App\Infrastructure\Repositories\Images\EloquentImageGroupRepository;
 use App\Infrastructure\Repositories\Products\EloquentProductRepository;
@@ -14,11 +16,13 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\ImageItem;
 use App\Models\Product;
+use App\Models\Slider;
 use App\Models\Tenant;
 use App\Observers\ImageItemObserver;
 use App\Policies\BrandPolicy;
 use App\Policies\CategoryPolicy;
 use App\Policies\ProductPolicy;
+use App\Policies\SliderPolicy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;
@@ -32,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
         $this->app->bind(ProductRepositoryInterface::class, EloquentProductRepository::class);
         $this->app->bind(ImageGroupRepositoryInterface::class, EloquentImageGroupRepository::class);
+        $this->app->bind(SliderRepositoryInterface::class, EloquentSliderRepository::class);
     }
 
     public function boot(): void
@@ -44,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
             'product'  => Product::class,
             'category' => Category::class,
             'brand'    => Brand::class,
+            'slider'   => Slider::class,
             'tenant'   => Tenant::class,
         ]);
 
@@ -54,5 +60,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Brand::class, BrandPolicy::class);
         Gate::policy(Category::class, CategoryPolicy::class);
         Gate::policy(Product::class, ProductPolicy::class);
+        Gate::policy(Slider::class, SliderPolicy::class);
     }
 }

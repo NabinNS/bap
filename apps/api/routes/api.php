@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\BrandController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ImageGroupController;
+use App\Http\Controllers\Api\SliderController;
 use App\Http\Controllers\Api\UploadController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,8 @@ Route::middleware('resolve.tenant')->group(function () {
     Route::get('categories/{ulid}', [CategoryController::class, 'show']);
     Route::get('products', [ProductController::class, 'index']);
     Route::get('products/{ulid}', [ProductController::class, 'show']);
+    Route::get('sliders', [SliderController::class, 'index']);
+    Route::get('sliders/{ulid}', [SliderController::class, 'show']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -27,6 +30,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('brands', BrandController::class)->except(['index', 'show']);
     Route::apiResource('categories', CategoryController::class)->except(['index', 'show']);
     Route::apiResource('products', ProductController::class)->except(['index', 'show']);
+    Route::apiResource('sliders', SliderController::class)->except(['index', 'show']);
 });
 
 Route::prefix('auth')->group(function () {

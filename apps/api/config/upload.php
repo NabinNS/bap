@@ -6,6 +6,7 @@ return [
         'categories',
         'products',
         'profiles',
+        'sliders',
     ],
 
     'max_size' => 5120,
