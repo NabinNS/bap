@@ -20,7 +20,11 @@ class CategoryController extends Controller
     public function index(Request $request, ListCategoriesAction $action): JsonResponse
     {
         return ApiResponse::paginated(
-            $action->execute(app('current_tenant')->id, $request->integer('per_page', 15)),
+            $action->execute(
+                app('current_tenant')->id,
+                $request->integer('per_page', 15),
+                $request->boolean('is_active'),
+            ),
             CategoryResource::class,
             'Categories retrieved successfully'
         );

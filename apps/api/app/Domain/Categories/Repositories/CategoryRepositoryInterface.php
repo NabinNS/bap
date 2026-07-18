@@ -8,7 +8,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface CategoryRepositoryInterface
 {
-    public function paginate(int $tenantId, int $perPage): LengthAwarePaginator;
+    public function paginate(int $tenantId, int $perPage, bool $onlyActive = false): LengthAwarePaginator;
 
     public function findByUlid(int $tenantId, string $ulid): Category;
 

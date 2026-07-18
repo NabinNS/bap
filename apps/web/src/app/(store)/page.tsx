@@ -5,7 +5,7 @@ import PromoCards from "@/features/home/components/PromoCards";
 import ProductSlider from "@/features/products/components/ProductSlider";
 import CategorySlider from "@/features/categories/components/CategorySlider";
 import BrandsShowcase from "@/features/brands/components/BrandsShowcase";
-import { featuredProducts, categories } from "@/data/storeHome";
+import { featuredProducts } from "@/data/storeHome";
 
 export default function StoreHomePage() {
   return (
@@ -35,7 +35,7 @@ export default function StoreHomePage() {
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </div>
-                <CategorySlider categories={categories} />
+                <CategorySlider />
               </section>
             </div>
 

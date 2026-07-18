@@ -11,8 +11,8 @@ class ListCategoriesAction
         private CategoryRepositoryInterface $categories,
     ) {}
 
-    public function execute(int $tenantId, int $perPage = 15): LengthAwarePaginator
+    public function execute(int $tenantId, int $perPage = 15, bool $onlyActive = false): LengthAwarePaginator
     {
-        return $this->categories->paginate($tenantId, $perPage);
+        return $this->categories->paginate($tenantId, $perPage, $onlyActive);
     }
 }

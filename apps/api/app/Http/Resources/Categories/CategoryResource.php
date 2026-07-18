@@ -14,7 +14,9 @@ class CategoryResource extends JsonResource
             'name'        => $this->name,
             'slug'        => $this->slug,
             'description' => $this->description,
-            'image'       => $this->image,
+            'thumbnail'   => $this->whenLoaded('imageGroups', fn() =>
+                $this->imageGroups->first()?->imageItems->first()?->url
+            ),
             'is_active'   => $this->is_active,
             'sort_order'  => $this->sort_order,
             'created_at'  => $this->created_at,

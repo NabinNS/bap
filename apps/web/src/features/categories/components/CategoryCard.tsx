@@ -6,12 +6,11 @@ import Image from "next/image";
 
 interface CategoryCardProps {
     name: string;
-    count: string;
     image?: string;
     href: string;
 }
 
-export default function CategoryCard({ name, count, image, href }: CategoryCardProps) {
+export default function CategoryCard({ name, image, href }: CategoryCardProps) {
     const [imageError, setImageError] = useState(false);
 
     return (
@@ -44,9 +43,6 @@ export default function CategoryCard({ name, count, image, href }: CategoryCardP
                 <h3 className="text-base font-semibold text-gray-800 group-hover:text-[#0d3b66] transition-colors truncate">
                     {name}
                 </h3>
-                <span className="inline-flex items-center justify-center mt-2 text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
-                    {count}
-                </span>
             </div>
         </Link>
     );
