@@ -5,7 +5,7 @@ import PromoCards from "@/features/home/components/PromoCards";
 import ProductSlider from "@/features/products/components/ProductSlider";
 import CategorySlider from "@/features/categories/components/CategorySlider";
 import BrandsShowcase from "@/features/brands/components/BrandsShowcase";
-import { featuredProducts, categories, brands } from "@/data/storeHome";
+import { featuredProducts, categories } from "@/data/storeHome";
 
 export default function StoreHomePage() {
   return (
@@ -69,7 +69,7 @@ export default function StoreHomePage() {
         </section>
 
 
-        <BrandsShowcase brands={brands} />
+        <BrandsShowcase />
       </div>
     </div>
   );

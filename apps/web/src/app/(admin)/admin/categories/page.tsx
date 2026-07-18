@@ -10,6 +10,8 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, TextAreaField, SelectField } from "@/components/ui/form/FormField";
+import { MultiImageUpload, type SavedImage } from "@/components/ui/form/MultiImageUpload";
+import { uploadImages, type FileUploadState } from "@/lib/upload";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +26,7 @@ type Category = {
   description: string;
   is_active: boolean;
   sort_order: number;
+  thumbnail: string | null;
 };
 
 type Meta = {
@@ -40,6 +43,13 @@ type FormState = {
   slug: string;
   description: string;
   status: string;
+};
+
+type CategoryPayload = {
+  name: string;
+  slug: string;
+  description: string;
+  is_active: boolean;
 };
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
@@ -61,8 +71,16 @@ export default function AdminCategories() {
   const [page, setPage] = useState(1);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  const [images, setImages] = useState<File[]>([]);
+  const [savedImages, setSavedImages] = useState<SavedImage[]>([]);
+  const [savedGroupUlid, setSavedGroupUlid] = useState<string | null>(null);
+  const [groupName, setGroupName] = useState("category image");
+  const [savingPhotos, setSavingPhotos] = useState(false);
+  const [uploadStates, setUploadStates] = useState<FileUploadState[]>([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["categories", page],
@@ -72,19 +90,35 @@ export default function AdminCategories() {
   const categories = data?.data ?? [];
   const meta = data?.meta ?? null;
 
-  const saveMutation = useMutation({
-    mutationFn: (payload: { name: string; slug: string; description: string; is_active: boolean }) =>
-      editingCategory
-        ? apiFetch(`/categories/${editingCategory.ulid}`, { method: "PUT", body: JSON.stringify(payload) })
-        : apiFetch("/categories", { method: "POST", body: JSON.stringify(payload) }),
+  const autoSaveMutation = useMutation({
+    mutationFn: ({ ulid, payload }: { ulid?: string; payload: CategoryPayload }) =>
+      ulid
+        ? apiFetch(`/categories/${ulid}`, { method: "PUT", body: JSON.stringify(payload) })
+        : apiFetch<{ data: Category }>("/categories", { method: "POST", body: JSON.stringify(payload) }),
 
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      if (!variables.ulid) {
+        setEditingCategory((data as { data: Category }).data);
+        queryClient.invalidateQueries({ queryKey: ["categories"] });
+      }
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: ({ ulid, payload }: { ulid?: string; payload: CategoryPayload }) =>
+      ulid
+        ? apiFetch(`/categories/${ulid}`, { method: "PUT", body: JSON.stringify(payload) })
+        : apiFetch<{ data: Category }>("/categories", { method: "POST", body: JSON.stringify(payload) }),
+
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
-      toast.success(
-        editingCategory ? "Category updated" : "Category created",
-        editingCategory ? `"${form.name}" has been updated.` : `"${form.name}" has been added.`
-      );
-      closeDrawer();
+      if (!variables.ulid) {
+        setEditingCategory((data as { data: Category }).data);
+        toast.success("Category created", `"${form.name}" has been added.`);
+      } else {
+        toast.success("Category updated", `"${form.name}" has been updated.`);
+        closeDrawer();
+      }
     },
 
     onError: (err: any) => {
@@ -102,13 +136,20 @@ export default function AdminCategories() {
 
   function openCreate() {
     setEditingCategory(null);
+    setIsEditMode(false);
     setForm(INITIAL_FORM);
     setErrors({});
+    setImages([]);
+    setSavedImages([]);
+    setSavedGroupUlid(null);
+    setGroupName("category image");
+    setUploadStates([]);
     setDrawerOpen(true);
   }
 
-  function openEdit(category: Category) {
+  async function openEdit(category: Category) {
     setEditingCategory(category);
+    setIsEditMode(true);
     setForm({
       name: category.name,
       slug: category.slug,
@@ -116,14 +157,51 @@ export default function AdminCategories() {
       status: category.is_active ? "active" : "inactive",
     });
     setErrors({});
+    setImages([]);
+    setSavedImages([]);
+    setSavedGroupUlid(null);
+    setUploadStates([]);
+    try {
+      const res = await apiFetch<{ data: { ulid: string; name: string; items: SavedImage[] }[] }>(
+        `/image-groups?imageable_type=category&imageable_ulid=${category.ulid}`
+      );
+      const items = res.data.flatMap((g) => g.items);
+      setSavedImages(items);
+      if (res.data[0]) {
+        setSavedGroupUlid(res.data[0].ulid);
+        setGroupName(res.data[0].name);
+      }
+    } catch {
+      // non-critical
+    }
     setDrawerOpen(true);
   }
 
   function closeDrawer() {
     setDrawerOpen(false);
     setEditingCategory(null);
+    setIsEditMode(false);
     setForm(INITIAL_FORM);
     setErrors({});
+    setImages([]);
+    setSavedImages([]);
+    setSavedGroupUlid(null);
+    setGroupName("category image");
+    setUploadStates([]);
+  }
+
+  function buildPayload(f: FormState): CategoryPayload {
+    return {
+      name: f.name,
+      slug: f.slug,
+      description: f.description,
+      is_active: f.status === "active",
+    };
+  }
+
+  function autoSave(currentForm: FormState = form) {
+    if (!currentForm.name.trim()) return;
+    autoSaveMutation.mutate({ ulid: editingCategory?.ulid, payload: buildPayload(currentForm) });
   }
 
   function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -140,17 +218,102 @@ export default function AdminCategories() {
     return Object.keys(errs).length === 0;
   }
 
+  async function updateGroupName() {
+    if (!savedGroupUlid || !groupName.trim()) return;
+    try {
+      await apiFetch(`/image-groups/${savedGroupUlid}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: groupName }),
+      });
+    } catch {
+      toast.error("Failed to update group name", "Something went wrong.");
+    }
+  }
+
+  async function savePhotos() {
+    if (!form.name.trim()) {
+      toast.error("Category name required", "Fill in the category name before adding an image.");
+      return;
+    }
+    if (images.length === 0) {
+      toast.error("No image selected", "Pick an image first.");
+      return;
+    }
+
+    let category = editingCategory;
+    if (!category) {
+      const res = await autoSaveMutation.mutateAsync({
+        ulid: undefined,
+        payload: buildPayload(form),
+      }) as { data: Category };
+      category = res.data;
+    }
+    if (!category) return;
+
+    setSavingPhotos(true);
+    setUploadStates([]);
+    try {
+      const uploaded = await uploadImages(images, "categories", setUploadStates);
+      const group = await apiFetch<{ data: { ulid: string } }>("/image-groups", {
+        method: "POST",
+        body: JSON.stringify({
+          imageable_type: "category",
+          imageable_ulid: category.ulid,
+          slug:           "category-image",
+          name:           groupName || "category image",
+        }),
+      });
+      await apiFetch(`/image-groups/${group.data.ulid}/items`, {
+        method: "POST",
+        body: JSON.stringify({
+          items: uploaded.map((img, i) => ({ url: img.url, path: img.path, sort_order: i })),
+        }),
+      });
+      setSavedImages((prev) => [
+        ...prev,
+        ...uploaded.map((img, i) => ({ ulid: `temp-${Date.now()}-${i}`, url: img.url, path: img.path })),
+      ]);
+      setImages([]);
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success("Image saved", "Category image has been uploaded.");
+    } catch (err: any) {
+      toast.error("Upload failed", err?.message ?? "Something went wrong.");
+    } finally {
+      setSavingPhotos(false);
+    }
+  }
+
+  async function removeSavedImage(ulid: string) {
+    try {
+      await apiFetch(`/image-items/${ulid}`, { method: "DELETE" });
+      setSavedImages((prev) => prev.filter((img) => img.ulid !== ulid));
+    } catch {
+      toast.error("Failed to delete image", "Something went wrong.");
+    }
+  }
+
   function handleSubmit() {
     if (!validate()) return;
-    saveMutation.mutate({
-      name: form.name,
-      slug: form.slug,
-      description: form.description,
-      is_active: form.status === "active",
-    });
+    saveMutation.mutate({ ulid: editingCategory?.ulid, payload: buildPayload(form) });
   }
 
   const columns: ColumnDef<Category, unknown>[] = [
+    {
+      accessorKey: "thumbnail",
+      header: "Image",
+      enableSorting: false,
+      size: 60,
+      cell: ({ row }) =>
+        row.original.thumbnail ? (
+          <img
+            src={row.original.thumbnail}
+            alt={row.original.name}
+            className="h-14 w-14 rounded-lg object-cover border border-slate-200"
+          />
+        ) : (
+          <div className="h-14 w-14 rounded-lg border border-slate-200 bg-slate-100" />
+        ),
+    },
     { accessorKey: "name", header: "Name" },
     {
       accessorKey: "slug",
@@ -245,9 +408,9 @@ export default function AdminCategories() {
       <SlidePanel
         open={drawerOpen}
         onClose={closeDrawer}
-        title={editingCategory ? "Edit Category" : "Add Category"}
-        description={editingCategory ? "Update the category details." : "Fill in the details to create a new category."}
-        submitLabel={saveMutation.isPending ? "Saving..." : editingCategory ? "Update Category" : "Save Category"}
+        title={isEditMode ? "Edit Category" : "Add Category"}
+        description={isEditMode ? "Update the category details." : "Fill in the details to create a new category."}
+        submitLabel={saveMutation.isPending ? "Saving..." : isEditMode ? "Update Category" : "Save Category"}
         onSubmit={handleSubmit}
       >
         <InputField
@@ -256,6 +419,7 @@ export default function AdminCategories() {
           placeholder="e.g. Brake Parts"
           value={form.name}
           onChange={handleNameChange}
+          onBlur={() => autoSave()}
           error={errors.name}
         />
         <InputField
@@ -266,6 +430,7 @@ export default function AdminCategories() {
           hint="Auto-generated from name."
           value={form.slug}
           onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+          onBlur={() => autoSave()}
           error={errors.slug}
         />
         <TextAreaField
@@ -273,15 +438,34 @@ export default function AdminCategories() {
           placeholder="Short description of this category..."
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+          onBlur={() => autoSave()}
         />
         <SelectField
           label="Status"
           value={form.status}
-          onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+          onChange={(e) => {
+            const status = e.target.value;
+            setForm((f) => ({ ...f, status }));
+            autoSave({ ...form, status });
+          }}
           options={[
             { label: "Active", value: "active" },
             { label: "Inactive", value: "inactive" },
           ]}
+        />
+        <MultiImageUpload
+          label="Category Image"
+          value={images}
+          onChange={setImages}
+          savedImages={savedImages}
+          groupName={groupName}
+          onGroupNameChange={setGroupName}
+          onGroupNameBlur={updateGroupName}
+          onSave={savePhotos}
+          onRemoveSaved={removeSavedImage}
+          saving={savingPhotos}
+          uploadStates={uploadStates}
+          max={1}
         />
       </SlidePanel>
     </div>

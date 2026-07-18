@@ -1,32 +1,57 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useEffect } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api";
 
 type Brand = {
   name: string;
-  logo: string;
+  logo: string | null;
 };
 
-export default function BrandsShowcase({ brands }: { brands: Brand[] }) {
+type ApiBrand = {
+  ulid: string;
+  name: string;
+  thumbnail: string | null;
+  is_active: boolean;
+};
+
+export default function BrandsShowcase() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [isScrolling, setIsScrolling] = useState(false);
+  const isScrollingRef = useRef(false);
+
+  const { data } = useQuery({
+    queryKey: ["brands"],
+    queryFn: () => apiFetch<{ data: ApiBrand[] }>("/brands?per_page=50"),
+  });
+
+  const brands: Brand[] = (data?.data ?? [])
+    .filter((b) => b.is_active)
+    .map((b) => ({ name: b.name, logo: b.thumbnail ?? null }));
 
   const loopedBrands = brands.length === 0 ? [] : [...brands, ...brands, ...brands];
 
+  useEffect(() => {
+    if (!scrollRef.current || brands.length === 0) return;
+    const container = scrollRef.current;
+    container.scrollLeft = container.scrollWidth / 3;
+  }, [brands.length]);
+
   const handleInfiniteScroll = () => {
-    if (!scrollRef.current || isScrolling) return;
+    if (!scrollRef.current || isScrollingRef.current) return;
 
     const container = scrollRef.current;
     const singleSetWidth = container.scrollWidth / 3;
+    const maxScrollLeft = container.scrollWidth - container.clientWidth;
 
-    if (container.scrollLeft >= singleSetWidth * 2) {
+    if (container.scrollLeft >= maxScrollLeft - 5) {
       container.style.scrollBehavior = "auto";
-      container.scrollLeft = container.scrollLeft - singleSetWidth;
-    } else if (container.scrollLeft <= 0) {
+      container.scrollLeft = singleSetWidth;
+    } else if (container.scrollLeft <= 5) {
       container.style.scrollBehavior = "auto";
-      container.scrollLeft = container.scrollLeft + singleSetWidth;
+      container.scrollLeft = singleSetWidth;
     }
   };
 
@@ -36,7 +61,7 @@ export default function BrandsShowcase({ brands }: { brands: Brand[] }) {
     const container = scrollRef.current;
     const scrollAmount = container.clientWidth * 0.8;
 
-    setIsScrolling(true);
+    isScrollingRef.current = true;
     container.style.scrollBehavior = "smooth";
 
     if (direction === "left") {
@@ -46,7 +71,7 @@ export default function BrandsShowcase({ brands }: { brands: Brand[] }) {
     }
 
     setTimeout(() => {
-      setIsScrolling(false);
+      isScrollingRef.current = false;
       handleInfiniteScroll();
     }, 600);
   };
@@ -66,7 +91,7 @@ export default function BrandsShowcase({ brands }: { brands: Brand[] }) {
         <button
           type="button"
           onClick={() => scroll("left")}
-          className="absolute left-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-lg cursor-pointer transition-all duration-300 hover:bg-[#0d3b66] hover:text-white md:left-0 md:-translate-x-4 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
+          className="absolute left-0 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 -translate-x-4 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-lg cursor-pointer opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 hover:bg-[#0d3b66] hover:text-white"
           aria-label="Scroll brands left"
         >
           <ChevronLeft className="h-6 w-6" />
@@ -75,7 +100,7 @@ export default function BrandsShowcase({ brands }: { brands: Brand[] }) {
         <button
           type="button"
           onClick={() => scroll("right")}
-          className="absolute right-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-lg cursor-pointer transition-all duration-300 hover:bg-[#0d3b66] hover:text-white md:right-0 md:translate-x-4 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
+          className="absolute right-0 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 translate-x-4 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-lg cursor-pointer opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 hover:bg-[#0d3b66] hover:text-white"
           aria-label="Scroll brands right"
         >
           <ChevronRight className="h-6 w-6" />
@@ -91,16 +116,22 @@ export default function BrandsShowcase({ brands }: { brands: Brand[] }) {
               key={`${brand.name}-${index}`}
               className="flex h-[110px] w-[150px] shrink-0 flex-col items-center justify-center border border-slate-300 bg-white px-2 py-2"
             >
-              <div className="relative h-[90px] w-[130px]">
-                <Image
-                  src={brand.logo}
-                  alt={brand.name}
-                  fill
-                  sizes="130px"
-                  className="object-contain opacity-90 transition-opacity duration-300 hover:opacity-100"
-                />
+              <div className="relative h-[90px] w-[130px] flex items-center justify-center">
+                {brand.logo ? (
+                  <Image
+                    src={brand.logo}
+                    alt={brand.name}
+                    fill
+                    sizes="130px"
+                    className="object-contain opacity-90 transition-opacity duration-300 hover:opacity-100"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-slate-100 text-slate-400 text-xs font-medium">
+                    No Image
+                  </div>
+                )}
               </div>
-              <p className="mt-2 w-full line-clamp-1 text-center text-[14px] font-semibold  text-gray-700">
+              <p className="mt-2 w-full line-clamp-1 text-center text-[14px] font-semibold text-gray-700">
                 {brand.name}
               </p>
             </div>

@@ -20,7 +20,7 @@ class CategoryController extends Controller
     public function index(Request $request, ListCategoriesAction $action): JsonResponse
     {
         return ApiResponse::paginated(
-            $action->execute($request->user()->currentTenantId(), $request->integer('per_page', 15)),
+            $action->execute(app('current_tenant')->id, $request->integer('per_page', 15)),
             CategoryResource::class,
             'Categories retrieved successfully'
         );
@@ -36,7 +36,9 @@ class CategoryController extends Controller
 
     public function show(Request $request, Category $category): JsonResponse
     {
-        $this->authorize('view', $category);
+        if ($request->user()) {
+            $this->authorize('view', $category);
+        }
 
         return ApiResponse::success(new CategoryResource($category), 'Category retrieved successfully');
     }

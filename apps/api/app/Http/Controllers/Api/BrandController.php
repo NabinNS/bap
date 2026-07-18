@@ -20,7 +20,7 @@ class BrandController extends Controller
     public function index(Request $request, ListBrandsAction $action): JsonResponse
     {
         return ApiResponse::paginated(
-            $action->execute($request->user()->currentTenantId(), $request->integer('per_page', 15)),
+            $action->execute(app('current_tenant')->id, $request->integer('per_page', 15)),
             BrandResource::class,
             'Brands retrieved successfully'
         );
@@ -36,7 +36,9 @@ class BrandController extends Controller
 
     public function show(Request $request, Brand $brand): JsonResponse
     {
-        $this->authorize('view', $brand);
+        if ($request->user()) {
+            $this->authorize('view', $brand);
+        }
 
         return ApiResponse::success(new BrandResource($brand), 'Brand retrieved successfully');
     }

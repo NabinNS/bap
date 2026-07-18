@@ -5,13 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Application\Products\Actions\CreateProductAction;
 use App\Application\Products\Actions\DeleteProductAction;
 use App\Application\Products\Actions\ListProductsAction;
-use App\Application\Products\Actions\ShowProductAction;
 use App\Application\Products\Actions\UpdateProductAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Products\StoreProductRequest;
 use App\Http\Requests\Products\UpdateProductRequest;
 use App\Http\Resources\ApiResponse;
 use App\Http\Resources\Products\ProductResource;
+use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,7 +20,7 @@ class ProductController extends Controller
     public function index(Request $request, ListProductsAction $action): JsonResponse
     {
         return ApiResponse::paginated(
-            $action->execute($request->user()->currentTenantId(), $request->integer('per_page', 15)),
+            $action->execute(app('current_tenant')->id, $request->integer('per_page', 15)),
             ProductResource::class,
             'Products retrieved successfully'
         );
@@ -34,19 +34,17 @@ class ProductController extends Controller
         );
     }
 
-    public function show(Request $request, string $ulid, ShowProductAction $action): JsonResponse
+    public function show(Request $request, Product $product): JsonResponse
     {
-        $product = $action->execute($request->user()->currentTenantId(), $ulid);
-
-        $this->authorize('view', $product);
+        if ($request->user()) {
+            $this->authorize('view', $product);
+        }
 
         return ApiResponse::success(new ProductResource($product), 'Product retrieved successfully');
     }
 
-    public function update(UpdateProductRequest $request, string $ulid, UpdateProductAction $action, ShowProductAction $show): JsonResponse
+    public function update(UpdateProductRequest $request, Product $product, UpdateProductAction $action): JsonResponse
     {
-        $product = $show->execute($request->user()->currentTenantId(), $ulid);
-
         $this->authorize('update', $product);
 
         return ApiResponse::success(
@@ -55,10 +53,8 @@ class ProductController extends Controller
         );
     }
 
-    public function destroy(Request $request, string $ulid, DeleteProductAction $action, ShowProductAction $show): JsonResponse
+    public function destroy(Request $request, Product $product, DeleteProductAction $action): JsonResponse
     {
-        $product = $show->execute($request->user()->currentTenantId(), $ulid);
-
         $this->authorize('delete', $product);
 
         $action->execute($product);
