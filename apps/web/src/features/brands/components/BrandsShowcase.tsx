@@ -24,11 +24,10 @@ export default function BrandsShowcase() {
 
   const { data } = useQuery({
     queryKey: ["brands"],
-    queryFn: () => apiFetch<{ data: ApiBrand[] }>("/brands?per_page=50"),
+    queryFn: () => apiFetch<{ data: ApiBrand[] }>("/brands?per_page=50&is_active=true"),
   });
 
   const brands: Brand[] = (data?.data ?? [])
-    .filter((b) => b.is_active)
     .map((b) => ({ name: b.name, logo: b.thumbnail ?? null }));
 
   const loopedBrands = brands.length === 0 ? [] : [...brands, ...brands, ...brands];

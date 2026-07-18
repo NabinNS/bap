@@ -3,12 +3,13 @@
 namespace App\Domain\Categories\Repositories;
 
 use App\Domain\Categories\DTOs\CategoryData;
+use App\Domain\Categories\DTOs\CategoryFilterData;
 use App\Models\Category;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 interface CategoryRepositoryInterface
 {
-    public function paginate(int $tenantId, int $perPage, bool $onlyActive = false): LengthAwarePaginator;
+    public function paginate(int $tenantId, int $perPage, CategoryFilterData $filters): LengthAwarePaginator;
 
     public function findByUlid(int $tenantId, string $ulid): Category;
 

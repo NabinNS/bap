@@ -3,17 +3,20 @@
 namespace App\Infrastructure\Repositories\Brands;
 
 use App\Domain\Brands\DTOs\BrandData;
+use App\Domain\Brands\DTOs\BrandFilterData;
 use App\Domain\Brands\Repositories\BrandRepositoryInterface;
 use App\Models\Brand;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class EloquentBrandRepository implements BrandRepositoryInterface
 {
-    public function paginate(int $tenantId, int $perPage): LengthAwarePaginator
+    public function paginate(int $tenantId, int $perPage, BrandFilterData $filters): LengthAwarePaginator
     {
         return Brand::where('tenant_id', $tenantId)
             ->with('imageGroups.imageItems')
-            ->orderBy('created_at', 'desc')
+            ->when($filters->search, fn($q, $v) => $q->where('name', 'like', "%$v%"))
+            ->when($filters->isActive !== null, fn($q) => $q->where('is_active', $filters->isActive))
+            ->orderBy($filters->sortBy, $filters->sortDir)
             ->paginate($perPage);
     }
 

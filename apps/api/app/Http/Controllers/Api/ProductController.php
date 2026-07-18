@@ -6,6 +6,7 @@ use App\Application\Products\Actions\CreateProductAction;
 use App\Application\Products\Actions\DeleteProductAction;
 use App\Application\Products\Actions\ListProductsAction;
 use App\Application\Products\Actions\UpdateProductAction;
+use App\Domain\Products\DTOs\ProductFilterData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Products\StoreProductRequest;
 use App\Http\Requests\Products\UpdateProductRequest;
@@ -20,7 +21,7 @@ class ProductController extends Controller
     public function index(Request $request, ListProductsAction $action): JsonResponse
     {
         return ApiResponse::paginated(
-            $action->execute(app('current_tenant')->id, $request->integer('per_page', 15)),
+            $action->execute(app('current_tenant')->id, $request->integer('per_page', 15), ProductFilterData::fromRequest($request)),
             ProductResource::class,
             'Products retrieved successfully'
         );

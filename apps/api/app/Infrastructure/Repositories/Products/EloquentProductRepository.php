@@ -3,18 +3,23 @@
 namespace App\Infrastructure\Repositories\Products;
 
 use App\Domain\Products\DTOs\ProductData;
+use App\Domain\Products\DTOs\ProductFilterData;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Models\Product;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class EloquentProductRepository implements ProductRepositoryInterface
 {
-    public function paginate(int $tenantId, int $perPage): LengthAwarePaginator
+    public function paginate(int $tenantId, int $perPage, ProductFilterData $filters): LengthAwarePaginator
     {
         return Product::where('tenant_id', $tenantId)
             ->with(['category', 'imageGroups.imageItems'])
-            ->orderBy('sort_order')
-            ->orderBy('name')
+            ->when($filters->search, fn($q, $v) => $q->where('name', 'like', "%$v%"))
+            ->when($filters->isActive !== null, fn($q) => $q->where('is_active', $filters->isActive))
+            ->when($filters->categoryUlid, fn($q, $v) =>
+                $q->whereHas('category', fn($q) => $q->where('ulid', $v))
+            )
+            ->orderBy($filters->sortBy, $filters->sortDir)
             ->paginate($perPage);
     }
 

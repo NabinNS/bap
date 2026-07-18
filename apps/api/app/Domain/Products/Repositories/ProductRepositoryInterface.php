@@ -3,12 +3,13 @@
 namespace App\Domain\Products\Repositories;
 
 use App\Domain\Products\DTOs\ProductData;
+use App\Domain\Products\DTOs\ProductFilterData;
 use App\Models\Product;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 interface ProductRepositoryInterface
 {
-    public function paginate(int $tenantId, int $perPage): LengthAwarePaginator;
+    public function paginate(int $tenantId, int $perPage, ProductFilterData $filters): LengthAwarePaginator;
 
     public function findByUlid(int $tenantId, string $ulid): Product;
 

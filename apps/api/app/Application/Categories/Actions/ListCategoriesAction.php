@@ -2,6 +2,7 @@
 
 namespace App\Application\Categories\Actions;
 
+use App\Domain\Categories\DTOs\CategoryFilterData;
 use App\Domain\Categories\Repositories\CategoryRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -11,8 +12,8 @@ class ListCategoriesAction
         private CategoryRepositoryInterface $categories,
     ) {}
 
-    public function execute(int $tenantId, int $perPage = 15, bool $onlyActive = false): LengthAwarePaginator
+    public function execute(int $tenantId, int $perPage = 15, CategoryFilterData $filters = new CategoryFilterData()): LengthAwarePaginator
     {
-        return $this->categories->paginate($tenantId, $perPage, $onlyActive);
+        return $this->categories->paginate($tenantId, $perPage, $filters);
     }
 }

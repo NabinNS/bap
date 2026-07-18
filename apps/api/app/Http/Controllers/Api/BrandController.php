@@ -6,6 +6,7 @@ use App\Application\Brands\Actions\CreateBrandAction;
 use App\Application\Brands\Actions\DeleteBrandAction;
 use App\Application\Brands\Actions\ListBrandsAction;
 use App\Application\Brands\Actions\UpdateBrandAction;
+use App\Domain\Brands\DTOs\BrandFilterData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Brands\StoreBrandRequest;
 use App\Http\Requests\Brands\UpdateBrandRequest;
@@ -20,7 +21,7 @@ class BrandController extends Controller
     public function index(Request $request, ListBrandsAction $action): JsonResponse
     {
         return ApiResponse::paginated(
-            $action->execute(app('current_tenant')->id, $request->integer('per_page', 15)),
+            $action->execute(app('current_tenant')->id, $request->integer('per_page', 15), BrandFilterData::fromRequest($request)),
             BrandResource::class,
             'Brands retrieved successfully'
         );

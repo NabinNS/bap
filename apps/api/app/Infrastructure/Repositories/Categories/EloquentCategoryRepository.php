@@ -3,18 +3,20 @@
 namespace App\Infrastructure\Repositories\Categories;
 
 use App\Domain\Categories\DTOs\CategoryData;
+use App\Domain\Categories\DTOs\CategoryFilterData;
 use App\Domain\Categories\Repositories\CategoryRepositoryInterface;
 use App\Models\Category;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class EloquentCategoryRepository implements CategoryRepositoryInterface
 {
-    public function paginate(int $tenantId, int $perPage, bool $onlyActive = false): LengthAwarePaginator
+    public function paginate(int $tenantId, int $perPage, CategoryFilterData $filters): LengthAwarePaginator
     {
         return Category::where('tenant_id', $tenantId)
             ->with(['imageGroups.imageItems'])
-            ->when($onlyActive, fn($q) => $q->where('is_active', true))
-            ->orderBy('created_at', 'desc')
+            ->when($filters->search, fn($q, $v) => $q->where('name', 'like', "%$v%"))
+            ->when($filters->isActive !== null, fn($q) => $q->where('is_active', $filters->isActive))
+            ->orderBy($filters->sortBy, $filters->sortDir)
             ->paginate($perPage);
     }
 

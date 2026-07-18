@@ -2,6 +2,7 @@
 
 namespace App\Application\Products\Actions;
 
+use App\Domain\Products\DTOs\ProductFilterData;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -11,8 +12,8 @@ class ListProductsAction
         private ProductRepositoryInterface $products,
     ) {}
 
-    public function execute(int $tenantId, int $perPage = 15): LengthAwarePaginator
+    public function execute(int $tenantId, int $perPage = 15, ProductFilterData $filters = new ProductFilterData()): LengthAwarePaginator
     {
-        return $this->products->paginate($tenantId, $perPage);
+        return $this->products->paginate($tenantId, $perPage, $filters);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Application\Categories\Actions\CreateCategoryAction;
 use App\Application\Categories\Actions\DeleteCategoryAction;
 use App\Application\Categories\Actions\ListCategoriesAction;
+use App\Domain\Categories\DTOs\CategoryFilterData;
 use App\Application\Categories\Actions\UpdateCategoryAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Categories\StoreCategoryRequest;
@@ -23,7 +24,7 @@ class CategoryController extends Controller
             $action->execute(
                 app('current_tenant')->id,
                 $request->integer('per_page', 15),
-                $request->boolean('is_active'),
+                CategoryFilterData::fromRequest($request),
             ),
             CategoryResource::class,
             'Categories retrieved successfully'
