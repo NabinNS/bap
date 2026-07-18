@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use App\Models\Offer;
 use App\Models\Slider;
 use App\Models\TenantDomain;
 
@@ -40,6 +41,11 @@ class Tenant extends Model
     public function sliders(): HasMany
     {
         return $this->hasMany(Slider::class);
+    }
+
+    public function offers(): HasMany
+    {
+        return $this->hasMany(Offer::class);
     }
 
     public function imageGroups(): MorphMany

@@ -7,6 +7,7 @@ return [
         'products',
         'profiles',
         'sliders',
+        'offers',
     ],
 
     'max_size' => 5120,

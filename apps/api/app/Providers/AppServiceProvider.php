@@ -3,11 +3,13 @@
 namespace App\Providers;
 
 use App\Domain\Brands\Repositories\BrandRepositoryInterface;
+use App\Domain\Offers\Repositories\OfferRepositoryInterface;
 use App\Domain\Sliders\Repositories\SliderRepositoryInterface;
 use App\Domain\Categories\Repositories\CategoryRepositoryInterface;
 use App\Domain\Images\Repositories\ImageGroupRepositoryInterface;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Infrastructure\Repositories\Brands\EloquentBrandRepository;
+use App\Infrastructure\Repositories\Offers\EloquentOfferRepository;
 use App\Infrastructure\Repositories\Sliders\EloquentSliderRepository;
 use App\Infrastructure\Repositories\Categories\EloquentCategoryRepository;
 use App\Infrastructure\Repositories\Images\EloquentImageGroupRepository;
@@ -15,12 +17,14 @@ use App\Infrastructure\Repositories\Products\EloquentProductRepository;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\ImageItem;
+use App\Models\Offer;
 use App\Models\Product;
 use App\Models\Slider;
 use App\Models\Tenant;
 use App\Observers\ImageItemObserver;
 use App\Policies\BrandPolicy;
 use App\Policies\CategoryPolicy;
+use App\Policies\OfferPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\SliderPolicy;
 use Illuminate\Database\Eloquent\Model;
@@ -37,6 +41,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProductRepositoryInterface::class, EloquentProductRepository::class);
         $this->app->bind(ImageGroupRepositoryInterface::class, EloquentImageGroupRepository::class);
         $this->app->bind(SliderRepositoryInterface::class, EloquentSliderRepository::class);
+        $this->app->bind(OfferRepositoryInterface::class, EloquentOfferRepository::class);
     }
 
     public function boot(): void
@@ -50,6 +55,7 @@ class AppServiceProvider extends ServiceProvider
             'category' => Category::class,
             'brand'    => Brand::class,
             'slider'   => Slider::class,
+            'offer'    => Offer::class,
             'tenant'   => Tenant::class,
         ]);
 
@@ -61,5 +67,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Category::class, CategoryPolicy::class);
         Gate::policy(Product::class, ProductPolicy::class);
         Gate::policy(Slider::class, SliderPolicy::class);
+        Gate::policy(Offer::class, OfferPolicy::class);
     }
 }
