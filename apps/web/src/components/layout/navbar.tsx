@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavbarSearchInput, NavbarSearchProvider } from "@/components/layout/NavbarProductSearch";
-import { categories } from "@/data/storeHome";
+import { NavbarCategories } from "@/components/layout/NavbarCategories";
 
 export default function Navbar() {
   return (
@@ -59,15 +59,7 @@ export default function Navbar() {
         {/* Category bar */}
         <div className="overflow-x-auto scrollbar-none bg-black/20">
           <div className="flex items-stretch justify-center px-4 md:px-8 lg:px-12">
-            {categories.map((cat) => (
-              <Link
-                key={cat.name}
-                href={cat.href}
-                className="shrink-0 whitespace-nowrap px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/15 hover:text-white"
-              >
-                {cat.name}
-              </Link>
-            ))}
+            <NavbarCategories />
             <span className="my-2 w-px bg-white/20" />
             <Link
               href="/products"

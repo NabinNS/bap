@@ -436,6 +436,8 @@ export default function AdminSliders() {
           saving={savingPhotos}
           uploadStates={uploadStates}
           max={1}
+          cropAspectRatio={1920 / 380}
+          hint="Recommended size: 1920 × 380 px. JPG, PNG or WebP."
         />
       </SlidePanel>
     </div>

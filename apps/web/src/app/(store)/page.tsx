@@ -15,7 +15,7 @@ export default function StoreHomePage() {
           <div className="flex flex-col lg:flex-row gap-4 w-full">
             {/* Left Side: Slider + Info Panel */}
             <div className="flex-1 min-w-0 flex flex-col gap-4">
-              <div className="w-full h-64 md:h-[350px] lg:h-[380px] overflow-hidden rounded-xl relative border border-slate-200">
+              <div className="w-full h-[380px] overflow-hidden rounded-xl relative border border-slate-200 bg-slate-900">
                 <HeroSlider />
               </div>
               <section className="relative py-4 px-6 border border-slate-300 bg-slate-100 rounded-xl">

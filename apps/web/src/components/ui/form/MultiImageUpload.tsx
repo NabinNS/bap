@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
-import { Plus, X, ChevronLeft, ChevronRight, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { Plus, X, ChevronLeft, ChevronRight, CheckCircle, Clock, AlertCircle, CropIcon, ZoomIn, ZoomOut } from "lucide-react";
+import Cropper from "react-easy-crop";
 import { ConfirmDialog } from "@/components/ui/dialog/ConfirmDialog";
 import type { FileUploadState } from "@/lib/upload";
 
@@ -10,6 +11,8 @@ export type SavedImage = {
   url: string;
   path: string;
 };
+
+type CropArea = { x: number; y: number; width: number; height: number };
 
 type Props = {
   label?: string;
@@ -27,16 +30,19 @@ type Props = {
   onRemoveSaved?: (ulid: string) => void;
   saving?: boolean;
   uploadStates?: FileUploadState[];
+  cropAspectRatio?: number;
 };
 
 const MAX_FILE_SIZE_MB = 10;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const CROP_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-function validateFiles(files: File[]): { valid: File[]; errors: string[] } {
+function validateFiles(files: File[], forCrop = false): { valid: File[]; errors: string[] } {
+  const allowed = forCrop ? CROP_ALLOWED_TYPES : ALLOWED_TYPES;
   const valid: File[] = [];
   const errors: string[] = [];
   for (const file of files) {
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!allowed.includes(file.type)) {
       errors.push(`"${file.name}" is not a supported image type.`);
     } else if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
       errors.push(`"${file.name}" exceeds ${MAX_FILE_SIZE_MB}MB.`);
@@ -47,23 +53,52 @@ function validateFiles(files: File[]): { valid: File[]; errors: string[] } {
   return { valid, errors };
 }
 
-export function MultiImageUpload({ label, required, hint, error, value, onChange, savedImages = [], max, groupName, onGroupNameChange, onGroupNameBlur, onSave, onRemoveSaved, saving, uploadStates = [] }: Props) {
+async function getCroppedFile(imageSrc: string, cropArea: CropArea, originalName: string): Promise<File> {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = imageSrc;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = cropArea.width;
+  canvas.height = cropArea.height;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(image, cropArea.x, cropArea.y, cropArea.width, cropArea.height, 0, 0, cropArea.width, cropArea.height);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) return reject(new Error("Failed to crop image"));
+      resolve(new File([blob], originalName.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+    }, "image/jpeg", 0.92);
+  });
+}
+
+export function MultiImageUpload({ label, required, hint, error, value, onChange, savedImages = [], max, groupName, onGroupNameChange, onGroupNameBlur, onSave, onRemoveSaved, saving, uploadStates = [], cropAspectRatio }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  // Track object URLs per-file to avoid recreating URLs for unchanged files
   const [localPreviews, setLocalPreviews] = useState<{ file: File; url: string }[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "saved"; ulid: string } | { type: "local"; index: number } | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
+  // Crop state
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [cropOriginalName, setCropOriginalName] = useState("image.jpg");
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(null);
+  const [cropping, setCropping] = useState(false);
+  const [cropFileError, setCropFileError] = useState<string | null>(null);
+
   useEffect(() => {
     setLocalPreviews((prev) => {
-      // Revoke URLs for files no longer in value
       const prevMap = new Map(prev.map((p) => [p.file, p.url]));
       const nextSet = new Set(value);
       for (const [file, url] of prevMap) {
         if (!nextSet.has(file)) URL.revokeObjectURL(url);
       }
-      // Reuse existing URLs, only create for new files
       return value.map((file) => ({
         file,
         url: prevMap.get(file) ?? URL.createObjectURL(file),
@@ -71,7 +106,6 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
     });
   }, [value]);
 
-  // Cleanup all URLs on unmount
   useEffect(() => {
     return () => localPreviews.forEach((p) => URL.revokeObjectURL(p.url));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -96,23 +130,56 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
     e.target.value = "";
     if (files.length === 0) return;
 
+    if (cropAspectRatio) {
+      const file = files[0];
+      setCropFileError(null);
+      const { errors } = validateFiles([file], true);
+      if (errors.length > 0) { setValidationErrors(errors); return; }
+      setCropOriginalName(file.name);
+      const url = URL.createObjectURL(file);
+      setCropImageSrc(url);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setCropModalOpen(true);
+      return;
+    }
+
     const { valid, errors } = validateFiles(files);
     setValidationErrors(errors);
     if (valid.length === 0) return;
-
     const remaining = max !== undefined ? max - value.length : valid.length;
     onChange([...value, ...valid.slice(0, remaining)]);
   }
 
+  const onCropComplete = useCallback((_: unknown, pixels: CropArea) => {
+    setCroppedAreaPixels(pixels);
+  }, []);
+
+  async function handleCropSave() {
+    if (!cropImageSrc || !croppedAreaPixels) return;
+    setCropping(true);
+    try {
+      const croppedFile = await getCroppedFile(cropImageSrc, croppedAreaPixels, cropOriginalName);
+      onChange([croppedFile]);
+      closeCropModal();
+    } catch {
+      setCropFileError("Failed to crop image. Please try again.");
+    } finally {
+      setCropping(false);
+    }
+  }
+
+  function closeCropModal() {
+    setCropModalOpen(false);
+    if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
+    setCropImageSrc(null);
+  }
+
   function remove(index: number) {
-    // Close lightbox if the deleted image was open, or clamp index
     if (lightboxIndex !== null) {
       const deletedGlobalIndex = savedImages.length + index;
-      if (lightboxIndex === deletedGlobalIndex) {
-        setLightboxIndex(null);
-      } else if (lightboxIndex > deletedGlobalIndex) {
-        setLightboxIndex(lightboxIndex - 1);
-      }
+      if (lightboxIndex === deletedGlobalIndex) setLightboxIndex(null);
+      else if (lightboxIndex > deletedGlobalIndex) setLightboxIndex(lightboxIndex - 1);
     }
     onChange(value.filter((_, i) => i !== index));
   }
@@ -120,11 +187,8 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
   function removeSaved(ulid: string) {
     const deletedGlobalIndex = savedImages.findIndex((s) => s.ulid === ulid);
     if (lightboxIndex !== null && deletedGlobalIndex !== -1) {
-      if (lightboxIndex === deletedGlobalIndex) {
-        setLightboxIndex(null);
-      } else if (lightboxIndex > deletedGlobalIndex) {
-        setLightboxIndex(lightboxIndex - 1);
-      }
+      if (lightboxIndex === deletedGlobalIndex) setLightboxIndex(null);
+      else if (lightboxIndex > deletedGlobalIndex) setLightboxIndex(lightboxIndex - 1);
     }
     onRemoveSaved?.(ulid);
   }
@@ -137,6 +201,8 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
       ? "This will permanently delete the image from the server. This cannot be undone."
       : "This will remove the image. It has not been saved yet.";
 
+  const acceptAttr = cropAspectRatio ? "image/jpeg,image/png,image/webp" : "image/jpeg,image/png,image/webp,image/gif";
+
   return (
     <div className="space-y-3">
       {(label || max) && (
@@ -146,9 +212,7 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
               {label} {required && <span className="text-red-500">*</span>}
             </label>
           )}
-          {max && (
-            <span className="text-xs text-text-muted">{totalCount}/{max}</span>
-          )}
+          {max && <span className="text-xs text-text-muted">{totalCount}/{max}</span>}
         </div>
       )}
 
@@ -172,7 +236,6 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
           </button>
         </div>
       )}
-
 
       {allPreviews.length > 0 && (
         <div className="grid grid-cols-4 gap-2">
@@ -201,7 +264,6 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
             const state = uploadStates[i];
             const isUploading = state && (state.status === "compressing" || state.status === "uploading");
             const isError = state?.status === "error";
-
             return (
               <div key={`local-${i}`} className="relative group">
                 <div
@@ -210,8 +272,6 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
                 >
                   <img src={url} alt="preview" className="h-full w-full object-cover transition-transform group-hover:scale-110" />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
-
-                  {/* Progress overlay */}
                   {isUploading && (
                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-1 px-2">
                       <span className="text-white text-[10px] font-medium">
@@ -225,22 +285,15 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
                       </div>
                     </div>
                   )}
-
-                  {/* Error overlay */}
                   {isError && (
                     <div className="absolute inset-0 bg-red-900/60 flex items-center justify-center">
                       <AlertCircle className="h-5 w-5 text-white" />
                     </div>
                   )}
                 </div>
-
                 <div className={`absolute top-1 left-1 h-4 w-4 rounded-full flex items-center justify-center shadow ${isError ? "bg-red-500" : "bg-amber-400"}`}>
-                  {isError
-                    ? <AlertCircle className="h-2.5 w-2.5 text-white" />
-                    : <Clock className="h-2.5 w-2.5 text-white" />
-                  }
+                  {isError ? <AlertCircle className="h-2.5 w-2.5 text-white" /> : <Clock className="h-2.5 w-2.5 text-white" />}
                 </div>
-
                 {!isUploading && (
                   <button
                     type="button"
@@ -267,15 +320,15 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
           }`}
         >
           <Plus className="h-5 w-5 text-slate-600" />
-          <span className="text-xs text-slate-600 font-medium">Add images</span>
+          <span className="text-xs text-slate-600 font-medium">
+            {cropAspectRatio ? "Add image (will crop)" : "Add images"}
+          </span>
         </button>
       )}
 
       {validationErrors.length > 0 && (
         <ul className="space-y-0.5">
-          {validationErrors.map((e, i) => (
-            <li key={i} className="text-xs text-red-500">{e}</li>
-          ))}
+          {validationErrors.map((e, i) => <li key={i} className="text-xs text-red-500">{e}</li>)}
         </ul>
       )}
 
@@ -285,8 +338,8 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
-        multiple
+        accept={acceptAttr}
+        multiple={!cropAspectRatio}
         className="hidden"
         onChange={handleFileChange}
       />
@@ -306,48 +359,68 @@ export function MultiImageUpload({ label, required, hint, error, value, onChange
       />
 
       {lightboxIndex !== null && lightboxIndex < allPreviews.length && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
-          onClick={() => setLightboxIndex(null)}
-        >
-          <button
-            type="button"
-            onClick={() => setLightboxIndex(null)}
-            className="absolute top-4 right-4 h-9 w-9 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
-          >
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80" onClick={() => setLightboxIndex(null)}>
+          <button type="button" onClick={() => setLightboxIndex(null)} className="absolute top-4 right-4 h-9 w-9 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer">
             <X className="h-5 w-5" />
           </button>
-
           {allPreviews.length > 1 && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + allPreviews.length) % allPreviews.length); }}
-              className="absolute left-4 h-10 w-10 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
-            >
+            <button type="button" onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + allPreviews.length) % allPreviews.length); }} className="absolute left-4 h-10 w-10 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer">
               <ChevronLeft className="h-6 w-6" />
             </button>
           )}
-
-          <img
-            src={allPreviews[lightboxIndex]}
-            alt="preview"
-            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-
+          <img src={allPreviews[lightboxIndex]} alt="preview" className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
           {allPreviews.length > 1 && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % allPreviews.length); }}
-              className="absolute right-4 h-10 w-10 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
-            >
+            <button type="button" onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % allPreviews.length); }} className="absolute right-4 h-10 w-10 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer">
               <ChevronRight className="h-6 w-6" />
             </button>
           )}
+          <span className="absolute bottom-4 text-white/60 text-sm">{lightboxIndex + 1} / {allPreviews.length}</span>
+        </div>
+      )}
 
-          <span className="absolute bottom-4 text-white/60 text-sm">
-            {lightboxIndex + 1} / {allPreviews.length}
-          </span>
+      {/* Crop Modal */}
+      {cropModalOpen && cropImageSrc && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70">
+          <div className="bg-white w-full max-w-3xl mx-4 rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Crop Image</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Aspect ratio: {cropAspectRatio ? `${Math.round(cropAspectRatio * 100) / 100}:1` : "free"}
+                </p>
+              </div>
+              <button type="button" onClick={closeCropModal} className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors cursor-pointer">
+                <X className="h-4 w-4 text-slate-500" />
+              </button>
+            </div>
+            <div className="relative w-full bg-slate-900" style={{ height: "360px" }}>
+              <Cropper
+                image={cropImageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={cropAspectRatio}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+            <div className="flex items-center gap-3 px-5 py-3 border-t border-slate-100 bg-slate-50">
+              <ZoomOut className="h-4 w-4 text-slate-400 shrink-0" />
+              <input type="range" min={1} max={3} step={0.01} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="flex-1 accent-[#0d3b66] cursor-pointer" />
+              <ZoomIn className="h-4 w-4 text-slate-400 shrink-0" />
+              <span className="text-xs text-slate-500 w-10 text-right">{zoom.toFixed(1)}×</span>
+            </div>
+            {cropFileError && <p className="text-xs text-red-500 px-5 py-2">{cropFileError}</p>}
+            <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-slate-200">
+              <button type="button" onClick={closeCropModal} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer">
+                Cancel
+              </button>
+              <button type="button" onClick={handleCropSave} disabled={cropping} className="flex items-center gap-2 px-5 py-2 bg-[#0d3b66] hover:bg-slate-900 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer">
+                <CropIcon className="h-4 w-4" />
+                {cropping ? "Cropping..." : "Crop & Save"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
