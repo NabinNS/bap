@@ -1,0 +1,455 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm, Controller } from "react-hook-form";
+import { apiFetch } from "@/lib/api";
+import { toast } from "@/lib/toast";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { InputField, NumberField, TextAreaField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
+import { MultiImageUpload, type SavedImage } from "@/components/ui/form/MultiImageUpload";
+import { uploadImages, type FileUploadState } from "@/lib/upload";
+import { CreateCategoryModal } from "@/components/categories/CreateCategoryModal";
+
+type FormValues = {
+  name: string;
+  category: string;
+  price: string;
+  stock: string;
+  description: string;
+  status: string;
+};
+
+type Category = { ulid: string; name: string };
+
+export type ProductFormProduct = {
+  ulid: string;
+  name: string;
+  description: string | null;
+  price: number;
+  stock: number;
+  is_active: boolean;
+  category: { ulid: string; name: string } | null;
+};
+
+type ProductPayload = {
+  name: string;
+  category_ulid: string | null;
+  price: number;
+  stock: number;
+  description: string;
+  is_active: boolean;
+};
+
+type Props = {
+  product?: ProductFormProduct;
+};
+
+export default function ProductForm({ product }: Props) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const isEdit = !!product;
+
+  const [savedProductUlid, setSavedProductUlid] = useState<string | undefined>(product?.ulid);
+  const [images, setImages] = useState<File[]>([]);
+  const [savedImages, setSavedImages] = useState<SavedImage[]>([]);
+  const [savedGroupUlid, setSavedGroupUlid] = useState<string | null>(null);
+  const [savingPhotos, setSavingPhotos] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStates, setUploadStates] = useState<FileUploadState[]>([]);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories", "all"],
+    queryFn: () => apiFetch<{ data: Category[] }>("/categories?per_page=100"),
+  });
+
+  const categories = categoriesData?.data ?? [];
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    getValues,
+    setValue,
+    formState: { errors },
+  } = useForm<FormValues>({
+    defaultValues: product
+      ? {
+          name:        product.name,
+          category:    product.category?.ulid ?? "",
+          price:       String(product.price),
+          stock:       String(product.stock),
+          description: product.description ?? "",
+          status:      product.is_active ? "active" : "inactive",
+        }
+      : { name: "", category: "", price: "", stock: "", description: "", status: "active" },
+  });
+
+  // Load existing images in edit mode
+  useEffect(() => {
+    if (!product) return;
+    apiFetch<{ data: { ulid: string; name: string; items: SavedImage[] }[] }>(
+      `/image-groups?imageable_type=product&imageable_ulid=${product.ulid}`
+    )
+      .then((res) => {
+        setSavedImages(res.data.flatMap((g) => g.items));
+        if (res.data[0]) {
+          setSavedGroupUlid(res.data[0].ulid);
+        }
+      })
+      .catch(() => {});
+  }, [product]);
+
+  const autoSaveMutation = useMutation({
+    mutationFn: ({ ulid, payload }: { ulid?: string; payload: ProductPayload }) =>
+      ulid
+        ? apiFetch(`/products/${ulid}`, { method: "PUT", body: JSON.stringify(payload) })
+        : apiFetch<{ data: ProductFormProduct }>("/products", { method: "POST", body: JSON.stringify(payload) }),
+    onSuccess: (data, variables) => {
+      if (!variables.ulid) {
+        const created = (data as { data: ProductFormProduct }).data;
+        setSavedProductUlid(created.ulid);
+        queryClient.invalidateQueries({ queryKey: ["products"] });
+      }
+    },
+  });
+
+  function buildPayload(data: FormValues): ProductPayload {
+    return {
+      name:          data.name,
+      category_ulid: data.category || null,
+      price:         Number(data.price) || 0,
+      stock:         Number(data.stock) || 0,
+      description:   data.description,
+      is_active:     data.status === "active",
+    };
+  }
+
+  function autoSave() {
+    const data = getValues();
+    if (!data.name.trim() || !data.price || data.stock === "") return;
+    autoSaveMutation.mutate({ ulid: savedProductUlid, payload: buildPayload(data) });
+  }
+
+  function withAutoSave<T extends { onBlur: (...args: any[]) => any }>(field: T): T {
+    return {
+      ...field,
+      onBlur: (...args: any[]) => {
+        field.onBlur(...args);
+        autoSave();
+      },
+    };
+  }
+
+  async function removeSavedImage(ulid: string) {
+    try {
+      await apiFetch(`/image-items/${ulid}`, { method: "DELETE" });
+      setSavedImages((prev) => prev.filter((img) => img.ulid !== ulid));
+    } catch {
+      toast.error("Failed to delete image", "Something went wrong.");
+    }
+  }
+
+  async function uploadPendingPhotos(productUlid: string, filesToUpload: File[]) {
+    if (filesToUpload.length === 0 || isUploading) return;
+    setIsUploading(true);
+    setSavingPhotos(true);
+    setUploadStates([]);
+    try {
+      const uploaded = await uploadImages(filesToUpload, "products", setUploadStates);
+      
+      let groupUlid = savedGroupUlid;
+      if (!groupUlid) {
+        const group = await apiFetch<{ data: { ulid: string } }>("/image-groups", {
+          method: "POST",
+          body: JSON.stringify({
+            imageable_type: "product",
+            imageable_ulid:  productUlid,
+            slug:            "product-image",
+            name:            "product image",
+          }),
+        });
+        groupUlid = group.data.ulid;
+        setSavedGroupUlid(groupUlid);
+      }
+      
+      await apiFetch(`/image-groups/${groupUlid}/items`, {
+        method: "POST",
+        body: JSON.stringify({
+          items: uploaded.map((img, i) => ({ url: img.url, path: img.path, sort_order: i })),
+        }),
+      });
+
+      // Refetch images to ensure we have the clean, updated database records with correct IDs
+      const freshGroupRes = await apiFetch<{ data: { ulid: string; name: string; items: SavedImage[] }[] }>(
+        `/image-groups?imageable_type=product&imageable_ulid=${productUlid}`
+      );
+      if (freshGroupRes.data && freshGroupRes.data[0]) {
+        setSavedImages(freshGroupRes.data[0].items);
+        setSavedGroupUlid(freshGroupRes.data[0].ulid);
+      } else {
+        const fallbackItems = uploaded.map((img, i) => ({
+          ulid: `temp-${Date.now()}-${i}`,
+          url: img.url,
+          path: img.path,
+        }));
+        setSavedImages((prev) => [...prev, ...fallbackItems]);
+      }
+      
+      setImages([]);
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success("Photos saved", `${uploaded.length} photo(s) added.`);
+    } catch (err: any) {
+      toast.error("Upload failed", err?.message ?? "Something went wrong.");
+      throw err;
+    } finally {
+      setSavingPhotos(false);
+      setIsUploading(false);
+    }
+  }
+
+  // Automatically upload images in the background once the product exists
+  useEffect(() => {
+    if (savedProductUlid && images.length > 0 && !isUploading && !savingPhotos) {
+      uploadPendingPhotos(savedProductUlid, images);
+    }
+  }, [savedProductUlid, images, isUploading, savingPhotos]);
+
+  async function onSubmit(data: FormValues) {
+    setSubmitting(true);
+    try {
+      const payload = buildPayload(data);
+      let targetUlid = savedProductUlid;
+
+      // 1. Create or update product
+      if (targetUlid) {
+        await apiFetch(`/products/${targetUlid}`, { method: "PUT", body: JSON.stringify(payload) });
+      } else {
+        const res = await apiFetch<{ data: ProductFormProduct }>("/products", { method: "POST", body: JSON.stringify(payload) });
+        targetUlid = res.data.ulid;
+        setSavedProductUlid(targetUlid);
+      }
+
+      // 2. Upload any local images that haven't been uploaded yet
+      if (images.length > 0) {
+        if (!isUploading) {
+          await uploadPendingPhotos(targetUlid, images);
+        } else {
+          // If already uploading, wait for it to complete
+          while (isUploading) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+          }
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success(
+        isEdit ? "Product updated" : "Product created",
+        `"${payload.name}" has been ${isEdit ? "updated" : "added"}.`
+      );
+      router.push("/admin/products");
+    } catch (err: any) {
+      toast.error(
+        isEdit ? "Failed to update product" : "Failed to create product",
+        err?.message ?? "Something went wrong."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Top Header & Breadcrumbs Area */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <Link
+            href="/admin/products"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-text-muted hover:text-text-default transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Products
+          </Link>
+
+          <nav className="flex items-center gap-1.5 text-sm text-text-muted">
+            <Link href="/admin" className="hover:text-text-default transition-colors">Dashboard</Link>
+            <span>/</span>
+            <Link href="/admin/products" className="hover:text-text-default transition-colors">Products</Link>
+            <span>/</span>
+            <span className="text-text-default font-medium">{isEdit ? "Edit Product" : "Add Product"}</span>
+          </nav>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold text-text-default tracking-tight">{isEdit ? "Edit Product" : "Add Product"}</h2>
+          <p className="text-sm text-text-muted mt-0.5">
+            {isEdit ? "Modify product details, inventory status, and media." : "Fill in the details to list a new product in the store."}
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 items-stretch">
+          {/* Left Column */}
+          <div className="lg:col-span-2 flex flex-col">
+            <div className="flex-1 bg-white border border-slate-200 p-6 space-y-5">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted border-b border-slate-400 pb-3">
+                General Information
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InputField
+                  label="Product Name"
+                  required
+                  placeholder="e.g. Bosch Oil Filter"
+                  error={errors.name?.message}
+                  {...withAutoSave(register("name", { required: "Name is required." }))}
+                />
+                <Controller
+                  name="category"
+                  control={control}
+                  rules={{ required: "Category is required." }}
+                  render={({ field }) => (
+                    <ComboboxField
+                      label="Category"
+                      required
+                      placeholder="Select a category"
+                      options={categories.map((c) => ({ label: c.name, value: c.ulid }))}
+                      value={field.value}
+                      onChange={(val) => { field.onChange(val); autoSave(); }}
+                      error={errors.category?.message}
+                      onAddNew={(query) => {
+                        setNewCategoryName(query);
+                        setCategoryModalOpen(true);
+                      }}
+                    />
+                  )}
+                />
+              </div>
+
+              <TextAreaField
+                label="Description"
+                placeholder="Write a short description of the product's features and compatibility..."
+                rows={5}
+                {...withAutoSave(register("description"))}
+              />
+
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted mb-3">
+                Pricing & Inventory
+              </h3>
+              <hr className="border-slate-400" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <NumberField
+                  label="Price (NPR)"
+                  required
+                  placeholder="e.g. 1200"
+                  error={errors.price?.message}
+                  {...withAutoSave(register("price", {
+                    required: "Price is required.",
+                    min: { value: 1, message: "Price must be greater than 0." },
+                  }))}
+                />
+                <NumberField
+                  label="Opening Stock"
+                  required
+                  placeholder="e.g. 50"
+                  error={errors.stock?.message}
+                  {...withAutoSave(register("stock", {
+                    required: "Stock is required.",
+                    min: { value: 0, message: "Stock cannot be negative." },
+                  }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="flex flex-col">
+            <div className="flex-1 bg-white border border-slate-200 p-6 space-y-6 flex flex-col">
+              {/* Status Section */}
+              <div className="space-y-5">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted border-b border-slate-400 pb-3">
+                  Status
+                </h3>
+                <SelectField
+                  label="Product Status"
+                  options={[
+                    { label: "Active", value: "active" },
+                    { label: "Inactive", value: "inactive" },
+                  ]}
+                  {...withAutoSave(register("status"))}
+                />
+              </div>
+
+              {/* Product Media Section */}
+              <div className="space-y-5 flex-1 flex flex-col mt-6">
+                <div className="flex items-center justify-between border-b border-slate-400 pb-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
+                    Product Images
+                  </h3>
+                  {isUploading && (
+                    <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 border border-amber-200 animate-pulse font-medium">
+                      Uploading...
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  Add up to 5 photos. Previews will upload automatically as soon as the product has basic details saved.
+                </p>
+                <div className="flex-1 flex flex-col justify-center">
+                  <MultiImageUpload
+                    value={images}
+                    onChange={setImages}
+                    savedImages={savedImages}
+                    onRemoveSaved={removeSavedImage}
+                    saving={savingPhotos}
+                    uploadStates={uploadStates}
+                    max={5}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Full-width sticky action buttons card */}
+        <div className="sticky bottom-0 z-10 bg-white border border-slate-200 p-4 flex items-center justify-end gap-3 mt-0">
+          <Link
+            href="/admin/products"
+            className="px-5 py-2.5 text-sm font-semibold text-text-muted hover:text-text-default border border-slate-200 hover:bg-slate-50 transition-colors"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={submitting || isUploading}
+            className="px-5 py-2.5 bg-black text-white text-sm font-semibold hover:bg-black/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center justify-center min-w-[120px]"
+          >
+            {submitting || isUploading ? (
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Saving...
+              </span>
+            ) : isEdit ? (
+              "Update Product"
+            ) : (
+              "Save Product"
+            )}
+          </button>
+        </div>
+      </form>
+
+      <CreateCategoryModal
+        open={categoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+        initialName={newCategoryName}
+        onCreated={(category) => { setValue("category", category.ulid); autoSave(); }}
+      />
+    </div>
+  );
+}
