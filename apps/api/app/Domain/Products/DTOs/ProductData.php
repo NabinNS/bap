@@ -11,7 +11,11 @@ readonly class ProductData
         public ?string $description,
         public ?string $image,
         public int     $price,
+        public int     $costPrice,
+        public int     $salesPrice,
+        public ?int    $discountPercent,
         public int     $stock,
+        public ?int    $lowStockQuantity,
         public bool    $isActive,
         public int     $sortOrder,
     ) {}

@@ -26,10 +26,14 @@ class UpdateProductRequest extends FormRequest
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'description' => ['nullable', 'string'],
             'image'       => ['nullable', 'string'],
-            'price'       => ['sometimes', 'integer', 'min:0'],
-            'stock'       => ['sometimes', 'integer', 'min:0'],
-            'is_active'   => ['boolean'],
-            'sort_order'  => ['integer'],
+            'price'              => ['sometimes', 'integer', 'min:0'],
+            'cost_price'         => ['sometimes', 'required', 'integer', 'min:0'],
+            'sales_price'        => ['sometimes', 'required', 'integer', 'min:0'],
+            'discount_percent'   => ['nullable', 'integer', 'min:0', 'max:100'],
+            'stock'              => ['sometimes', 'integer', 'min:0'],
+            'low_stock_quantity' => ['nullable', 'integer', 'min:0'],
+            'is_active'          => ['boolean'],
+            'sort_order'         => ['integer'],
         ];
     }
 
@@ -45,15 +49,19 @@ class UpdateProductRequest extends FormRequest
         $v = $this->validated();
 
         return new ProductData(
-            name:        $v['name']        ?? $product->name,
-            slug:        $v['slug']        ?? null,
-            categoryId:  $this->resolveCategoryId($v, $product),
-            description: $v['description'] ?? $product->description,
-            image:       $v['image']       ?? $product->image,
-            price:       (int) ($v['price'] ?? $product->price),
-            stock:       (int) ($v['stock'] ?? $product->stock),
-            isActive:    $v['is_active']   ?? $product->is_active,
-            sortOrder:   $v['sort_order']  ?? $product->sort_order,
+            name:             $v['name']        ?? $product->name,
+            slug:             $v['slug']        ?? null,
+            categoryId:       $this->resolveCategoryId($v, $product),
+            description:      $v['description'] ?? $product->description,
+            image:            $v['image']       ?? $product->image,
+            price:            (int) ($v['price'] ?? $product->price),
+            costPrice:        (int) ($v['cost_price'] ?? $product->cost_price),
+            salesPrice:       (int) ($v['sales_price'] ?? $product->sales_price),
+            discountPercent:  array_key_exists('discount_percent', $v) ? (isset($v['discount_percent']) ? (int) $v['discount_percent'] : null) : $product->discount_percent,
+            stock:            (int) ($v['stock'] ?? $product->stock),
+            lowStockQuantity: array_key_exists('low_stock_quantity', $v) ? (isset($v['low_stock_quantity']) ? (int) $v['low_stock_quantity'] : null) : $product->low_stock_quantity,
+            isActive:         $v['is_active']   ?? $product->is_active,
+            sortOrder:        $v['sort_order']  ?? $product->sort_order,
         );
     }
 

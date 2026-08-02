@@ -21,15 +21,23 @@ class Product extends Model
         'description',
         'image',
         'price',
+        'cost_price',
+        'sales_price',
+        'discount_percent',
         'stock',
+        'low_stock_quantity',
         'is_active',
         'sort_order',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
-        'price'     => 'integer',
-        'stock'     => 'integer',
+        'is_active'          => 'boolean',
+        'price'              => 'integer',
+        'cost_price'         => 'integer',
+        'sales_price'        => 'integer',
+        'discount_percent'   => 'integer',
+        'stock'              => 'integer',
+        'low_stock_quantity' => 'integer',
     ];
 
     public function category(): BelongsTo

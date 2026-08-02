@@ -25,10 +25,14 @@ class StoreProductRequest extends FormRequest
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'description' => ['nullable', 'string'],
             'image'       => ['nullable', 'string'],
-            'price'       => ['required', 'integer', 'min:0'],
-            'stock'       => ['required', 'integer', 'min:0'],
-            'is_active'   => ['boolean'],
-            'sort_order'  => ['integer'],
+            'price'              => ['nullable', 'integer', 'min:0'],
+            'cost_price'         => ['required', 'integer', 'min:0'],
+            'sales_price'        => ['required', 'integer', 'min:0'],
+            'discount_percent'   => ['nullable', 'integer', 'min:0', 'max:100'],
+            'stock'              => ['required', 'integer', 'min:0'],
+            'low_stock_quantity' => ['nullable', 'integer', 'min:0'],
+            'is_active'          => ['boolean'],
+            'sort_order'         => ['integer'],
         ];
     }
 
@@ -37,8 +41,6 @@ class StoreProductRequest extends FormRequest
         return [
             'name.required'    => 'Product name is required.',
             'category_id.exists' => 'The selected category is invalid.',
-            'price.required'   => 'Price is required.',
-            'price.min'        => 'Price cannot be negative.',
             'stock.required'   => 'Stock quantity is required.',
             'stock.min'        => 'Stock cannot be negative.',
         ];
@@ -49,15 +51,19 @@ class StoreProductRequest extends FormRequest
         $v = $this->validated();
 
         return new ProductData(
-            name:        $v['name'],
-            slug:        $v['slug'] ?? null,
-            categoryId:  isset($v['category_id']) ? (int) $v['category_id'] : null,
-            description: $v['description'] ?? null,
-            image:       $v['image'] ?? null,
-            price:       (int) $v['price'],
-            stock:       (int) $v['stock'],
-            isActive:    $v['is_active'] ?? true,
-            sortOrder:   $v['sort_order'] ?? 0,
+            name:             $v['name'],
+            slug:             $v['slug'] ?? null,
+            categoryId:       isset($v['category_id']) ? (int) $v['category_id'] : null,
+            description:      $v['description'] ?? null,
+            image:            $v['image'] ?? null,
+            price:            isset($v['price']) ? (int) $v['price'] : 0,
+            costPrice:        (int) $v['cost_price'],
+            salesPrice:       (int) $v['sales_price'],
+            discountPercent:  isset($v['discount_percent']) ? (int) $v['discount_percent'] : null,
+            stock:            (int) $v['stock'],
+            lowStockQuantity: isset($v['low_stock_quantity']) ? (int) $v['low_stock_quantity'] : null,
+            isActive:         $v['is_active'] ?? true,
+            sortOrder:        $v['sort_order'] ?? 0,
         );
     }
 }

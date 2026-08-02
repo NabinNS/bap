@@ -16,8 +16,11 @@ import { CreateCategoryModal } from "@/components/categories/CreateCategoryModal
 type FormValues = {
   name: string;
   category: string;
-  price: string;
+  cost_price: string;
+  sales_price: string;
+  discount_percent: string;
   stock: string;
+  low_stock_quantity: string;
   description: string;
   status: string;
 };
@@ -28,8 +31,11 @@ export type ProductFormProduct = {
   ulid: string;
   name: string;
   description: string | null;
-  price: number;
+  cost_price: number | null;
+  sales_price: number | null;
+  discount_percent: number | null;
   stock: number;
+  low_stock_quantity: number | null;
   is_active: boolean;
   category: { ulid: string; name: string } | null;
 };
@@ -37,8 +43,11 @@ export type ProductFormProduct = {
 type ProductPayload = {
   name: string;
   category_ulid: string | null;
-  price: number;
+  cost_price: number | null;
+  sales_price: number | null;
+  discount_percent: number | null;
   stock: number;
+  low_stock_quantity: number | null;
   description: string;
   is_active: boolean;
 };
@@ -80,14 +89,17 @@ export default function ProductForm({ product }: Props) {
   } = useForm<FormValues>({
     defaultValues: product
       ? {
-          name:        product.name,
-          category:    product.category?.ulid ?? "",
-          price:       String(product.price),
-          stock:       String(product.stock),
-          description: product.description ?? "",
-          status:      product.is_active ? "active" : "inactive",
+          name:               product.name,
+          category:           product.category?.ulid ?? "",
+          cost_price:         product.cost_price != null ? String(product.cost_price) : "",
+          sales_price:        product.sales_price != null ? String(product.sales_price) : "",
+          discount_percent:   product.discount_percent != null ? String(product.discount_percent) : "",
+          stock:              String(product.stock),
+          low_stock_quantity: product.low_stock_quantity != null ? String(product.low_stock_quantity) : "",
+          description:        product.description ?? "",
+          status:             product.is_active ? "active" : "inactive",
         }
-      : { name: "", category: "", price: "", stock: "", description: "", status: "active" },
+      : { name: "", category: "", cost_price: "", sales_price: "", discount_percent: "", stock: "", low_stock_quantity: "", description: "", status: "active" },
   });
 
   // Load existing images in edit mode
@@ -121,18 +133,21 @@ export default function ProductForm({ product }: Props) {
 
   function buildPayload(data: FormValues): ProductPayload {
     return {
-      name:          data.name,
-      category_ulid: data.category || null,
-      price:         Number(data.price) || 0,
-      stock:         Number(data.stock) || 0,
-      description:   data.description,
-      is_active:     data.status === "active",
+      name:               data.name,
+      category_ulid:      data.category || null,
+      cost_price:         data.cost_price !== "" ? Number(data.cost_price) : null,
+      sales_price:        data.sales_price !== "" ? Number(data.sales_price) : null,
+      discount_percent:   data.discount_percent !== "" ? Number(data.discount_percent) : null,
+      stock:              Number(data.stock) || 0,
+      low_stock_quantity: data.low_stock_quantity !== "" ? Number(data.low_stock_quantity) : null,
+      description:        data.description,
+      is_active:          data.status === "active",
     };
   }
 
   function autoSave() {
     const data = getValues();
-    if (!data.name.trim() || !data.price || data.stock === "") return;
+    if (!data.name.trim() || data.stock === "") return;
     autoSaveMutation.mutate({ ulid: savedProductUlid, payload: buildPayload(data) });
   }
 
@@ -343,17 +358,38 @@ export default function ProductForm({ product }: Props) {
                 Pricing & Inventory
               </h3>
               <hr className="border-slate-400" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <NumberField
-                  label="Price (NPR)"
+                  label="Cost Price (NPR)"
                   required
-                  placeholder="e.g. 1200"
-                  error={errors.price?.message}
-                  {...withAutoSave(register("price", {
-                    required: "Price is required.",
-                    min: { value: 1, message: "Price must be greater than 0." },
+                  placeholder="e.g. 900"
+                  error={errors.cost_price?.message}
+                  {...withAutoSave(register("cost_price", {
+                    required: "Cost price is required.",
+                    min: { value: 0, message: "Cost price cannot be negative." },
                   }))}
                 />
+                <NumberField
+                  label="Sales Price (NPR)"
+                  required
+                  placeholder="e.g. 1100"
+                  error={errors.sales_price?.message}
+                  {...withAutoSave(register("sales_price", {
+                    required: "Sales price is required.",
+                    min: { value: 0, message: "Sales price cannot be negative." },
+                  }))}
+                />
+                <NumberField
+                  label="Discount (%)"
+                  placeholder="e.g. 10"
+                  error={errors.discount_percent?.message}
+                  {...withAutoSave(register("discount_percent", {
+                    min: { value: 0, message: "Discount cannot be negative." },
+                    max: { value: 100, message: "Discount cannot exceed 100%." },
+                  }))}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <NumberField
                   label="Opening Stock"
                   required
@@ -364,13 +400,21 @@ export default function ProductForm({ product }: Props) {
                     min: { value: 0, message: "Stock cannot be negative." },
                   }))}
                 />
+                <NumberField
+                  label="Low Stock Quantity"
+                  placeholder="e.g. 5"
+                  error={errors.low_stock_quantity?.message}
+                  {...withAutoSave(register("low_stock_quantity", {
+                    min: { value: 0, message: "Low stock quantity cannot be negative." },
+                  }))}
+                />
               </div>
             </div>
           </div>
 
           {/* Right Column */}
           <div className="flex flex-col">
-            <div className="flex-1 bg-white border border-slate-200 p-6 space-y-6 flex flex-col">
+            <div className="h-full bg-white border border-slate-200 p-6 space-y-6">
               {/* Status Section */}
               <div className="space-y-5">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted border-b border-slate-400 pb-3">
@@ -387,7 +431,7 @@ export default function ProductForm({ product }: Props) {
               </div>
 
               {/* Product Media Section */}
-              <div className="space-y-5 flex-1 flex flex-col mt-6">
+              <div className="space-y-5 mt-6">
                 <div className="flex items-center justify-between border-b border-slate-400 pb-3">
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
                     Product Images
@@ -401,7 +445,7 @@ export default function ProductForm({ product }: Props) {
                 <p className="text-xs text-text-muted leading-relaxed">
                   Add up to 5 photos. Previews will upload automatically as soon as the product has basic details saved.
                 </p>
-                <div className="flex-1 flex flex-col justify-center">
+                <div>
                   <MultiImageUpload
                     value={images}
                     onChange={setImages}

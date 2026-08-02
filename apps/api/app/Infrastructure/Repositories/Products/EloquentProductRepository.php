@@ -34,31 +34,39 @@ class EloquentProductRepository implements ProductRepositoryInterface
     public function create(int $tenantId, ProductData $data): Product
     {
         return Product::create([
-            'tenant_id'   => $tenantId,
-            'category_id' => $data->categoryId,
-            'name'        => $data->name,
-            'slug'        => $data->slug,
-            'description' => $data->description,
-            'image'       => $data->image,
-            'price'       => $data->price,
-            'stock'       => $data->stock,
-            'is_active'   => $data->isActive,
-            'sort_order'  => $data->sortOrder,
+            'tenant_id'          => $tenantId,
+            'category_id'        => $data->categoryId,
+            'name'               => $data->name,
+            'slug'               => $data->slug,
+            'description'        => $data->description,
+            'image'              => $data->image,
+            'price'              => $data->price,
+            'cost_price'         => $data->costPrice,
+            'sales_price'        => $data->salesPrice,
+            'discount_percent'   => $data->discountPercent,
+            'stock'              => $data->stock,
+            'low_stock_quantity' => $data->lowStockQuantity,
+            'is_active'          => $data->isActive,
+            'sort_order'         => $data->sortOrder,
         ]);
     }
 
     public function update(Product $product, ProductData $data): Product
     {
         $product->update([
-            'category_id' => $data->categoryId,
-            'name'        => $data->name,
-            'slug'        => $data->slug,
-            'description' => $data->description,
-            'image'       => $data->image,
-            'price'       => $data->price,
-            'stock'       => $data->stock,
-            'is_active'   => $data->isActive,
-            'sort_order'  => $data->sortOrder,
+            'category_id'        => $data->categoryId,
+            'name'               => $data->name,
+            'slug'               => $data->slug,
+            'description'        => $data->description,
+            'image'              => $data->image,
+            'price'              => $data->price,
+            'cost_price'         => $data->costPrice,
+            'sales_price'        => $data->salesPrice,
+            'discount_percent'   => $data->discountPercent,
+            'stock'              => $data->stock,
+            'low_stock_quantity' => $data->lowStockQuantity,
+            'is_active'          => $data->isActive,
+            'sort_order'         => $data->sortOrder,
         ]);
 
         return $product->fresh();
