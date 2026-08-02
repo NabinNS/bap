@@ -21,6 +21,8 @@ class StoreProductRequest extends FormRequest
     {
         return [
             'name'        => ['required', 'string', 'max:255'],
+            'brand'       => ['nullable', 'string', 'max:255'],
+            'sku'         => ['nullable', 'string', 'max:255'],
             'slug'        => ['nullable', 'string', 'max:255'],
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'description' => ['nullable', 'string'],
@@ -32,6 +34,7 @@ class StoreProductRequest extends FormRequest
             'stock'              => ['required', 'integer', 'min:0'],
             'low_stock_quantity' => ['nullable', 'integer', 'min:0'],
             'is_active'          => ['boolean'],
+            'is_featured'        => ['boolean'],
             'sort_order'         => ['integer'],
         ];
     }
@@ -52,6 +55,8 @@ class StoreProductRequest extends FormRequest
 
         return new ProductData(
             name:             $v['name'],
+            brand:            $v['brand'] ?? null,
+            sku:              $v['sku'] ?? null,
             slug:             $v['slug'] ?? null,
             categoryId:       isset($v['category_id']) ? (int) $v['category_id'] : null,
             description:      $v['description'] ?? null,
@@ -63,6 +68,7 @@ class StoreProductRequest extends FormRequest
             stock:            (int) $v['stock'],
             lowStockQuantity: isset($v['low_stock_quantity']) ? (int) $v['low_stock_quantity'] : null,
             isActive:         $v['is_active'] ?? true,
+            isFeatured:       $v['is_featured'] ?? false,
             sortOrder:        $v['sort_order'] ?? 0,
         );
     }

@@ -37,6 +37,8 @@ class EloquentProductRepository implements ProductRepositoryInterface
             'tenant_id'          => $tenantId,
             'category_id'        => $data->categoryId,
             'name'               => $data->name,
+            'brand'              => $data->brand,
+            'sku'                => $data->sku,
             'slug'               => $data->slug,
             'description'        => $data->description,
             'image'              => $data->image,
@@ -47,6 +49,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
             'stock'              => $data->stock,
             'low_stock_quantity' => $data->lowStockQuantity,
             'is_active'          => $data->isActive,
+            'is_featured'        => $data->isFeatured,
             'sort_order'         => $data->sortOrder,
         ]);
     }
@@ -56,6 +59,8 @@ class EloquentProductRepository implements ProductRepositoryInterface
         $product->update([
             'category_id'        => $data->categoryId,
             'name'               => $data->name,
+            'brand'              => $data->brand,
+            'sku'                => $data->sku,
             'slug'               => $data->slug,
             'description'        => $data->description,
             'image'              => $data->image,
@@ -66,6 +71,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
             'stock'              => $data->stock,
             'low_stock_quantity' => $data->lowStockQuantity,
             'is_active'          => $data->isActive,
+            'is_featured'        => $data->isFeatured,
             'sort_order'         => $data->sortOrder,
         ]);
 

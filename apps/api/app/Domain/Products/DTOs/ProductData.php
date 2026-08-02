@@ -6,6 +6,8 @@ readonly class ProductData
 {
     public function __construct(
         public string  $name,
+        public ?string $brand,
+        public ?string $sku,
         public ?string $slug,
         public ?int    $categoryId,
         public ?string $description,
@@ -17,6 +19,7 @@ readonly class ProductData
         public int     $stock,
         public ?int    $lowStockQuantity,
         public bool    $isActive,
+        public bool    $isFeatured,
         public int     $sortOrder,
     ) {}
 }

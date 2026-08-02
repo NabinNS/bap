@@ -17,6 +17,8 @@ class Product extends Model
         'tenant_id',
         'category_id',
         'name',
+        'brand',
+        'sku',
         'slug',
         'description',
         'image',
@@ -27,11 +29,13 @@ class Product extends Model
         'stock',
         'low_stock_quantity',
         'is_active',
+        'is_featured',
         'sort_order',
     ];
 
     protected $casts = [
         'is_active'          => 'boolean',
+        'is_featured'        => 'boolean',
         'price'              => 'integer',
         'cost_price'         => 'integer',
         'sales_price'        => 'integer',

@@ -22,6 +22,8 @@ class UpdateProductRequest extends FormRequest
     {
         return [
             'name'        => ['sometimes', 'string', 'max:255'],
+            'brand'       => ['nullable', 'string', 'max:255'],
+            'sku'         => ['nullable', 'string', 'max:255'],
             'slug'        => ['nullable', 'string', 'max:255'],
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'description' => ['nullable', 'string'],
@@ -33,6 +35,7 @@ class UpdateProductRequest extends FormRequest
             'stock'              => ['sometimes', 'integer', 'min:0'],
             'low_stock_quantity' => ['nullable', 'integer', 'min:0'],
             'is_active'          => ['boolean'],
+            'is_featured'        => ['boolean'],
             'sort_order'         => ['integer'],
         ];
     }
@@ -50,6 +53,8 @@ class UpdateProductRequest extends FormRequest
 
         return new ProductData(
             name:             $v['name']        ?? $product->name,
+            brand:            array_key_exists('brand', $v) ? $v['brand'] : $product->brand,
+            sku:              array_key_exists('sku', $v) ? $v['sku'] : $product->sku,
             slug:             $v['slug']        ?? null,
             categoryId:       $this->resolveCategoryId($v, $product),
             description:      $v['description'] ?? $product->description,
@@ -60,8 +65,9 @@ class UpdateProductRequest extends FormRequest
             discountPercent:  array_key_exists('discount_percent', $v) ? (isset($v['discount_percent']) ? (int) $v['discount_percent'] : null) : $product->discount_percent,
             stock:            (int) ($v['stock'] ?? $product->stock),
             lowStockQuantity: array_key_exists('low_stock_quantity', $v) ? (isset($v['low_stock_quantity']) ? (int) $v['low_stock_quantity'] : null) : $product->low_stock_quantity,
-            isActive:         $v['is_active']   ?? $product->is_active,
-            sortOrder:        $v['sort_order']  ?? $product->sort_order,
+            isActive:         $v['is_active']    ?? $product->is_active,
+            isFeatured:       $v['is_featured']  ?? $product->is_featured,
+            sortOrder:        $v['sort_order']   ?? $product->sort_order,
         );
     }
 

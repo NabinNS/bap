@@ -16,6 +16,9 @@ import { CreateCategoryModal } from "@/components/categories/CreateCategoryModal
 
 type FormValues = {
   name: string;
+  brand: string;
+  sku: string;
+  slug: string;
   category: string;
   cost_price: string;
   sales_price: string;
@@ -24,6 +27,7 @@ type FormValues = {
   low_stock_quantity: string;
   description: string;
   status: string;
+  is_featured: boolean;
 };
 
 type Category = { ulid: string; name: string };
@@ -31,6 +35,9 @@ type Category = { ulid: string; name: string };
 export type ProductFormProduct = {
   ulid: string;
   name: string;
+  brand: string | null;
+  sku: string | null;
+  slug: string;
   description: string | null;
   cost_price: number | null;
   sales_price: number | null;
@@ -38,11 +45,15 @@ export type ProductFormProduct = {
   stock: number;
   low_stock_quantity: number | null;
   is_active: boolean;
+  is_featured: boolean;
   category: { ulid: string; name: string } | null;
 };
 
 type ProductPayload = {
   name: string;
+  brand: string | null;
+  sku: string | null;
+  slug: string | null;
   category_ulid: string | null;
   cost_price: number | null;
   sales_price: number | null;
@@ -51,6 +62,7 @@ type ProductPayload = {
   low_stock_quantity: number | null;
   description: string;
   is_active: boolean;
+  is_featured: boolean;
 };
 
 type Props = {
@@ -91,6 +103,9 @@ export default function ProductForm({ product }: Props) {
     defaultValues: product
       ? {
           name:               product.name,
+          brand:              product.brand ?? "",
+          sku:                product.sku ?? "",
+          slug:               product.slug ?? "",
           category:           product.category?.ulid ?? "",
           cost_price:         product.cost_price != null ? String(product.cost_price) : "",
           sales_price:        product.sales_price != null ? String(product.sales_price) : "",
@@ -99,8 +114,9 @@ export default function ProductForm({ product }: Props) {
           low_stock_quantity: product.low_stock_quantity != null ? String(product.low_stock_quantity) : "",
           description:        product.description ?? "",
           status:             product.is_active ? "active" : "inactive",
+          is_featured:        product.is_featured,
         }
-      : { name: "", category: "", cost_price: "", sales_price: "", discount_percent: "", stock: "", low_stock_quantity: "", description: "", status: "active" },
+      : { name: "", brand: "", sku: "", slug: "", category: "", cost_price: "", sales_price: "", discount_percent: "", stock: "", low_stock_quantity: "", description: "", status: "active", is_featured: false },
   });
 
   // Load existing images in edit mode
@@ -135,6 +151,9 @@ export default function ProductForm({ product }: Props) {
   function buildPayload(data: FormValues): ProductPayload {
     return {
       name:               data.name,
+      brand:              data.brand || null,
+      sku:                data.sku || null,
+      slug:               data.slug || null,
       category_ulid:      data.category || null,
       cost_price:         data.cost_price !== "" ? Number(data.cost_price) : null,
       sales_price:        data.sales_price !== "" ? Number(data.sales_price) : null,
@@ -143,6 +162,7 @@ export default function ProductForm({ product }: Props) {
       low_stock_quantity: data.low_stock_quantity !== "" ? Number(data.low_stock_quantity) : null,
       description:        data.description,
       is_active:          data.status === "active",
+      is_featured:        data.is_featured,
     };
   }
 
@@ -326,6 +346,11 @@ export default function ProductForm({ product }: Props) {
                   error={errors.name?.message}
                   {...withAutoSave(register("name", { required: "Name is required." }))}
                 />
+                <InputField
+                  label="Brand"
+                  placeholder="e.g. Bosch"
+                  {...withAutoSave(register("brand"))}
+                />
                 <Controller
                   name="category"
                   control={control}
@@ -345,6 +370,19 @@ export default function ProductForm({ product }: Props) {
                       }}
                     />
                   )}
+                />
+                <InputField
+                  label="SKU / Part No."
+                  placeholder="e.g. BSH-OF-3312"
+                  mono
+                  {...withAutoSave(register("sku"))}
+                />
+                <InputField
+                  label="Slug"
+                  placeholder="e.g. bosch-oil-filter (auto-generated if empty)"
+                  mono
+                  hint="Leave blank to auto-generate from the product name."
+                  {...withAutoSave(register("slug"))}
                 />
               </div>
 
@@ -424,9 +462,9 @@ export default function ProductForm({ product }: Props) {
           <div className="flex flex-col">
             <div className="h-full bg-white border border-slate-200 p-6 space-y-6">
               {/* Status Section */}
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted border-b border-slate-400 pb-3">
-                  Status
+                  Visibility
                 </h3>
                 <SelectField
                   label="Product Status"
@@ -435,6 +473,33 @@ export default function ProductForm({ product }: Props) {
                     { label: "Inactive", value: "inactive" },
                   ]}
                   {...withAutoSave(register("status"))}
+                />
+                <Controller
+                  name="is_featured"
+                  control={control}
+                  render={({ field }) => (
+                    <div className="flex items-center justify-between py-2">
+                      <div>
+                        <p className="text-sm font-semibold text-text-default">Featured</p>
+                        <p className="text-xs text-text-muted">Show on homepage & featured sections</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={field.value}
+                        onClick={() => { field.onChange(!field.value); autoSave(); }}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                          field.value ? "bg-slate-900" : "bg-slate-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                            field.value ? "translate-x-4" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  )}
                 />
               </div>
 

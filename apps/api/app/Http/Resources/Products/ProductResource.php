@@ -12,6 +12,8 @@ class ProductResource extends JsonResource
         return [
             'ulid'        => $this->ulid,
             'name'        => $this->name,
+            'brand'       => $this->brand,
+            'sku'         => $this->sku,
             'thumbnail'   => $this->whenLoaded('imageGroups', fn() =>
                 $this->imageGroups->first()?->imageItems->first()?->url
             ),
@@ -25,6 +27,7 @@ class ProductResource extends JsonResource
             'stock'              => $this->stock,
             'low_stock_quantity' => $this->low_stock_quantity,
             'is_active'          => $this->is_active,
+            'is_featured'        => $this->is_featured,
             'sort_order'  => $this->sort_order,
             'created_at'  => $this->created_at,
             'updated_at'  => $this->updated_at,
