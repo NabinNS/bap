@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
@@ -16,21 +16,34 @@ import {
 type Product = {
   ulid: string;
   name: string;
-  description: string | null;
   thumbnail: string | null;
-  price: number;
+  sku: string | null;
+  cost_price: number | null;
+  sales_price: number | null;
+  discount_percent: number | null;
   stock: number;
+  low_stock_quantity: number | null;
   is_active: boolean;
+  is_featured: boolean;
   category: { ulid: string; name: string } | null;
+  brand: { ulid: string; name: string } | null;
 };
 
 export default function AdminProducts() {
+  const queryClient = useQueryClient();
+
   const { data: productsData, isLoading } = useQuery({
     queryKey: ["products"],
     queryFn: () => apiFetch<{ data: Product[] }>("/products?per_page=50"),
   });
 
   const products = productsData?.data ?? [];
+
+  const toggleFeatured = useMutation({
+    mutationFn: ({ ulid, is_featured }: { ulid: string; is_featured: boolean }) =>
+      apiFetch(`/products/${ulid}`, { method: "PUT", body: JSON.stringify({ is_featured }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["products"] }),
+  });
 
   const columns: ColumnDef<Product, unknown>[] = [
     {
@@ -43,29 +56,95 @@ export default function AdminProducts() {
           <img
             src={row.original.thumbnail}
             alt={row.original.name}
-            className="h-14 w-14 rounded-lg object-cover border border-slate-200"
+            className="h-14 w-14 object-cover border border-slate-200"
           />
         ) : (
-          <div className="h-14 w-14 rounded-lg border border-slate-200 bg-slate-100" />
+          <div className="h-14 w-14 border border-slate-200 bg-slate-100" />
         ),
     },
-    { accessorKey: "name", header: "Product" },
+    {
+      accessorKey: "name",
+      header: "Product",
+      cell: ({ row }) => (
+        <div>
+          <p className="font-semibold text-text-default text-sm">{row.original.name}</p>
+          {row.original.sku && (
+            <p className="text-xs font-mono text-text-muted mt-0.5">{row.original.sku}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "brand",
+      header: "Brand",
+      cell: ({ row }) => row.original.brand?.name ?? <span className="text-text-muted">—</span>,
+    },
     {
       accessorKey: "category",
       header: "Category",
-      cell: ({ row }) => row.original.category?.name ?? "—",
+      cell: ({ row }) => row.original.category?.name ?? <span className="text-text-muted">—</span>,
     },
     {
-      accessorKey: "price",
-      header: "Price",
-      cell: ({ row }) => `NPR ${row.original.price.toLocaleString()}`,
+      accessorKey: "sales_price",
+      header: "Sales Price",
+      cell: ({ row }) => {
+        const { sales_price, discount_percent } = row.original;
+        if (sales_price == null) return <span className="text-text-muted">—</span>;
+        return (
+          <div>
+            <p className="font-semibold text-sm">{sales_price.toLocaleString()}</p>
+            {discount_percent ? (
+              <p className="text-xs text-green-600">{discount_percent}% off</p>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "stock",
       header: "Stock",
+      cell: ({ row }) => {
+        const { stock, low_stock_quantity } = row.original;
+        const isOut = stock === 0;
+        return (
+          <span className={isOut ? "text-red-500" : ""}>
+            {isOut ? "Out of stock" : stock}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "is_featured",
+      header: "Featured",
+      cell: ({ row }) => {
+        const featured = row.original.is_featured;
+        return (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={featured}
+            onClick={() => toggleFeatured.mutate({ ulid: row.original.ulid, is_featured: !featured })}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+              featured ? "bg-slate-900" : "bg-slate-300"
+            }`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+              featured ? "translate-x-4" : "translate-x-0.5"
+            }`} />
+          </button>
+        );
+      },
+    },
+    {
+      accessorKey: "is_active",
+      header: "Status",
       cell: ({ row }) => (
-        <span className={row.original.stock === 0 ? "text-red-500 font-semibold" : ""}>
-          {row.original.stock === 0 ? "Out of stock" : row.original.stock}
+        <span className={`text-xs font-semibold px-2 py-0.5 ${
+          row.original.is_active
+            ? "bg-green-50 text-green-700"
+            : "bg-slate-100 text-slate-500"
+        }`}>
+          {row.original.is_active ? "Active" : "Inactive"}
         </span>
       ),
     },

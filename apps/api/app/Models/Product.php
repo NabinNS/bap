@@ -22,7 +22,6 @@ class Product extends Model
         'slug',
         'description',
         'image',
-        'price',
         'cost_price',
         'sales_price',
         'discount_percent',
@@ -36,7 +35,6 @@ class Product extends Model
     protected $casts = [
         'is_active'          => 'boolean',
         'is_featured'        => 'boolean',
-        'price'              => 'integer',
         'cost_price'         => 'integer',
         'sales_price'        => 'integer',
         'discount_percent'   => 'integer',

@@ -24,7 +24,6 @@ class UpdateProductAction
             categoryId:       $data->categoryId,
             description:      $data->description,
             image:            $data->image,
-            price:            $data->price,
             costPrice:        $data->costPrice,
             salesPrice:       $data->salesPrice,
             discountPercent:  $data->discountPercent,

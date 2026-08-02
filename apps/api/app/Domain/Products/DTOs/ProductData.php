@@ -12,7 +12,6 @@ readonly class ProductData
         public ?int    $categoryId,
         public ?string $description,
         public ?string $image,
-        public int     $price,
         public int     $costPrice,
         public int     $salesPrice,
         public ?int    $discountPercent,
