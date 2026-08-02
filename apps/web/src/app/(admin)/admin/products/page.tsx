@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, MoreVertical } from "lucide-react";
@@ -41,7 +42,19 @@ export default function AdminProducts() {
   const toggleFeatured = useMutation({
     mutationFn: ({ ulid, is_featured }: { ulid: string; is_featured: boolean }) =>
       apiFetch(`/products/${ulid}`, { method: "PUT", body: JSON.stringify({ is_featured }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["products"] }),
+    onMutate: async ({ ulid, is_featured }) => {
+      await queryClient.cancelQueries({ queryKey: ["products"] });
+      const previous = queryClient.getQueryData<{ data: Product[] }>(["products"]);
+      queryClient.setQueryData<{ data: Product[] }>(["products"], (old) =>
+        old ? { ...old, data: old.data.map((p) => p.ulid === ulid ? { ...p, is_featured } : p) } : old
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["products"], ctx.previous);
+      toast.error("Failed to update", "Could not toggle featured status.");
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["products"] }),
   });
 
   const columns: ColumnDef<Product, unknown>[] = [
@@ -115,7 +128,7 @@ export default function AdminProducts() {
             type="button"
             role="switch"
             aria-checked={featured}
-            onClick={() => toggleFeatured.mutate({ ulid: row.original.ulid, is_featured: !featured })}
+            onClick={(e) => { e.stopPropagation(); toggleFeatured.mutate({ ulid: row.original.ulid, is_featured: !featured }); }}
             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
               featured ? "bg-slate-900" : "bg-slate-300"
             }`}

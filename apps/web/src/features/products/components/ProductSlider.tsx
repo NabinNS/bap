@@ -9,7 +9,7 @@ import ProductCard from "./ProductCard";
 type ApiProduct = {
   ulid: string;
   name: string;
-  price: number;
+  sales_price: number | null;
   thumbnail: string | null;
   is_active: boolean;
   category: { ulid: string; name: string } | null;
@@ -87,7 +87,7 @@ export default function ProductSlider() {
             <ProductCard
               ulid={product.ulid}
               name={product.name}
-              price={product.price}
+              price={product.sales_price ?? 0}
               thumbnail={product.thumbnail}
               category={product.category?.name ?? null}
             />

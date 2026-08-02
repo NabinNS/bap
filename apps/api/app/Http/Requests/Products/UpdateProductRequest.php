@@ -64,7 +64,7 @@ class UpdateProductRequest extends FormRequest
             name:             $v['name']           ?? $product->name,
             brandId:          $this->resolveBrandId($v, $product),
             sku:              array_key_exists('sku', $v) ? $v['sku'] : $product->sku,
-            slug:             $v['slug']            ?? null,
+            slug:             array_key_exists('slug', $v) ? $v['slug'] : $product->slug,
             categoryId:       $this->resolveCategoryId($v, $product),
             description:      $v['description']    ?? $product->description,
             image:            $v['image']           ?? $product->image,
