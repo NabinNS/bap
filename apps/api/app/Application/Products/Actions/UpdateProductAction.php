@@ -26,7 +26,6 @@ class UpdateProductAction
             image:            $data->image,
             costPrice:        $data->costPrice,
             salesPrice:       $data->salesPrice,
-            discountPercent:  $data->discountPercent,
             stock:            $data->stock,
             lowStockQuantity: $data->lowStockQuantity,
             isActive:         $data->isActive,

@@ -13,6 +13,7 @@ type BaseProps = {
 
 type InputFieldProps = BaseProps & React.InputHTMLAttributes<HTMLInputElement> & {
   mono?: boolean;
+  labelHint?: string;
 };
 
 type NumberFieldProps = BaseProps & Omit<React.InputHTMLAttributes<HTMLInputElement>, "type" | "inputMode" | "pattern"> & {
@@ -65,10 +66,13 @@ function FieldWrapper({ children, hint, error }: { children: React.ReactNode; hi
 // forwardRef lets React Hook Form attach its internal ref to the real <input> element
 // Without this, register() cannot read the input's value
 export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
-  ({ label, required, hint, error, mono, ...props }, ref) => {
+  ({ label, required, hint, error, mono, labelHint, ...props }, ref) => {
     return (
       <FieldWrapper hint={hint} error={error}>
-        <Label label={label} required={required} />
+        <div className="flex items-center gap-2">
+          <Label label={label} required={required} />
+          {labelHint && <span className="text-xs text-text-muted font-normal">{labelHint}</span>}
+        </div>
         <input
           ref={ref}
           {...props}

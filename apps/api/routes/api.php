@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BrandController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ProductDiscountController;
 use App\Http\Controllers\Api\ImageGroupController;
 use App\Http\Controllers\Api\OfferController;
 use App\Http\Controllers\Api\SliderController;
@@ -33,6 +34,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('brands', BrandController::class)->except(['index', 'show']);
     Route::apiResource('categories', CategoryController::class)->except(['index', 'show']);
     Route::apiResource('products', ProductController::class)->except(['index', 'show']);
+    Route::get('products/{product}/discounts', [ProductDiscountController::class, 'index']);
+    Route::post('products/{product}/discounts', [ProductDiscountController::class, 'store']);
+    Route::put('products/{product}/discounts/{discount}', [ProductDiscountController::class, 'update']);
+    Route::delete('products/{product}/discounts/{discount}', [ProductDiscountController::class, 'destroy']);
     Route::apiResource('sliders', SliderController::class)->except(['index', 'show']);
     Route::apiResource('offers', OfferController::class)->except(['index', 'show']);
 });

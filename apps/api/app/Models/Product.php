@@ -57,6 +57,20 @@ class Product extends Model
         return $this->belongsTo(Tenant::class);
     }
 
+    public function discounts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProductDiscount::class);
+    }
+
+    public function activeDiscount(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ProductDiscount::class)
+            ->where('is_active', true)
+            ->where(fn($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
+            ->where(fn($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
+            ->latestOfMany();
+    }
+
     public function imageGroups(): MorphMany
     {
         return $this->morphMany(ImageGroup::class, 'imageable')->orderBy('sort_order');

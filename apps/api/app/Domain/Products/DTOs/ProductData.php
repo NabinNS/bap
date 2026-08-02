@@ -14,7 +14,6 @@ readonly class ProductData
         public ?string $image,
         public int     $costPrice,
         public int     $salesPrice,
-        public ?int    $discountPercent,
         public int     $stock,
         public ?int    $lowStockQuantity,
         public bool    $isActive,

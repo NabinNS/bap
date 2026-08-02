@@ -20,7 +20,6 @@ type Product = {
   sku: string | null;
   cost_price: number | null;
   sales_price: number | null;
-  discount_percent: number | null;
   stock: number;
   low_stock_quantity: number | null;
   is_active: boolean;
@@ -88,16 +87,9 @@ export default function AdminProducts() {
       accessorKey: "sales_price",
       header: "Sales Price",
       cell: ({ row }) => {
-        const { sales_price, discount_percent } = row.original;
+        const { sales_price } = row.original;
         if (sales_price == null) return <span className="text-text-muted">—</span>;
-        return (
-          <div>
-            <p className="font-semibold text-sm">{sales_price.toLocaleString()}</p>
-            {discount_percent ? (
-              <p className="text-xs text-green-600">{discount_percent}% off</p>
-            ) : null}
-          </div>
-        );
+        return <span className="font-semibold text-sm">{sales_price.toLocaleString()}</span>;
       },
     },
     {

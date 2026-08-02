@@ -7,13 +7,20 @@ import { useForm, Controller, useWatch } from "react-hook-form";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus } from "lucide-react";
 import { InputField, NumberField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
 import { RichTextEditor } from "@/components/ui/form/RichTextEditor";
 import { MultiImageUpload, type SavedImage } from "@/components/ui/form/MultiImageUpload";
 import { uploadImages, type FileUploadState } from "@/lib/upload";
 import { CreateCategoryModal } from "@/components/categories/CreateCategoryModal";
 import { CreateBrandModal } from "@/components/brands/CreateBrandModal";
+import { ProductDiscountModal, type ProductDiscount } from "@/components/discounts/ProductDiscountModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type FormValues = {
   name: string;
@@ -23,7 +30,6 @@ type FormValues = {
   brand: string;
   cost_price: string;
   sales_price: string;
-  discount_percent: string;
   stock: string;
   low_stock_quantity: string;
   description: string;
@@ -41,7 +47,6 @@ export type ProductFormProduct = {
   description: string | null;
   cost_price: number | null;
   sales_price: number | null;
-  discount_percent: number | null;
   stock: number;
   low_stock_quantity: number | null;
   is_active: boolean;
@@ -58,7 +63,6 @@ type ProductPayload = {
   brand_ulid: string | null;
   cost_price: number | null;
   sales_price: number | null;
-  discount_percent: number | null;
   stock: number;
   low_stock_quantity: number | null;
   description: string;
@@ -87,6 +91,8 @@ export default function ProductForm({ product }: Props) {
   const [brandModalOpen, setBrandModalOpen] = useState(false);
   const [newBrandName, setNewBrandName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [discountModalOpen, setDiscountModalOpen] = useState(false);
+  const [editingDiscount, setEditingDiscount] = useState<ProductDiscount | null>(null);
   const slugTouched = useRef(false);
 
   const { data: categoriesData } = useQuery({
@@ -97,9 +103,15 @@ export default function ProductForm({ product }: Props) {
     queryKey: ["brands", "all"],
     queryFn: () => apiFetch<{ data: Category[] }>("/brands?per_page=100"),
   });
+  const { data: discountsData } = useQuery({
+    queryKey: ["product-discounts", savedProductUlid],
+    queryFn: () => apiFetch<{ data: ProductDiscount[] }>(`/products/${savedProductUlid}/discounts`),
+    enabled: !!savedProductUlid,
+  });
 
   const categories = categoriesData?.data ?? [];
   const brands = brandsData?.data ?? [];
+  const discounts = discountsData?.data ?? [];
 
   const {
     register,
@@ -118,14 +130,13 @@ export default function ProductForm({ product }: Props) {
           brand:              product.brand?.ulid ?? "",
           cost_price:         product.cost_price != null ? String(product.cost_price) : "",
           sales_price:        product.sales_price != null ? String(product.sales_price) : "",
-          discount_percent:   product.discount_percent != null ? String(product.discount_percent) : "",
           stock:              String(product.stock),
           low_stock_quantity: product.low_stock_quantity != null ? String(product.low_stock_quantity) : "",
           description:        product.description ?? "",
           status:             product.is_active ? "active" : "inactive",
           is_featured:        product.is_featured,
         }
-      : { name: "", slug: "", sku: "", category: "", brand: "", cost_price: "", sales_price: "", discount_percent: "", stock: "", low_stock_quantity: "", description: "", status: "active", is_featured: false },
+      : { name: "", slug: "", sku: "", category: "", brand: "", cost_price: "", sales_price: "", stock: "", low_stock_quantity: "", description: "", status: "active", is_featured: false },
   });
 
   // Auto-generate slug from name as user types (unless slug was manually edited)
@@ -179,7 +190,6 @@ export default function ProductForm({ product }: Props) {
       brand_ulid:         data.brand || null,
       cost_price:         data.cost_price !== "" ? Number(data.cost_price) : null,
       sales_price:        data.sales_price !== "" ? Number(data.sales_price) : null,
-      discount_percent:   data.discount_percent !== "" ? Number(data.discount_percent) : null,
       stock:              Number(data.stock) || 0,
       low_stock_quantity: data.low_stock_quantity !== "" ? Number(data.low_stock_quantity) : null,
       description:        data.description,
@@ -190,7 +200,7 @@ export default function ProductForm({ product }: Props) {
 
   function autoSave() {
     const data = getValues();
-    if (!data.name.trim() || data.stock === "") return;
+    if (!data.name.trim() || data.stock === "" || data.cost_price === "" || data.sales_price === "") return;
     autoSaveMutation.mutate({ ulid: savedProductUlid, payload: buildPayload(data) });
   }
 
@@ -202,6 +212,17 @@ export default function ProductForm({ product }: Props) {
         autoSave();
       },
     };
+  }
+
+  async function deleteDiscount(discountUlid: string) {
+    if (!savedProductUlid) return;
+    try {
+      await apiFetch(`/products/${savedProductUlid}/discounts/${discountUlid}`, { method: "DELETE" });
+      queryClient.invalidateQueries({ queryKey: ["product-discounts", savedProductUlid] });
+      toast.success("Discount removed", "The discount has been deleted.");
+    } catch {
+      toast.error("Failed to delete", "Something went wrong.");
+    }
   }
 
   async function removeSavedImage(ulid: string) {
@@ -371,9 +392,9 @@ export default function ProductForm({ product }: Props) {
                 />
                 <InputField
                   label="Slug"
+                  labelHint="(auto-fills from name)"
                   placeholder="auto-generated from name"
                   mono
-                  hint="Auto-fills as you type. Edit to override."
                   {...register("slug", {
                     onChange: () => { slugTouched.current = true; },
                     onBlur:   () => autoSave(),
@@ -440,7 +461,7 @@ export default function ProductForm({ product }: Props) {
                 Pricing & Inventory
               </h3>
               <hr className="border-slate-400" />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <NumberField
                   label="Cost Price (NPR)"
                   required
@@ -459,15 +480,6 @@ export default function ProductForm({ product }: Props) {
                   {...withAutoSave(register("sales_price", {
                     required: "Sales price is required.",
                     min: { value: 0, message: "Sales price cannot be negative." },
-                  }))}
-                />
-                <NumberField
-                  label="Discount (%)"
-                  placeholder="e.g. 10"
-                  error={errors.discount_percent?.message}
-                  {...withAutoSave(register("discount_percent", {
-                    min: { value: 0, message: "Discount cannot be negative." },
-                    max: { value: 100, message: "Discount cannot exceed 100%." },
                   }))}
                 />
               </div>
@@ -566,6 +578,78 @@ export default function ProductForm({ product }: Props) {
                   />
                 </div>
               </div>
+              {/* Discounts Section */}
+              <div className="space-y-3 mt-6">
+                <div className="flex items-center justify-between border-b border-slate-400 pb-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
+                    Discounts
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!savedProductUlid) {
+                        toast.error("Save the product first", "Fill in the required fields and the product will auto-save.");
+                        return;
+                      }
+                      setEditingDiscount(null);
+                      setDiscountModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold bg-black text-white hover:bg-black/80 transition-colors cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Discount
+                  </button>
+                </div>
+
+                {!savedProductUlid ? (
+                  <p className="text-xs text-text-muted">Save the product first to add discounts.</p>
+                ) : discounts.length === 0 ? (
+                  <p className="text-xs text-text-muted">No discounts added yet.</p>
+                ) : (
+                  <div className="w-full text-xs">
+                    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted border-b border-slate-200">
+                      <span>Discount %</span>
+                      <span>Start</span>
+                      <span>End</span>
+                      <span />
+                    </div>
+                    {discounts.map((d) => (
+                      <div
+                        key={d.ulid}
+                        className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center px-1 py-2 border-b border-slate-100 last:border-0"
+                      >
+                        <span className="font-semibold">{d.percentage}%</span>
+                        <span className="text-text-muted tabular-nums">{d.starts_at ?? "—"}</span>
+                        <span className="text-text-muted tabular-nums">{d.ends_at ?? "—"}</span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex h-6 w-6 items-center justify-center hover:bg-slate-100 transition-colors"
+                            >
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-28 rounded-none p-0">
+                            <DropdownMenuItem
+                              className="cursor-pointer text-sm py-2 px-3 rounded-none focus:rounded-none"
+                              onClick={() => { setEditingDiscount(d); setDiscountModalOpen(true); }}
+                            >
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer text-sm py-2 px-3 rounded-none focus:rounded-none text-red-500 focus:text-red-500"
+                              onClick={() => deleteDiscount(d.ulid)}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -609,6 +693,14 @@ export default function ProductForm({ product }: Props) {
         initialName={newBrandName}
         onCreated={(brand) => { setValue("brand", brand.ulid); autoSave(); }}
       />
+      {savedProductUlid && (
+        <ProductDiscountModal
+          open={discountModalOpen}
+          onClose={() => setDiscountModalOpen(false)}
+          productUlid={savedProductUlid}
+          discount={editingDiscount}
+        />
+      )}
     </div>
   );
 }
