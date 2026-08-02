@@ -28,6 +28,7 @@
     "@tiptap/pm": "^3.29.2",
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
+    "@zener/nepali-datepicker-react": "^1.6.2",
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

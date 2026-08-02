@@ -17,6 +17,10 @@ class EloquentProductDiscountRepository implements ProductDiscountRepositoryInte
 
     public function create(Product $product, ProductDiscountData $data): ProductDiscount
     {
+        if ($data->isActive) {
+            $product->discounts()->update(['is_active' => false]);
+        }
+
         return $product->discounts()->create([
             'tenant_id'  => $product->tenant_id,
             'percentage' => $data->percentage,
@@ -28,6 +32,12 @@ class EloquentProductDiscountRepository implements ProductDiscountRepositoryInte
 
     public function update(ProductDiscount $discount, ProductDiscountData $data): ProductDiscount
     {
+        if ($data->isActive) {
+            $discount->product->discounts()
+                ->where('id', '!=', $discount->id)
+                ->update(['is_active' => false]);
+        }
+
         $discount->update([
             'percentage' => $data->percentage,
             'starts_at'  => $data->startsAt,

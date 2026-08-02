@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Application\Products\Actions\CreateProductAction;
 use App\Application\Products\Actions\DeleteProductAction;
 use App\Application\Products\Actions\ListProductsAction;
+use App\Application\Products\Actions\ShowProductAction;
 use App\Application\Products\Actions\UpdateProductAction;
 use App\Domain\Products\DTOs\ProductFilterData;
 use App\Http\Controllers\Controller;
@@ -16,12 +17,13 @@ use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+
 class ProductController extends Controller
 {
     public function index(Request $request, ListProductsAction $action): JsonResponse
     {
         return ApiResponse::paginated(
-            $action->execute(app('current_tenant')->id, $request->integer('per_page', 15), ProductFilterData::fromRequest($request)),
+            $action->execute($this->tenantId($request), $request->integer('per_page', 15), ProductFilterData::fromRequest($request)),
             ProductResource::class,
             'Products retrieved successfully'
         );
@@ -30,18 +32,17 @@ class ProductController extends Controller
     public function store(StoreProductRequest $request, CreateProductAction $action): JsonResponse
     {
         return ApiResponse::created(
-            new ProductResource($action->execute($request->user()->currentTenantId(), $request->toDTO())),
+            new ProductResource($action->execute($this->tenantId($request), $request->toDTO())),
             'Product created successfully'
         );
     }
 
-    public function show(Request $request, Product $product): JsonResponse
+    public function show(Request $request, string $ulid, ShowProductAction $action): JsonResponse
     {
-        if ($request->user()) {
-            $this->authorize('view', $product);
-        }
-
-        return ApiResponse::success(new ProductResource($product), 'Product retrieved successfully');
+        return ApiResponse::success(
+            new ProductResource($action->execute($this->tenantId($request), $ulid)),
+            'Product retrieved successfully'
+        );
     }
 
     public function update(UpdateProductRequest $request, Product $product, UpdateProductAction $action): JsonResponse

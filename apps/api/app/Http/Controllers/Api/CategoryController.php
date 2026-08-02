@@ -22,7 +22,7 @@ class CategoryController extends Controller
     {
         return ApiResponse::paginated(
             $action->execute(
-                app('current_tenant')->id,
+                $this->tenantId($request),
                 $request->integer('per_page', 15),
                 CategoryFilterData::fromRequest($request),
             ),
@@ -34,7 +34,7 @@ class CategoryController extends Controller
     public function store(StoreCategoryRequest $request, CreateCategoryAction $action): JsonResponse
     {
         return ApiResponse::created(
-            new CategoryResource($action->execute($request->user()->currentTenantId(), $request->toDTO())),
+            new CategoryResource($action->execute($this->tenantId($request), $request->toDTO())),
             'Category created successfully'
         );
     }

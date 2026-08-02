@@ -93,6 +93,8 @@ export default function ProductForm({ product }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
   const [editingDiscount, setEditingDiscount] = useState<ProductDiscount | null>(null);
+  const [discountPage, setDiscountPage] = useState(1);
+  const DISCOUNTS_PER_PAGE = 4;
   const slugTouched = useRef(false);
 
   const { data: categoriesData } = useQuery({
@@ -119,30 +121,36 @@ export default function ProductForm({ product }: Props) {
     control,
     getValues,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: product
-      ? {
-          name:               product.name,
-          slug:               product.slug ?? "",
-          sku:                product.sku ?? "",
-          category:           product.category?.ulid ?? "",
-          brand:              product.brand?.ulid ?? "",
-          cost_price:         product.cost_price != null ? String(product.cost_price) : "",
-          sales_price:        product.sales_price != null ? String(product.sales_price) : "",
-          stock:              String(product.stock),
-          low_stock_quantity: product.low_stock_quantity != null ? String(product.low_stock_quantity) : "",
-          description:        product.description ?? "",
-          status:             product.is_active ? "active" : "inactive",
-          is_featured:        product.is_featured,
-        }
-      : { name: "", slug: "", sku: "", category: "", brand: "", cost_price: "", sales_price: "", stock: "", low_stock_quantity: "", description: "", status: "active", is_featured: false },
+    defaultValues: { name: "", slug: "", sku: "", category: "", brand: "", cost_price: "", sales_price: "", stock: "", low_stock_quantity: "", description: "", status: "active", is_featured: false },
   });
+
+  // Sync form whenever product data arrives (edit mode)
+  useEffect(() => {
+    if (!product) return;
+    slugTouched.current = true; // don't overwrite the existing slug
+    reset({
+      name:               product.name,
+      slug:               product.slug ?? "",
+      sku:                product.sku ?? "",
+      category:           product.category?.ulid ?? "",
+      brand:              product.brand?.ulid ?? "",
+      cost_price:         product.cost_price != null ? String(product.cost_price) : "",
+      sales_price:        product.sales_price != null ? String(product.sales_price) : "",
+      stock:              String(product.stock),
+      low_stock_quantity: product.low_stock_quantity != null ? String(product.low_stock_quantity) : "",
+      description:        product.description ?? "",
+      status:             product.is_active ? "active" : "inactive",
+      is_featured:        product.is_featured,
+    });
+  }, [product, reset]);
 
   // Auto-generate slug from name as user types (unless slug was manually edited)
   const watchedName = useWatch({ control, name: "name" });
   useEffect(() => {
-    if (slugTouched.current) return;
+    if (slugTouched.current || !watchedName) return;
     const slug = watchedName
       .toLowerCase()
       .trim()
@@ -212,6 +220,24 @@ export default function ProductForm({ product }: Props) {
         autoSave();
       },
     };
+  }
+
+  async function toggleDiscountActive(discount: ProductDiscount) {
+    if (!savedProductUlid) return;
+    try {
+      await apiFetch(`/products/${savedProductUlid}/discounts/${discount.ulid}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          percentage: discount.percentage,
+          starts_at: discount.starts_at,
+          ends_at: discount.ends_at,
+          is_active: !discount.is_active,
+        }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["product-discounts", savedProductUlid] });
+    } catch {
+      toast.error("Failed to update", "Something went wrong.");
+    }
   }
 
   async function deleteDiscount(discountUlid: string) {
@@ -605,22 +631,41 @@ export default function ProductForm({ product }: Props) {
                   <p className="text-xs text-text-muted">Save the product first to add discounts.</p>
                 ) : discounts.length === 0 ? (
                   <p className="text-xs text-text-muted">No discounts added yet.</p>
-                ) : (
+                ) : (() => {
+                  const totalPages = Math.ceil(discounts.length / DISCOUNTS_PER_PAGE);
+                  const paginated = discounts.slice((discountPage - 1) * DISCOUNTS_PER_PAGE, discountPage * DISCOUNTS_PER_PAGE);
+                  return (
                   <div className="w-full text-xs">
-                    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted border-b border-slate-200">
-                      <span>Discount %</span>
+                    <div className="grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-x-3 px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted border-b border-slate-200">
+                      <span>Discount</span>
                       <span>Start</span>
                       <span>End</span>
+                      <span>Active</span>
                       <span />
                     </div>
-                    {discounts.map((d) => (
+                    <div className="h-[144px] overflow-hidden">
+                    {paginated.map((d) => (
                       <div
                         key={d.ulid}
-                        className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center px-1 py-2 border-b border-slate-100 last:border-0"
+                        className="grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-x-3 items-center px-1 py-2 border-b border-slate-100 last:border-0"
                       >
                         <span className="font-semibold">{d.percentage}%</span>
                         <span className="text-text-muted tabular-nums">{d.starts_at ?? "—"}</span>
                         <span className="text-text-muted tabular-nums">{d.ends_at ?? "—"}</span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={d.is_active}
+                          onClick={() => toggleDiscountActive(d)}
+                          className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                            d.is_active ? "bg-slate-900" : "bg-slate-300"
+                          }`}
+                        >
+                          <span
+                            className="inline-block h-3 w-3 rounded-full bg-white shadow transition-transform"
+                            style={{ transform: d.is_active ? "translateX(14px)" : "translateX(2px)" }}
+                          />
+                        </button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
@@ -647,8 +692,34 @@ export default function ProductForm({ product }: Props) {
                         </DropdownMenu>
                       </div>
                     ))}
+                    </div>
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200 mt-1">
+                        <span className="text-[10px] text-text-muted">{discounts.length} total</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={discountPage === 1}
+                            onClick={() => setDiscountPage((p) => p - 1)}
+                            className="h-5 w-5 flex items-center justify-center border border-slate-200 text-text-muted hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-[10px]"
+                          >
+                            ‹
+                          </button>
+                          <span className="text-[10px] text-text-muted px-1">{discountPage}/{totalPages}</span>
+                          <button
+                            type="button"
+                            disabled={discountPage === totalPages}
+                            onClick={() => setDiscountPage((p) => p + 1)}
+                            className="h-5 w-5 flex items-center justify-center border border-slate-200 text-text-muted hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-[10px]"
+                          >
+                            ›
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
           </div>

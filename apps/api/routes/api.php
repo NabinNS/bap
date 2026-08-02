@@ -13,15 +13,15 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('resolve.tenant')->group(function () {
     Route::get('brands', [BrandController::class, 'index']);
-    Route::get('brands/{ulid}', [BrandController::class, 'show']);
+    Route::get('brands/{brand}', [BrandController::class, 'show']);
     Route::get('categories', [CategoryController::class, 'index']);
-    Route::get('categories/{ulid}', [CategoryController::class, 'show']);
+    Route::get('categories/{category}', [CategoryController::class, 'show']);
     Route::get('products', [ProductController::class, 'index']);
     Route::get('products/{ulid}', [ProductController::class, 'show']);
     Route::get('sliders', [SliderController::class, 'index']);
-    Route::get('sliders/{ulid}', [SliderController::class, 'show']);
+    Route::get('sliders/{slider}', [SliderController::class, 'show']);
     Route::get('offers', [OfferController::class, 'index']);
-    Route::get('offers/{ulid}', [OfferController::class, 'show']);
+    Route::get('offers/{offer}', [OfferController::class, 'show']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
