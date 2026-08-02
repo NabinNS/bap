@@ -13,7 +13,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
     public function paginate(int $tenantId, int $perPage, ProductFilterData $filters): LengthAwarePaginator
     {
         return Product::where('tenant_id', $tenantId)
-            ->with(['category', 'imageGroups.imageItems'])
+            ->with(['category', 'brand', 'imageGroups.imageItems'])
             ->when($filters->search, fn($q, $v) => $q->where('name', 'like', "%$v%"))
             ->when($filters->isActive !== null, fn($q) => $q->where('is_active', $filters->isActive))
             ->when($filters->categoryUlid, fn($q, $v) =>
@@ -27,7 +27,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
     {
         return Product::where('tenant_id', $tenantId)
             ->where('ulid', $ulid)
-            ->with('category')
+            ->with(['category', 'brand'])
             ->firstOrFail();
     }
 
@@ -36,8 +36,8 @@ class EloquentProductRepository implements ProductRepositoryInterface
         return Product::create([
             'tenant_id'          => $tenantId,
             'category_id'        => $data->categoryId,
+            'brand_id'           => $data->brandId,
             'name'               => $data->name,
-            'brand'              => $data->brand,
             'sku'                => $data->sku,
             'slug'               => $data->slug,
             'description'        => $data->description,
@@ -58,8 +58,8 @@ class EloquentProductRepository implements ProductRepositoryInterface
     {
         $product->update([
             'category_id'        => $data->categoryId,
+            'brand_id'           => $data->brandId,
             'name'               => $data->name,
-            'brand'              => $data->brand,
             'sku'                => $data->sku,
             'slug'               => $data->slug,
             'description'        => $data->description,

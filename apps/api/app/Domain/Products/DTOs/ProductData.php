@@ -6,7 +6,7 @@ readonly class ProductData
 {
     public function __construct(
         public string  $name,
-        public ?string $brand,
+        public ?int    $brandId,
         public ?string $sku,
         public ?string $slug,
         public ?int    $categoryId,

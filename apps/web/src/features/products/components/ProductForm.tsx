@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import Link from "next/link";
@@ -13,13 +13,14 @@ import { RichTextEditor } from "@/components/ui/form/RichTextEditor";
 import { MultiImageUpload, type SavedImage } from "@/components/ui/form/MultiImageUpload";
 import { uploadImages, type FileUploadState } from "@/lib/upload";
 import { CreateCategoryModal } from "@/components/categories/CreateCategoryModal";
+import { CreateBrandModal } from "@/components/brands/CreateBrandModal";
 
 type FormValues = {
   name: string;
-  brand: string;
-  sku: string;
   slug: string;
+  sku: string;
   category: string;
+  brand: string;
   cost_price: string;
   sales_price: string;
   discount_percent: string;
@@ -35,9 +36,8 @@ type Category = { ulid: string; name: string };
 export type ProductFormProduct = {
   ulid: string;
   name: string;
-  brand: string | null;
-  sku: string | null;
   slug: string;
+  sku: string | null;
   description: string | null;
   cost_price: number | null;
   sales_price: number | null;
@@ -47,14 +47,15 @@ export type ProductFormProduct = {
   is_active: boolean;
   is_featured: boolean;
   category: { ulid: string; name: string } | null;
+  brand: { ulid: string; name: string } | null;
 };
 
 type ProductPayload = {
   name: string;
-  brand: string | null;
-  sku: string | null;
   slug: string | null;
+  sku: string | null;
   category_ulid: string | null;
+  brand_ulid: string | null;
   cost_price: number | null;
   sales_price: number | null;
   discount_percent: number | null;
@@ -83,14 +84,22 @@ export default function ProductForm({ product }: Props) {
   const [uploadStates, setUploadStates] = useState<FileUploadState[]>([]);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [brandModalOpen, setBrandModalOpen] = useState(false);
+  const [newBrandName, setNewBrandName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const slugTouched = useRef(false);
 
   const { data: categoriesData } = useQuery({
     queryKey: ["categories", "all"],
     queryFn: () => apiFetch<{ data: Category[] }>("/categories?per_page=100"),
   });
+  const { data: brandsData } = useQuery({
+    queryKey: ["brands", "all"],
+    queryFn: () => apiFetch<{ data: Category[] }>("/brands?per_page=100"),
+  });
 
   const categories = categoriesData?.data ?? [];
+  const brands = brandsData?.data ?? [];
 
   const {
     register,
@@ -103,10 +112,10 @@ export default function ProductForm({ product }: Props) {
     defaultValues: product
       ? {
           name:               product.name,
-          brand:              product.brand ?? "",
-          sku:                product.sku ?? "",
           slug:               product.slug ?? "",
+          sku:                product.sku ?? "",
           category:           product.category?.ulid ?? "",
+          brand:              product.brand?.ulid ?? "",
           cost_price:         product.cost_price != null ? String(product.cost_price) : "",
           sales_price:        product.sales_price != null ? String(product.sales_price) : "",
           discount_percent:   product.discount_percent != null ? String(product.discount_percent) : "",
@@ -116,8 +125,21 @@ export default function ProductForm({ product }: Props) {
           status:             product.is_active ? "active" : "inactive",
           is_featured:        product.is_featured,
         }
-      : { name: "", brand: "", sku: "", slug: "", category: "", cost_price: "", sales_price: "", discount_percent: "", stock: "", low_stock_quantity: "", description: "", status: "active", is_featured: false },
+      : { name: "", slug: "", sku: "", category: "", brand: "", cost_price: "", sales_price: "", discount_percent: "", stock: "", low_stock_quantity: "", description: "", status: "active", is_featured: false },
   });
+
+  // Auto-generate slug from name as user types (unless slug was manually edited)
+  const watchedName = useWatch({ control, name: "name" });
+  useEffect(() => {
+    if (slugTouched.current) return;
+    const slug = watchedName
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-");
+    setValue("slug", slug, { shouldDirty: false });
+  }, [watchedName, setValue]);
 
   // Load existing images in edit mode
   useEffect(() => {
@@ -151,10 +173,10 @@ export default function ProductForm({ product }: Props) {
   function buildPayload(data: FormValues): ProductPayload {
     return {
       name:               data.name,
-      brand:              data.brand || null,
-      sku:                data.sku || null,
       slug:               data.slug || null,
+      sku:                data.sku || null,
       category_ulid:      data.category || null,
+      brand_ulid:         data.brand || null,
       cost_price:         data.cost_price !== "" ? Number(data.cost_price) : null,
       sales_price:        data.sales_price !== "" ? Number(data.sales_price) : null,
       discount_percent:   data.discount_percent !== "" ? Number(data.discount_percent) : null,
@@ -338,7 +360,8 @@ export default function ProductForm({ product }: Props) {
                 General Information
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Row 1: Name · Slug · SKU */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <InputField
                   label="Product Name"
                   required
@@ -347,10 +370,25 @@ export default function ProductForm({ product }: Props) {
                   {...withAutoSave(register("name", { required: "Name is required." }))}
                 />
                 <InputField
-                  label="Brand"
-                  placeholder="e.g. Bosch"
-                  {...withAutoSave(register("brand"))}
+                  label="Slug"
+                  placeholder="auto-generated from name"
+                  mono
+                  hint="Auto-fills as you type. Edit to override."
+                  {...register("slug", {
+                    onChange: () => { slugTouched.current = true; },
+                    onBlur:   () => autoSave(),
+                  })}
                 />
+                <InputField
+                  label="SKU / Part No."
+                  placeholder="e.g. BSH-OF-3312"
+                  mono
+                  {...withAutoSave(register("sku"))}
+                />
+              </div>
+
+              {/* Row 2: Category · Brand */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Controller
                   name="category"
                   control={control}
@@ -364,25 +402,23 @@ export default function ProductForm({ product }: Props) {
                       value={field.value}
                       onChange={(val) => { field.onChange(val); autoSave(); }}
                       error={errors.category?.message}
-                      onAddNew={(query) => {
-                        setNewCategoryName(query);
-                        setCategoryModalOpen(true);
-                      }}
+                      onAddNew={(query) => { setNewCategoryName(query); setCategoryModalOpen(true); }}
                     />
                   )}
                 />
-                <InputField
-                  label="SKU / Part No."
-                  placeholder="e.g. BSH-OF-3312"
-                  mono
-                  {...withAutoSave(register("sku"))}
-                />
-                <InputField
-                  label="Slug"
-                  placeholder="e.g. bosch-oil-filter (auto-generated if empty)"
-                  mono
-                  hint="Leave blank to auto-generate from the product name."
-                  {...withAutoSave(register("slug"))}
+                <Controller
+                  name="brand"
+                  control={control}
+                  render={({ field }) => (
+                    <ComboboxField
+                      label="Brand"
+                      placeholder="Select a brand"
+                      options={brands.map((b) => ({ label: b.name, value: b.ulid }))}
+                      value={field.value}
+                      onChange={(val) => { field.onChange(val); autoSave(); }}
+                      onAddNew={(query) => { setNewBrandName(query); setBrandModalOpen(true); }}
+                    />
+                  )}
                 />
               </div>
 
@@ -566,6 +602,12 @@ export default function ProductForm({ product }: Props) {
         onClose={() => setCategoryModalOpen(false)}
         initialName={newCategoryName}
         onCreated={(category) => { setValue("category", category.ulid); autoSave(); }}
+      />
+      <CreateBrandModal
+        open={brandModalOpen}
+        onClose={() => setBrandModalOpen(false)}
+        initialName={newBrandName}
+        onCreated={(brand) => { setValue("brand", brand.ulid); autoSave(); }}
       />
     </div>
   );

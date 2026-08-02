@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Products;
 
 use App\Domain\Products\DTOs\ProductData;
+use App\Models\Brand;
 use App\Models\Category;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -15,18 +16,24 @@ class StoreProductRequest extends FormRequest
                 'category_id' => Category::where('ulid', $this->category_ulid)->value('id'),
             ]);
         }
+
+        if ($this->brand_ulid) {
+            $this->merge([
+                'brand_id' => Brand::where('ulid', $this->brand_ulid)->value('id'),
+            ]);
+        }
     }
 
     public function rules(): array
     {
         return [
-            'name'        => ['required', 'string', 'max:255'],
-            'brand'       => ['nullable', 'string', 'max:255'],
-            'sku'         => ['nullable', 'string', 'max:255'],
-            'slug'        => ['nullable', 'string', 'max:255'],
-            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
-            'description' => ['nullable', 'string'],
-            'image'       => ['nullable', 'string'],
+            'name'               => ['required', 'string', 'max:255'],
+            'sku'                => ['nullable', 'string', 'max:255'],
+            'slug'               => ['nullable', 'string', 'max:255'],
+            'category_id'        => ['nullable', 'integer', 'exists:categories,id'],
+            'brand_id'           => ['nullable', 'integer', 'exists:brands,id'],
+            'description'        => ['nullable', 'string'],
+            'image'              => ['nullable', 'string'],
             'price'              => ['nullable', 'integer', 'min:0'],
             'cost_price'         => ['required', 'integer', 'min:0'],
             'sales_price'        => ['required', 'integer', 'min:0'],
@@ -42,10 +49,11 @@ class StoreProductRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required'    => 'Product name is required.',
+            'name.required'      => 'Product name is required.',
             'category_id.exists' => 'The selected category is invalid.',
-            'stock.required'   => 'Stock quantity is required.',
-            'stock.min'        => 'Stock cannot be negative.',
+            'brand_id.exists'    => 'The selected brand is invalid.',
+            'stock.required'     => 'Stock quantity is required.',
+            'stock.min'          => 'Stock cannot be negative.',
         ];
     }
 
@@ -55,7 +63,7 @@ class StoreProductRequest extends FormRequest
 
         return new ProductData(
             name:             $v['name'],
-            brand:            $v['brand'] ?? null,
+            brandId:          isset($v['brand_id']) ? (int) $v['brand_id'] : null,
             sku:              $v['sku'] ?? null,
             slug:             $v['slug'] ?? null,
             categoryId:       isset($v['category_id']) ? (int) $v['category_id'] : null,

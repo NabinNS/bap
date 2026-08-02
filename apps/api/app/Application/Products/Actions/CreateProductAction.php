@@ -17,15 +17,22 @@ class CreateProductAction
     public function execute(int $tenantId, ProductData $data): Product
     {
         $resolved = new ProductData(
-            name:        $data->name,
-            slug:        $this->slugService->resolve($data->slug, $data->name),
-            categoryId:  $data->categoryId,
-            description: $data->description,
-            image:       $data->image,
-            price:       $data->price,
-            stock:       $data->stock,
-            isActive:    $data->isActive,
-            sortOrder:   $data->sortOrder,
+            name:             $data->name,
+            brandId:          $data->brandId,
+            sku:              $data->sku,
+            slug:             $this->slugService->resolve($data->slug, $data->name),
+            categoryId:       $data->categoryId,
+            description:      $data->description,
+            image:            $data->image,
+            price:            $data->price,
+            costPrice:        $data->costPrice,
+            salesPrice:       $data->salesPrice,
+            discountPercent:  $data->discountPercent,
+            stock:            $data->stock,
+            lowStockQuantity: $data->lowStockQuantity,
+            isActive:         $data->isActive,
+            isFeatured:       $data->isFeatured,
+            sortOrder:        $data->sortOrder,
         );
 
         return $this->products->create($tenantId, $resolved);

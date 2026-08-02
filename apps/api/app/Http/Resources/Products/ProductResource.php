@@ -12,7 +12,6 @@ class ProductResource extends JsonResource
         return [
             'ulid'        => $this->ulid,
             'name'        => $this->name,
-            'brand'       => $this->brand,
             'sku'         => $this->sku,
             'thumbnail'   => $this->whenLoaded('imageGroups', fn() =>
                 $this->imageGroups->first()?->imageItems->first()?->url
@@ -35,6 +34,10 @@ class ProductResource extends JsonResource
                 'ulid' => $this->category->ulid,
                 'name' => $this->category->name,
             ]),
+            'brand'       => $this->whenLoaded('brand', fn() => $this->brand ? [
+                'ulid' => $this->brand->ulid,
+                'name' => $this->brand->name,
+            ] : null),
         ];
     }
 }
