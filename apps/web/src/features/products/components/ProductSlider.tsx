@@ -12,6 +12,7 @@ type ApiProduct = {
   sales_price: number | null;
   thumbnail: string | null;
   is_active: boolean;
+  is_featured: boolean;
   category: { ulid: string; name: string } | null;
 };
 
@@ -21,10 +22,12 @@ export default function ProductSlider() {
 
   const { data } = useQuery({
     queryKey: ["public-products"],
-    queryFn: () => apiFetch<{ data: ApiProduct[] }>("/products?per_page=20&is_active=true"),
+    queryFn: () => apiFetch<{ data: ApiProduct[] }>("/products?per_page=50&is_active=true"),
   });
 
-  const products = data?.data ?? [];
+  const products = [...(data?.data ?? [])]
+    .sort((a, b) => Number(b.is_featured) - Number(a.is_featured))
+    .slice(0, 20);
   const loopedProducts = products.length === 0 ? [] : [...products, ...products, ...products];
 
   const handleInfiniteScroll = () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { ColumnDef } from "@tanstack/react-table";
@@ -13,6 +14,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+type Meta = {
+  total: number;
+  per_page: number;
+  current_page: number;
+  last_page: number;
+  from: number;
+  to: number;
+};
 
 type Product = {
   ulid: string;
@@ -31,27 +41,29 @@ type Product = {
 
 export default function AdminProducts() {
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
 
   const { data: productsData, isLoading } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => apiFetch<{ data: Product[] }>("/products?per_page=50"),
+    queryKey: ["products", page],
+    queryFn: () => apiFetch<{ data: Product[]; meta: Meta }>(`/products?page=${page}&per_page=15`),
   });
 
   const products = productsData?.data ?? [];
+  const meta = productsData?.meta ?? null;
 
   const toggleFeatured = useMutation({
     mutationFn: ({ ulid, is_featured }: { ulid: string; is_featured: boolean }) =>
       apiFetch(`/products/${ulid}`, { method: "PUT", body: JSON.stringify({ is_featured }) }),
     onMutate: async ({ ulid, is_featured }) => {
-      await queryClient.cancelQueries({ queryKey: ["products"] });
-      const previous = queryClient.getQueryData<{ data: Product[] }>(["products"]);
-      queryClient.setQueryData<{ data: Product[] }>(["products"], (old) =>
+      await queryClient.cancelQueries({ queryKey: ["products", page] });
+      const previous = queryClient.getQueryData<{ data: Product[]; meta: Meta }>(["products", page]);
+      queryClient.setQueryData<{ data: Product[]; meta: Meta }>(["products", page], (old) =>
         old ? { ...old, data: old.data.map((p) => p.ulid === ulid ? { ...p, is_featured } : p) } : old
       );
       return { previous };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(["products"], ctx.previous);
+      if (ctx?.previous) queryClient.setQueryData(["products", page], ctx.previous);
       toast.error("Failed to update", "Could not toggle featured status.");
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["products"] }),
@@ -209,6 +221,8 @@ export default function AdminProducts() {
         loading={isLoading}
         searchColumn="name"
         searchPlaceholder="Search products..."
+        meta={meta}
+        onPageChange={setPage}
       />
     </div>
   );

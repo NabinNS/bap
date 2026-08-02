@@ -22,7 +22,7 @@ export default function ProductCard({ ulid, name, price, originalPrice, thumbnai
   return (
     <Link
       href={`/products/${ulid}`}
-      className="group relative bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full min-w-[250px] transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-md"
+      className="group relative bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col w-[250px] h-[340px] shrink-0 transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-md"
     >
       {/* Image Container */}
       <div className="relative aspect-[3/2] overflow-hidden bg-slate-50 shrink-0">
@@ -51,7 +51,7 @@ export default function ProductCard({ ulid, name, price, originalPrice, thumbnai
 
       {/* Compact Product Details */}
       <div className="p-3 flex flex-col flex-1">
-        <h3 title={name} className="text-base font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-[#0d3b66] transition-colors">
+        <h3 title={name} className="text-base font-semibold text-gray-900 mb-1 line-clamp-2 h-[48px] overflow-hidden group-hover:text-[#0d3b66] transition-colors">
           {name}
         </h3>
 

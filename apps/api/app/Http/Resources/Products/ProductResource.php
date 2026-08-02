@@ -16,6 +16,9 @@ class ProductResource extends JsonResource
             'thumbnail'   => $this->whenLoaded('imageGroups', fn() =>
                 $this->imageGroups->first()?->imageItems->first()?->url
             ),
+            'images'      => $this->whenLoaded('imageGroups', fn() =>
+                $this->imageGroups->flatMap(fn($g) => $g->imageItems)->map(fn($i) => $i->url)->values()
+            ),
             'slug'        => $this->slug,
             'description' => $this->description,
             'image'       => $this->image,
