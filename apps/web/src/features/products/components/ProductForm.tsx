@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, Controller, useWatch } from "react-hook-form";
+import { useForm, Controller, useWatch, useFieldArray } from "react-hook-form";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import Link from "next/link";
-import { ArrowLeft, MoreVertical, Plus } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Trash2 } from "lucide-react";
 import { InputField, NumberField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
 import { RichTextEditor } from "@/components/ui/form/RichTextEditor";
 import { MultiImageUpload, type SavedImage } from "@/components/ui/form/MultiImageUpload";
@@ -22,6 +22,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+type AdditionalInfoItem = {
+  title: string;
+  content: string;
+};
+
 type FormValues = {
   name: string;
   slug: string;
@@ -35,6 +40,7 @@ type FormValues = {
   description: string;
   status: string;
   is_featured: boolean;
+  additional_information: AdditionalInfoItem[];
 };
 
 type Category = { ulid: string; name: string };
@@ -51,6 +57,7 @@ export type ProductFormProduct = {
   low_stock_quantity: number | null;
   is_active: boolean;
   is_featured: boolean;
+  additional_information: AdditionalInfoItem[] | null;
   category: { ulid: string; name: string } | null;
   brand: { ulid: string; name: string } | null;
 };
@@ -68,6 +75,7 @@ type ProductPayload = {
   description: string;
   is_active: boolean;
   is_featured: boolean;
+  additional_information: AdditionalInfoItem[] | null;
 };
 
 type Props = {
@@ -124,7 +132,12 @@ export default function ProductForm({ product }: Props) {
     reset,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: { name: "", slug: "", sku: "", category: "", brand: "", cost_price: "", sales_price: "", stock: "", low_stock_quantity: "", description: "", status: "active", is_featured: false },
+    defaultValues: { name: "", slug: "", sku: "", category: "", brand: "", cost_price: "", sales_price: "", stock: "", low_stock_quantity: "", description: "", status: "active", is_featured: false, additional_information: [] },
+  });
+
+  const { fields: infoFields, append: appendInfo, remove: removeInfo } = useFieldArray({
+    control,
+    name: "additional_information",
   });
 
   // Sync form whenever product data arrives (edit mode)
@@ -144,6 +157,7 @@ export default function ProductForm({ product }: Props) {
       description:        product.description ?? "",
       status:             product.is_active ? "active" : "inactive",
       is_featured:        product.is_featured,
+      additional_information: product.additional_information ?? [],
     });
   }, [product, reset]);
 
@@ -203,6 +217,7 @@ export default function ProductForm({ product }: Props) {
       description:        data.description,
       is_active:          data.status === "active",
       is_featured:        data.is_featured,
+      additional_information: data.additional_information.length > 0 ? data.additional_information : null,
     };
   }
 
@@ -509,7 +524,7 @@ export default function ProductForm({ product }: Props) {
                   }))}
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
                 <NumberField
                   label="Opening Stock"
                   required
@@ -528,6 +543,64 @@ export default function ProductForm({ product }: Props) {
                     min: { value: 0, message: "Low stock quantity cannot be negative." },
                   }))}
                 />
+              </div>
+              {/* Additional Information */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between border-b border-slate-400 pb-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
+                    Additional Information
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => appendInfo({ title: "", content: "" })}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold bg-black text-white hover:bg-black/80 transition-colors cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add
+                  </button>
+                </div>
+
+                {infoFields.length === 0 && (
+                  <p className="text-xs text-text-muted">No additional information added yet.</p>
+                )}
+
+                <div className="space-y-4">
+                  {infoFields.map((field, index) => (
+                    <div key={field.id} className="flex gap-4 items-start border border-slate-200 p-4">
+                      <div className="w-72 shrink-0">
+                        <InputField
+                          label="Title"
+                          required
+                          placeholder="e.g. Specifications"
+                          {...register(`additional_information.${index}.title`, { required: true })}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Controller
+                          name={`additional_information.${index}.content`}
+                          control={control}
+                          render={({ field: f }) => (
+                            <RichTextEditor
+                              label="Content"
+                              placeholder="Write content here..."
+                              value={f.value}
+                              onChange={f.onChange}
+                              onBlur={() => { f.onBlur(); autoSave(); }}
+                              minHeight={70}
+                            />
+                          )}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeInfo(index)}
+                        className="mt-6 flex h-8 w-8 shrink-0 items-center justify-center text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

@@ -48,7 +48,8 @@ class EloquentProductRepository implements ProductRepositoryInterface
             'low_stock_quantity' => $data->lowStockQuantity,
             'is_active'          => $data->isActive,
             'is_featured'        => $data->isFeatured,
-            'sort_order'         => $data->sortOrder,
+            'sort_order'             => $data->sortOrder,
+            'additional_information' => $data->additionalInformation,
         ]);
     }
 
@@ -68,7 +69,8 @@ class EloquentProductRepository implements ProductRepositoryInterface
             'low_stock_quantity' => $data->lowStockQuantity,
             'is_active'          => $data->isActive,
             'is_featured'        => $data->isFeatured,
-            'sort_order'         => $data->sortOrder,
+            'sort_order'             => $data->sortOrder,
+            'additional_information' => $data->additionalInformation,
         ]);
 
         return $product->fresh();

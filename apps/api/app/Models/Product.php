@@ -30,6 +30,7 @@ class Product extends Model
         'is_active',
         'is_featured',
         'sort_order',
+        'additional_information',
     ];
 
     protected $casts = [
@@ -39,7 +40,8 @@ class Product extends Model
         'sales_price'        => 'integer',
         'discount_percent'   => 'integer',
         'stock'              => 'integer',
-        'low_stock_quantity' => 'integer',
+        'low_stock_quantity'     => 'integer',
+        'additional_information' => 'array',
     ];
 
     public function category(): BelongsTo

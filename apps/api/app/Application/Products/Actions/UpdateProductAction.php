@@ -30,7 +30,8 @@ class UpdateProductAction
             lowStockQuantity: $data->lowStockQuantity,
             isActive:         $data->isActive,
             isFeatured:       $data->isFeatured,
-            sortOrder:        $data->sortOrder,
+            sortOrder:             $data->sortOrder,
+            additionalInformation: $data->additionalInformation,
         );
 
         return $this->products->update($product, $resolved);

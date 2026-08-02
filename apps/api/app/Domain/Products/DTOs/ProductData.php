@@ -19,5 +19,6 @@ readonly class ProductData
         public bool    $isActive,
         public bool    $isFeatured,
         public int     $sortOrder,
+        public ?array  $additionalInformation = null,
     ) {}
 }

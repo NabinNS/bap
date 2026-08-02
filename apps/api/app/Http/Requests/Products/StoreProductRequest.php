@@ -40,7 +40,10 @@ class StoreProductRequest extends FormRequest
             'low_stock_quantity' => ['nullable', 'integer', 'min:0'],
             'is_active'          => ['boolean'],
             'is_featured'        => ['boolean'],
-            'sort_order'         => ['integer'],
+            'sort_order'                    => ['integer'],
+            'additional_information'         => ['nullable', 'array'],
+            'additional_information.*.title'   => ['required', 'string'],
+            'additional_information.*.content' => ['nullable', 'string'],
         ];
     }
 
@@ -73,7 +76,8 @@ class StoreProductRequest extends FormRequest
             lowStockQuantity: isset($v['low_stock_quantity']) ? (int) $v['low_stock_quantity'] : null,
             isActive:         $v['is_active'] ?? true,
             isFeatured:       $v['is_featured'] ?? false,
-            sortOrder:        $v['sort_order'] ?? 0,
+            sortOrder:             $v['sort_order'] ?? 0,
+            additionalInformation: $v['additional_information'] ?? null,
         );
     }
 }

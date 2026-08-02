@@ -41,7 +41,10 @@ class UpdateProductRequest extends FormRequest
             'low_stock_quantity' => ['nullable', 'integer', 'min:0'],
             'is_active'          => ['boolean'],
             'is_featured'        => ['boolean'],
-            'sort_order'         => ['integer'],
+            'sort_order'                    => ['integer'],
+            'additional_information'         => ['nullable', 'array'],
+            'additional_information.*.title'   => ['required', 'string'],
+            'additional_information.*.content' => ['nullable', 'string'],
         ];
     }
 
@@ -71,7 +74,8 @@ class UpdateProductRequest extends FormRequest
             lowStockQuantity: array_key_exists('low_stock_quantity', $v) ? (isset($v['low_stock_quantity']) ? (int) $v['low_stock_quantity'] : null) : $product->low_stock_quantity,
             isActive:         $v['is_active']       ?? $product->is_active,
             isFeatured:       $v['is_featured']     ?? $product->is_featured,
-            sortOrder:        $v['sort_order']      ?? $product->sort_order,
+            sortOrder:             $v['sort_order']      ?? $product->sort_order,
+            additionalInformation: array_key_exists('additional_information', $v) ? $v['additional_information'] : $product->additional_information,
         );
     }
 
