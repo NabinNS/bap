@@ -383,3 +383,19 @@
 .tiptap em { font-style: italic; }
 .tiptap s  { text-decoration: line-through; }
 .tiptap a  { color: #2563eb; text-decoration: underline; }
+
+/* Tiptap — table */
+.tiptap table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; }
+.tiptap th, .tiptap td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; font-size: 0.8125rem; }
+.tiptap th { background: #f1f5f9; font-weight: 600; }
+.tiptap .selectedCell { background: #e0f2fe; }
+
+/* Tiptap — blockquote & code */
+.tiptap blockquote { border-left: 3px solid #cbd5e1; padding-left: 1rem; color: #64748b; margin: 0.5rem 0; }
+.tiptap pre { background: #1e293b; color: #86efac; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.75rem; overflow-x: auto; margin: 0.5rem 0; }
+.tiptap code { background: #f1f5f9; padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.8em; }
+.tiptap pre code { background: none; padding: 0; }
+
+/* Tiptap — image & hr */
+.tiptap img { max-width: 100%; height: auto; display: block; margin: 0.5rem 0; }
+.tiptap hr { border: none; border-top: 2px solid #e2e8f0; margin: 1rem 0; }
