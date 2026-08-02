@@ -8,7 +8,8 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { InputField, NumberField, TextAreaField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
+import { InputField, NumberField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
+import { RichTextEditor } from "@/components/ui/form/RichTextEditor";
 import { MultiImageUpload, type SavedImage } from "@/components/ui/form/MultiImageUpload";
 import { uploadImages, type FileUploadState } from "@/lib/upload";
 import { CreateCategoryModal } from "@/components/categories/CreateCategoryModal";
@@ -347,11 +348,18 @@ export default function ProductForm({ product }: Props) {
                 />
               </div>
 
-              <TextAreaField
-                label="Description"
-                placeholder="Write a short description of the product's features and compatibility..."
-                rows={5}
-                {...withAutoSave(register("description"))}
+              <Controller
+                name="description"
+                control={control}
+                render={({ field }) => (
+                  <RichTextEditor
+                    label="Description"
+                    placeholder="Write a short description of the product's features and compatibility..."
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={() => { field.onBlur(); autoSave(); }}
+                  />
+                )}
               />
 
               <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted mb-3">
