@@ -27,7 +27,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
     {
         return Product::where('tenant_id', $tenantId)
             ->where('ulid', $ulid)
-            ->with(['category', 'brand', 'imageGroups.imageItems'])
+            ->with(['category', 'brand', 'imageGroups.imageItems', 'activeDiscount'])
             ->firstOrFail();
     }
 

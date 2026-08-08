@@ -45,7 +45,7 @@ export default function AdminProducts() {
 
   const { data: productsData, isLoading } = useQuery({
     queryKey: ["products", page],
-    queryFn: () => apiFetch<{ data: Product[]; meta: Meta }>(`/products?page=${page}&per_page=15`),
+    queryFn: () => apiFetch<{ data: Product[]; meta: Meta }>(`/products?page=${page}&per_page=15&sort_by=created_at&sort_dir=desc`),
   });
 
   const products = productsData?.data ?? [];
@@ -145,9 +145,10 @@ export default function AdminProducts() {
               featured ? "bg-slate-900" : "bg-slate-300"
             }`}
           >
-            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
-              featured ? "translate-x-4" : "translate-x-0.5"
-            }`} />
+            <span
+              className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow-md transition-transform duration-200"
+              style={{ transform: featured ? "translateX(20px)" : "translateX(2px)" }}
+            />
           </button>
         );
       },

@@ -40,6 +40,9 @@ class ProductResource extends JsonResource
                 'ulid' => $this->brand->ulid,
                 'name' => $this->brand->name,
             ] : null),
+            'active_discount' => $this->whenLoaded('activeDiscount', fn() => $this->activeDiscount ? [
+                'percentage' => $this->activeDiscount->percentage,
+            ] : null),
         ];
     }
 }

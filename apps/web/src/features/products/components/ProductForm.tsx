@@ -132,19 +132,7 @@ export default function ProductForm({ product }: Props) {
     reset,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: { name: "", slug: "", sku: "", category: "", brand: "", cost_price: "", sales_price: "", stock: "", low_stock_quantity: "", description: "", status: "active", is_featured: false, additional_information: [] },
-  });
-
-  const { fields: infoFields, append: appendInfo, remove: removeInfo } = useFieldArray({
-    control,
-    name: "additional_information",
-  });
-
-  // Sync form whenever product data arrives (edit mode)
-  useEffect(() => {
-    if (!product) return;
-    slugTouched.current = true; // don't overwrite the existing slug
-    reset({
+    defaultValues: product ? {
       name:               product.name,
       slug:               product.slug ?? "",
       sku:                product.sku ?? "",
@@ -158,8 +146,18 @@ export default function ProductForm({ product }: Props) {
       status:             product.is_active ? "active" : "inactive",
       is_featured:        product.is_featured,
       additional_information: product.additional_information ?? [],
-    });
-  }, [product, reset]);
+    } : { name: "", slug: "", sku: "", category: "", brand: "", cost_price: "", sales_price: "", stock: "", low_stock_quantity: "", description: "", status: "active", is_featured: false, additional_information: [] },
+  });
+
+  const { fields: infoFields, append: appendInfo, remove: removeInfo } = useFieldArray({
+    control,
+    name: "additional_information",
+  });
+
+  // Mark slug as touched on edit so auto-generation doesn't overwrite the existing slug
+  useEffect(() => {
+    if (product) slugTouched.current = true;
+  }, [product]);
 
   // Auto-generate slug from name as user types (unless slug was manually edited)
   const watchedName = useWatch({ control, name: "name" });
