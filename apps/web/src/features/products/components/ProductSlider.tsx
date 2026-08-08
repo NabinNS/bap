@@ -14,6 +14,7 @@ type ApiProduct = {
   is_active: boolean;
   is_featured: boolean;
   category: { ulid: string; name: string } | null;
+  active_discount: { percentage: number } | null;
 };
 
 export default function ProductSlider() {
@@ -90,7 +91,10 @@ export default function ProductSlider() {
             <ProductCard
               ulid={product.ulid}
               name={product.name}
-              price={product.sales_price ?? 0}
+              price={product.active_discount
+                ? Math.round((product.sales_price ?? 0) * (1 - product.active_discount.percentage / 100))
+                : (product.sales_price ?? 0)}
+              originalPrice={product.active_discount ? (product.sales_price ?? 0) : undefined}
               thumbnail={product.thumbnail}
               category={product.category?.name ?? null}
             />

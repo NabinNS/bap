@@ -13,7 +13,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
     public function paginate(int $tenantId, int $perPage, ProductFilterData $filters): LengthAwarePaginator
     {
         return Product::where('tenant_id', $tenantId)
-            ->with(['category', 'brand', 'imageGroups.imageItems'])
+            ->with(['category', 'brand', 'imageGroups.imageItems', 'activeDiscount'])
             ->when($filters->search, fn($q, $v) => $q->where('name', 'like', "%$v%"))
             ->when($filters->isActive !== null, fn($q) => $q->where('is_active', $filters->isActive))
             ->when($filters->categoryUlid, fn($q, $v) =>

@@ -31,6 +31,11 @@ export default function ProductCard({ ulid, name, price, originalPrice, thumbnai
             New
           </span>
         )}
+        {originalPrice && (
+          <span className="absolute top-3 right-3 z-10 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-sm shadow-sm">
+            -{Math.round((1 - price / originalPrice) * 100)}% OFF
+          </span>
+        )}
         {thumbnail && !imageError ? (
           <Image
             src={thumbnail}
@@ -67,12 +72,12 @@ export default function ProductCard({ ulid, name, price, originalPrice, thumbnai
 
         {/* Price & Action */}
         <div className="mt-auto space-y-2">
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold text-[#0d3b66]">${price.toFixed(2)}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-bold text-gray-900">Rs. {price.toFixed(2)}</span>
             {originalPrice && (
-              <span className="text-xs text-gray-400 line-through">
-                ${originalPrice.toFixed(2)}
-              </span>
+              <>
+                <span className="text-sm text-red-500 line-through">Rs. {originalPrice.toFixed(2)}</span>
+              </>
             )}
           </div>
 
