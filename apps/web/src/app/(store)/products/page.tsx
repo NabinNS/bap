@@ -3,39 +3,60 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import ProductCard from "@/features/products/components/ProductCard";
 import ProductFilters from "@/features/products/components/ProductFilters";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { allProducts as centralizedProducts } from "@/data/products";
+import { apiFetch } from "@/lib/api";
 
 const PER_PAGE = 24;
 
-const allProducts = centralizedProducts;
+type ApiProduct = {
+    ulid: string;
+    name: string;
+    sales_price: number | null;
+    thumbnail: string | null;
+    is_active: boolean;
+    is_featured: boolean;
+    category: { ulid: string; name: string } | null;
+    active_discount: { percentage: number } | null;
+};
+
+type ApiResponse = {
+    data: ApiProduct[];
+    meta: { total: number; last_page: number; current_page: number };
+};
 
 function ProductsPageContent() {
     const searchParams = useSearchParams();
     const categoryParam = searchParams.get("category")?.trim() || null;
     const qParam = searchParams.get("q")?.trim() || null;
-    const qLower = qParam ? qParam.toLowerCase() : null;
-
-    const filteredProducts = allProducts.filter((p) => {
-        if (categoryParam && p.category !== categoryParam) return false;
-        if (qLower && !p.name.toLowerCase().includes(qLower)) return false;
-        return true;
-    });
 
     const [currentPage, setCurrentPage] = useState(1);
     const asideRef = useRef<HTMLElement>(null);
-    /** On md+, product column height tracks filter column (CSS can’t do “match shorter sibling” when grid is tall). */
     const [productColumnHeight, setProductColumnHeight] = useState<number | null>(null);
 
     useEffect(() => {
         setCurrentPage(1);
     }, [categoryParam, qParam]);
 
-    const totalPages = Math.ceil(filteredProducts.length / PER_PAGE) || 1;
+    const { data, isLoading } = useQuery({
+        queryKey: ["store-products", currentPage, categoryParam, qParam],
+        queryFn: () => {
+            const params = new URLSearchParams();
+            params.set("per_page", String(PER_PAGE));
+            params.set("page", String(currentPage));
+            params.set("is_active", "true");
+            if (qParam) params.set("search", qParam);
+            if (categoryParam) params.set("category_ulid", categoryParam);
+            return apiFetch<ApiResponse>(`/products?${params.toString()}`);
+        },
+    });
+
+    const products = data?.data ?? [];
+    const total = data?.meta?.total ?? 0;
+    const totalPages = data?.meta?.last_page ?? 1;
     const start = (currentPage - 1) * PER_PAGE;
-    const paginatedProducts = filteredProducts.slice(start, start + PER_PAGE);
 
     useLayoutEffect(() => {
         const el = asideRef.current;
@@ -91,23 +112,19 @@ function ProductsPageContent() {
                                         <option>Newest First</option>
                                         <option>Price: Low to High</option>
                                         <option>Price: High to Low</option>
-                                        <option>Rating</option>
                                     </select>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <span className="text-sm text-[#0d3b66]">
-                                        {filteredProducts.length === 0 ? (
+                                        {isLoading ? (
+                                            <>Loading…</>
+                                        ) : total === 0 ? (
                                             <>No matching products</>
                                         ) : (
                                             <>
-                                                Showing {start + 1}–{Math.min(start + PER_PAGE, filteredProducts.length)} of{" "}
-                                                {filteredProducts.length}
-                                                {categoryParam ? (
-                                                    <span className="text-slate-500"> · {categoryParam}</span>
-                                                ) : null}
-                                                {qParam ? (
-                                                    <span className="text-slate-500"> · &ldquo;{qParam}&rdquo;</span>
-                                                ) : null}
+                                                Showing {start + 1}–{Math.min(start + PER_PAGE, total)} of {total}
+                                                {categoryParam && <span className="text-slate-500"> · {categoryParam}</span>}
+                                                {qParam && <span className="text-slate-500"> · &ldquo;{qParam}&rdquo;</span>}
                                             </>
                                         )}
                                     </span>
@@ -118,7 +135,6 @@ function ProductsPageContent() {
                                                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                                                 disabled={currentPage === 1}
                                                 className="p-2 rounded-lg border border-slate-200 text-gray-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                aria-label="Previous page"
                                             >
                                                 <ChevronLeft className="w-5 h-5" />
                                             </button>
@@ -143,7 +159,6 @@ function ProductsPageContent() {
                                                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                                                 disabled={currentPage === totalPages}
                                                 className="p-2 rounded-lg border border-slate-200 text-gray-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                aria-label="Next page"
                                             >
                                                 <ChevronRight className="w-5 h-5" />
                                             </button>
@@ -154,38 +169,37 @@ function ProductsPageContent() {
                         </div>
 
                         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-                            {filteredProducts.length === 0 ? (
+                            {isLoading ? (
+                                <div className="flex items-center justify-center py-16">
+                                    <div className="h-8 w-8 border-2 border-[#0d3b66] border-t-transparent rounded-full animate-spin" />
+                                </div>
+                            ) : products.length === 0 ? (
                                 <p className="text-center text-sm text-slate-600">
                                     No products found
-                                    {qParam ? (
-                                        <>
-                                            {" "}
-                                            matching <span className="font-medium text-[#0d3b66]">&ldquo;{qParam}&rdquo;</span>
-                                        </>
-                                    ) : null}
-                                    {categoryParam ? (
-                                        <>
-                                            {" "}
-                                            in <span className="font-medium text-[#0d3b66]">{categoryParam}</span>
-                                        </>
-                                    ) : null}
-                                    .{" "}
-                                    <Link href="/products" className="text-[#0d3b66] underline hover:no-underline">
-                                        View all products
-                                    </Link>
+                                    {qParam && <> matching <span className="font-medium text-[#0d3b66]">&ldquo;{qParam}&rdquo;</span></>}
+                                    {categoryParam && <> in <span className="font-medium text-[#0d3b66]">{categoryParam}</span></>}.{" "}
+                                    <Link href="/products" className="text-[#0d3b66] underline hover:no-underline">View all products</Link>
                                 </p>
                             ) : (
                                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                    {paginatedProducts.map((product, i) => (
-                                        <ProductCard
-                                            key={`${start}-${i}-${product.id}`}
-                                            ulid={product.id}
-                                            name={product.name}
-                                            price={product.price}
-                                            thumbnail={product.image}
-                                            category={product.category}
-                                        />
-                                    ))}
+                                    {products.map((product) => {
+                                        const salesPrice = product.sales_price ?? 0;
+                                        const discount = product.active_discount;
+                                        const price = discount
+                                            ? Math.round(salesPrice * (1 - discount.percentage / 100))
+                                            : salesPrice;
+                                        return (
+                                            <ProductCard
+                                                key={product.ulid}
+                                                ulid={product.ulid}
+                                                name={product.name}
+                                                price={price}
+                                                originalPrice={discount ? salesPrice : undefined}
+                                                thumbnail={product.thumbnail}
+                                                category={product.category?.name ?? null}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
