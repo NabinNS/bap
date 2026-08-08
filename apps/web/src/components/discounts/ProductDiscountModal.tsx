@@ -154,13 +154,14 @@ export function ProductDiscountModal({ open, onClose, productUlid, discount }: P
                 role="switch"
                 aria-checked={field.value}
                 onClick={() => field.onChange(!field.value)}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-                  field.value ? "bg-slate-900" : "bg-slate-300"
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 ${
+                  field.value ? "bg-slate-900" : "bg-slate-200"
                 }`}
               >
-                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
-                  field.value ? "translate-x-4" : "translate-x-0.5"
-                }`} />
+                <span
+                  className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow-md transition-transform duration-200"
+                  style={{ transform: field.value ? "translateX(20px)" : "translateX(2px)" }}
+                />
               </button>
             </div>
           )}

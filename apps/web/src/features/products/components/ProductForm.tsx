@@ -223,7 +223,9 @@ export default function ProductForm({ product }: Props) {
 
   function autoSave() {
     const data = getValues();
-    if (!data.name.trim() || data.stock === "" || data.cost_price === "" || data.sales_price === "") return;
+    // For new products, require all fields before creating. For existing products, always save.
+    if (!savedProductUlid && (!data.name.trim() || data.stock === "" || data.cost_price === "" || data.sales_price === "")) return;
+    if (!data.name.trim()) return;
     autoSaveMutation.mutate({ ulid: savedProductUlid, payload: buildPayload(data) });
   }
 
@@ -635,14 +637,13 @@ export default function ProductForm({ product }: Props) {
                         role="switch"
                         aria-checked={field.value}
                         onClick={() => { field.onChange(!field.value); autoSave(); }}
-                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-                          field.value ? "bg-slate-900" : "bg-slate-300"
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 ${
+                          field.value ? "bg-slate-900" : "bg-slate-200"
                         }`}
                       >
                         <span
-                          className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
-                            field.value ? "translate-x-4" : "translate-x-0.5"
-                          }`}
+                          className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow-md transition-transform duration-200"
+                          style={{ transform: field.value ? "translateX(20px)" : "translateX(2px)" }}
                         />
                       </button>
                     </div>
@@ -730,12 +731,12 @@ export default function ProductForm({ product }: Props) {
                           role="switch"
                           aria-checked={d.is_active}
                           onClick={() => toggleDiscountActive(d)}
-                          className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-                            d.is_active ? "bg-slate-900" : "bg-slate-300"
+                          className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1 ${
+                            d.is_active ? "bg-slate-900" : "bg-slate-200"
                           }`}
                         >
                           <span
-                            className="inline-block h-3 w-3 rounded-full bg-white shadow transition-transform"
+                            className="inline-block h-3 w-3 rounded-full bg-white shadow-md transition-transform duration-200"
                             style={{ transform: d.is_active ? "translateX(14px)" : "translateX(2px)" }}
                           />
                         </button>
@@ -743,7 +744,7 @@ export default function ProductForm({ product }: Props) {
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              className="flex h-6 w-6 items-center justify-center hover:bg-slate-100 transition-colors"
+                              className="flex h-6 w-6 cursor-pointer items-center justify-center hover:bg-slate-100 transition-colors"
                             >
                               <MoreVertical className="h-3.5 w-3.5" />
                             </button>
