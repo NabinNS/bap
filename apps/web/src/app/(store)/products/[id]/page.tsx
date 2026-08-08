@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, ChevronDown, ChevronUp, Phone, MessageCircle, Headphones } from "lucide-react";
+import { ShoppingCart, ChevronDown, ChevronUp, Phone, MessageCircle, Headphones, Truck, ShieldCheck, Wrench, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 
@@ -79,14 +79,14 @@ export default function ProductDetailPage() {
 
           {/* Image column */}
           <div className="border-b xl:border-b-0 xl:border-r border-slate-300 flex flex-col">
-            <div className="relative aspect-[4/3] xl:aspect-auto xl:min-h-[480px] bg-slate-50 flex-1">
+            <div className="relative aspect-[4/3] xl:aspect-auto xl:min-h-[480px] bg-slate-50 flex-1 flex items-center justify-center">
               {activeImage ? (
                 <Image
                   src={activeImage}
                   alt={product.name}
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover"
+                  className="object-contain p-4"
                   priority
                 />
               ) : (
@@ -105,11 +105,11 @@ export default function ProductDetailPage() {
                     key={i}
                     type="button"
                     onClick={() => setSelectedImage(src)}
-                    className={`relative h-14 w-14 border shrink-0 transition-colors cursor-pointer ${
+                    className={`relative h-14 w-14 border shrink-0 transition-colors cursor-pointer bg-white ${
                       activeImage === src ? "border-[#0d3b66]" : "border-slate-300 hover:border-[#0d3b66]"
                     }`}
                   >
-                    <Image src={src} alt={`${product.name} ${i + 1}`} fill sizes="56px" className="object-cover" />
+                    <Image src={src} alt={`${product.name} ${i + 1}`} fill sizes="56px" className="object-contain p-1" />
                   </button>
                 ))}
               </div>
@@ -209,69 +209,105 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Sidebar */}
-          <aside className="bg-white divide-y divide-slate-300">
-            <div className="p-4 mt-3">
-              <h3 className="text-sm-custom font-bold uppercase text-text-default mb-3">Delivery & Availability</h3>
+          <aside className="bg-white flex flex-col divide-y divide-slate-200">
+
+            {/* Delivery & Availability */}
+            <div className="p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-[#0d3b66]" />
+                <h3 className="text-sm-custom font-bold uppercase tracking-wider text-text-default">Delivery & Availability</h3>
+              </div>
               <div className="space-y-2 text-sm-custom text-text-body">
-                <p><span className="font-semibold text-gray-500">In stock:</span>{" "}
-                  <span className={`font-semibold ${product.stock > 0 ? "text-emerald-700" : "text-red-500"}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-text-muted">In stock</span>
+                  <span className={`font-semibold px-2 py-0.5 text-sm-custom rounded-xs ${
+                    product.stock > 0
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-red-50 text-red-600 border border-red-200"
+                  }`}>
                     {product.stock > 0 ? "Ready to ship" : "Out of stock"}
                   </span>
-                </p>
-                <p><span className="font-semibold text-gray-500">Estimated delivery:</span>{" "}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-text-muted">Estimated delivery</span>
                   <span className="font-semibold text-text-body">Within 24 hours</span>
-                </p>
-                <p><span className="font-semibold text-gray-500">Shipping:</span>{" "}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-text-muted">Shipping</span>
                   <span className="font-semibold text-text-body">Cost may vary</span>
-                </p>
+                </div>
               </div>
             </div>
-            <div className="p-4">
-              <h3 className="text-sm-custom font-bold uppercase text-text-default mb-2">Fitment Check</h3>
-              <p className="text-sm-custom text-text-body leading-6 mb-3">Confirm compatibility with your vehicle model before checkout.</p>
-              <p className="text-sm-custom font-semibold text-[#0d3b66]">Recommended before purchase</p>
+
+            {/* Fitment Check */}
+            <div className="p-5 space-y-2">
+              <div className="flex items-center gap-2">
+                <Wrench className="w-4 h-4 text-[#0d3b66]" />
+                <h3 className="text-sm-custom font-bold uppercase tracking-wider text-text-default">Fitment Check</h3>
+              </div>
+              <p className="text-sm-custom text-text-muted leading-relaxed">
+                Confirm compatibility with your vehicle model before checkout.
+              </p>
+              <p className="text-sm-custom font-semibold text-[#0d3b66] flex items-center gap-1.5 pt-0.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                Recommended before purchase
+              </p>
             </div>
-            <div className="p-4">
-              <h3 className="text-sm-custom font-bold uppercase text-text-default mb-2">Warranty & Returns</h3>
+
+            {/* Warranty & Returns */}
+            <div className="p-5 space-y-2.5 flex-1">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#0d3b66]" />
+                <h3 className="text-sm-custom font-bold uppercase tracking-wider text-text-default">Warranty & Returns</h3>
+              </div>
               <ul className="space-y-2 text-sm-custom text-text-body">
-                <li><span className="font-semibold text-text-body">1-day</span> easy return policy</li>
-                <li><span className="font-semibold text-text-body">100%</span> genuine parts assurance</li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0d3b66] shrink-0" />
+                  <span><strong className="font-bold text-text-default">1-day</strong> easy return policy</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0d3b66] shrink-0" />
+                  <span><strong className="font-bold text-text-default">100%</strong> genuine parts assurance</span>
+                </li>
               </ul>
             </div>
-            <div className="p-4 bg-[#092d50] flex flex-col justify-between gap-3">
-              <div className="flex flex-col gap-2">
+
+            {/* Need Help */}
+            <div className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Headphones className="w-4 h-4 text-blue-300" />
-                  <span className="text-xs font-semibold text-blue-200 uppercase tracking-widest">Need Help?</span>
+                  <Headphones className="w-4 h-4 text-[#0d3b66]" />
+                  <h3 className="text-sm-custom font-bold uppercase tracking-wider text-text-default">Need Help?</h3>
                 </div>
-                <p className="text-white font-black text-base">Call: +977 9812 345 678</p>
-                <p className="text-blue-200 text-xs font-semibold">Sun–Sat, 10am – 7pm</p>
+                <span className="text-sm-custom font-semibold text-text-muted bg-white border border-slate-200 px-2 py-0.5 rounded-xs">
+                  10am – 7pm
+                </span>
               </div>
-              <div className="flex items-center gap-3">
-                <Link
-                  href="tel:+9779812345678"
-                  className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white rounded-lg py-2 text-xs font-bold transition-all"
-                >
-                  <Phone className="w-3.5 h-3.5 text-blue-300" />
-                  Call Us
-                </Link>
-                <Link
-                  href="https://wa.me/9779812345678"
-                  target="_blank"
-                  className="flex-1 flex items-center justify-center gap-2 bg-[#25D366]/20 hover:bg-[#25D366]/30 border border-[#25D366]/30 text-white rounded-lg py-2 text-xs font-bold transition-all"
-                >
-                  <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-                  WhatsApp
-                </Link>
-                <Link
-                  href="/chat"
-                  className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white rounded-lg py-2 text-xs font-bold transition-all"
-                >
-                  <Headphones className="w-3.5 h-3.5 text-blue-300" />
-                  Live Chat
-                </Link>
+              <div className="bg-slate-100 border border-slate-200 rounded-sm p-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm-custom text-text-muted font-medium uppercase tracking-wide mb-0.5">Customer Support</p>
+                  <p className="text-sm-custom font-black text-text-default">+977 9812 345 678</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Link
+                    href="tel:+9779812345678"
+                    title="Call Us"
+                    className="h-9 w-9 rounded-xs bg-[#0d3b66] hover:bg-[#092d50] text-white flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <Phone className="w-4 h-4" />
+                  </Link>
+                  <Link
+                    href="https://wa.me/9779812345678"
+                    target="_blank"
+                    title="WhatsApp"
+                    className="h-9 w-9 rounded-xs bg-[#25D366] hover:bg-[#20bd5a] text-white flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                  </Link>
+                </div>
               </div>
             </div>
+
           </aside>
         </div>
       </section>
