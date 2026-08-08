@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, ChevronDown, ChevronUp, Phone, MessageCircle, Headphones, Truck, ShieldCheck, Wrench, CheckCircle2 } from "lucide-react";
+import { ShoppingCart, Phone, MessageCircle, Headphones, Truck, ShieldCheck, Wrench, CheckCircle2, Star, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 
@@ -42,7 +42,12 @@ export default function ProductDetailPage() {
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [openInfo, setOpenInfo] = useState<number | null>(0);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewText, setReviewText] = useState("");
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [questionText, setQuestionText] = useState("");
+  const [questionOpen, setQuestionOpen] = useState(false);
 
 
   if (isLoading) {
@@ -313,33 +318,137 @@ export default function ProductDetailPage() {
       </section>
 
       {/* Additional Information */}
-      {product.additional_information && product.additional_information.length > 0 && (
-        <section className="border border-slate-300 bg-white">
-          <div className="border-b border-slate-200 px-6 py-4">
-            <h2 className="text-h4 font-bold text-text-body uppercase tracking-wide">Additional Information</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-slate-300 bg-white">
+
+        {/* Additional Information */}
+        <div className="border-b md:border-b-0 md:border-r border-slate-300">
+          <div className="border-b border-slate-300 px-6 py-4">
+            <h2 className="text-sm-custom font-bold uppercase tracking-wide text-text-body">Additional Information</h2>
           </div>
-          <div className="divide-y divide-slate-200">
-            {product.additional_information.map((item, i) => (
-              <div key={i}>
-                <button
-                  type="button"
-                  onClick={() => setOpenInfo(openInfo === i ? null : i)}
-                  className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  <span className="text-body font-semibold text-text-body">{item.title}</span>
-                  {openInfo === i ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
-                </button>
-                {openInfo === i && (
-                  <div
-                    className="px-6 pb-5 text-body text-text-body leading-7 prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: item.content }}
-                  />
-                )}
+          <div className="p-6 space-y-2">
+            {product.sku && (
+              <p className="text-sm-custom text-text-body"><span className="font-semibold text-text-default">SKU:</span> {product.sku}</p>
+            )}
+            {product.category && (
+              <p className="text-sm-custom text-text-body"><span className="font-semibold text-text-default">Category:</span> {product.category.name}</p>
+            )}
+            {product.brand && (
+              <p className="text-sm-custom text-text-body"><span className="font-semibold text-text-default">Brand:</span> {product.brand.name}</p>
+            )}
+            <p className="text-sm-custom text-text-body">
+              <span className="font-semibold text-text-default">Availability:</span>{" "}
+              {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
+            </p>
+            {product.additional_information && product.additional_information.map((item, i) => (
+              <div key={i} className="flex gap-2 text-sm-custom text-text-body">
+                <span className="font-semibold text-text-default shrink-0">{item.title}:</span>
+                <div
+                  className="prose prose-sm max-w-none [&>p]:m-0 [&>ul]:m-0 [&>ol]:m-0"
+                  dangerouslySetInnerHTML={{ __html: item.content }}
+                />
               </div>
             ))}
           </div>
-        </section>
-      )}
+        </div>
+
+        {/* Reviews */}
+        <div className="border-b md:border-b-0 md:border-r border-slate-300 flex flex-col">
+          <div className="border-b border-slate-300 px-6 py-4 flex items-center justify-between">
+            <h2 className="text-sm-custom font-bold uppercase tracking-wide text-text-body">Reviews</h2>
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-0.5">
+                {[1,2,3,4,5].map((s) => (
+                  <Star key={s} className="w-3.5 h-3.5 text-slate-300 fill-slate-300" />
+                ))}
+              </div>
+              <span className="text-sm-custom text-text-muted">0 reviews</span>
+            </div>
+          </div>
+          <div className="p-6 flex flex-col gap-5">
+            {/* Star summary */}
+            {/* Write review toggle */}
+            <button
+              type="button"
+              onClick={() => setReviewOpen((v) => !v)}
+              className="flex items-center justify-between w-full border border-slate-200 px-4 py-2.5 text-sm-custom font-semibold text-text-body hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              Write a Review
+              <span className="text-text-muted text-lg leading-none">{reviewOpen ? "−" : "+"}</span>
+            </button>
+            {reviewOpen && (
+              <div className="border-b border-slate-200 p-4 space-y-3">
+                <textarea
+                  placeholder="Share your experience with this product..."
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  rows={3}
+                  className="w-full border border-slate-300 px-3 py-2 text-sm-custom text-text-body placeholder:text-text-muted outline-none focus:border-[#0d3b66] resize-none"
+                />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    {[1,2,3,4,5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setReviewRating(s)}
+                        onMouseEnter={() => setReviewHover(s)}
+                        onMouseLeave={() => setReviewHover(0)}
+                        className="cursor-pointer"
+                      >
+                        <Star className={`w-5 h-5 transition-colors ${(reviewHover || reviewRating) >= s ? "text-amber-400 fill-amber-400" : "text-slate-300 fill-slate-300"}`} />
+                      </button>
+                    ))}
+                    <span className="text-sm-custom text-text-muted ml-1">
+                      {reviewRating > 0 ? ["","Poor","Fair","Good","Very Good","Excellent"][reviewRating] : ""}
+                    </span>
+                  </div>
+                  <Button className="bg-[#0d3b66] hover:bg-slate-900 text-white! rounded-none h-7 px-3 text-sm-custom cursor-pointer">
+                    <Send className="w-3 h-3 mr-1.5" /> Submit
+                  </Button>
+                </div>
+              </div>
+            )}
+            <p className="text-sm-custom text-text-muted">No reviews yet. Be the first!</p>
+          </div>
+        </div>
+
+        {/* Questions */}
+        <div className="flex flex-col">
+          <div className="border-b border-slate-300 px-6 py-4 flex items-center justify-between">
+            <h2 className="text-sm-custom font-bold uppercase tracking-wide text-text-body">Questions</h2>
+            <span className="text-sm-custom text-text-muted">0 questions</span>
+          </div>
+          <div className="p-6 flex flex-col gap-5">
+            {/* Ask a question toggle */}
+            <button
+              type="button"
+              onClick={() => setQuestionOpen((v) => !v)}
+              className="flex items-center justify-between w-full border border-slate-200 px-4 py-2.5 text-sm-custom font-semibold text-text-body hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              Ask a Question
+              <span className="text-text-muted text-lg leading-none">{questionOpen ? "−" : "+"}</span>
+            </button>
+            {questionOpen && (
+              <div className="border-b border-slate-200 p-4 space-y-3">
+                <textarea
+                  placeholder="Type your question about this product..."
+                  value={questionText}
+                  onChange={(e) => setQuestionText(e.target.value)}
+                  rows={3}
+                  className="w-full border border-slate-300 px-3 py-2 text-sm-custom text-text-body placeholder:text-text-muted outline-none focus:border-[#0d3b66] resize-none"
+                />
+                <div className="flex justify-end">
+                  <Button className="bg-[#0d3b66] hover:bg-slate-900 text-white! rounded-none h-7 px-3 text-sm-custom cursor-pointer">
+                    <Send className="w-3 h-3 mr-1.5" /> Submit
+                  </Button>
+                </div>
+              </div>
+            )}
+            <p className="text-sm-custom text-text-muted">No questions yet. Have a question? Ask us above!</p>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }

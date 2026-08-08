@@ -8,6 +8,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, MoreVertical } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +42,7 @@ type Product = {
 
 export default function AdminProducts() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [page, setPage] = useState(1);
 
   const { data: productsData, isLoading } = useQuery({
@@ -179,8 +181,8 @@ export default function AdminProducts() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-30 rounded-none p-0">
-            <DropdownMenuItem className="gap-3 cursor-pointer text-sm py-2 px-3 rounded-none focus:rounded-none">
-              View
+            <DropdownMenuItem asChild className="gap-3 cursor-pointer text-sm py-2 px-3 rounded-none focus:rounded-none">
+              <Link href={`/admin/products/${row.original.ulid}/view`}>View</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="gap-3 cursor-pointer text-sm py-2 px-3 rounded-none focus:rounded-none">
               <Link href={`/admin/products/${row.original.ulid}/edit`}>Edit</Link>
@@ -222,6 +224,7 @@ export default function AdminProducts() {
         loading={isLoading}
         searchColumn="name"
         searchPlaceholder="Search products..."
+        onRowClick={(product) => router.push(`/admin/products/${product.ulid}/view`)}
         meta={meta}
         onPageChange={setPage}
       />
