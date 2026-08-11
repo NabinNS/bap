@@ -224,7 +224,7 @@ export default function AdminProducts() {
         loading={isLoading}
         searchColumn="name"
         searchPlaceholder="Search products..."
-        onRowClick={(product) => router.push(`/admin/products/${product.ulid}/view`)}
+        onRowDoubleClick={(product) => router.push(`/admin/products/${product.ulid}/view`)}
         meta={meta}
         onPageChange={setPage}
       />

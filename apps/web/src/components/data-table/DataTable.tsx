@@ -40,7 +40,7 @@ interface DataTableProps<TData> {
   searchColumn?: string;
   searchPlaceholder?: string;
   loading?: boolean;
-  onRowClick?: (row: TData) => void;
+  onRowDoubleClick?: (row: TData) => void;
   // server-side pagination
   meta?: Meta | null;
   onPageChange?: (page: number) => void;
@@ -52,7 +52,7 @@ export function DataTable<TData>({
   searchColumn,
   searchPlaceholder = "Search...",
   loading = false,
-  onRowClick,
+  onRowDoubleClick,
   meta,
   onPageChange,
 }: DataTableProps<TData>) {
@@ -179,7 +179,7 @@ export function DataTable<TData>({
               ))
             ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} onClick={() => onRowClick?.(row.original)} className={`border-b border-slate-300 hover:bg-slate-100 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}>
+                <TableRow key={row.id} onDoubleClick={() => onRowDoubleClick?.(row.original)} className={`border-b border-slate-300 hover:bg-slate-100 transition-colors ${onRowDoubleClick ? "cursor-pointer" : ""}`}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} style={{ width: cell.column.columnDef.size ? `${cell.column.columnDef.size}px` : undefined }} className="text-table-data py-3">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
