@@ -133,19 +133,21 @@ export default function ProductDetailPage() {
               {discount ? (
                 <>
                   <div className="flex items-center gap-3">
-                    <span className="text-body text-text-default line-through">
-                      Rs. {salesPrice.toLocaleString()}
+                    <span className="text-h2 font-bold text-text-body">
+                      Rs. {discountedPrice!.toLocaleString()}
                     </span>
-                    <span className="text-xs font-bold text-red-500 bg-red-50 border border-red-200 px-2 py-0.5 rounded-sm">
+                    <span className="text-xs font-bold text-white bg-red-500 px-2 py-0.5">
                       -{discount.percentage}% OFF
                     </span>
                   </div>
-                  <span className="text-h2 font-bold text-text-body">
-                    Rs. {discountedPrice!.toLocaleString()}
-                  </span>
-                  <p className="text-xs text-emerald-600 font-medium">
-                    You save Rs. {(salesPrice - discountedPrice!).toLocaleString()}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-body text-text-muted line-through">
+                      Rs. {salesPrice.toLocaleString()}
+                    </span>
+                    <span className="text-sm font-semibold text-emerald-600">
+                      You save Rs. {(salesPrice - discountedPrice!).toLocaleString()}
+                    </span>
+                  </div>
                 </>
               ) : (
                 <span className="text-h2 font-bold text-text-body">

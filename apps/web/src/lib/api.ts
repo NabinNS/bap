@@ -57,15 +57,25 @@ export interface AuthResponse {
   user: { ulid: string; name: string; email: string };
 }
 
+// Deduplicate concurrent refresh calls — only one request goes out at a time
+let refreshPromise: Promise<AuthResponse | null> | null = null;
+
+function doRefresh(): Promise<AuthResponse | null> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = request<AuthResponse>("/auth/refresh", { method: "POST" }, true)
+    .then((data) => {
+      setAccessToken(data.access_token);
+      scheduleRefresh(data.expires_in);
+      return data;
+    })
+    .catch(() => null)
+    .finally(() => { refreshPromise = null; });
+  return refreshPromise;
+}
+
 async function tryRefresh(): Promise<boolean> {
-  try {
-    const data = await request<AuthResponse>("/auth/refresh", { method: "POST" }, true);
-    setAccessToken(data.access_token);
-    scheduleRefresh(data.expires_in);
-    return true;
-  } catch {
-    return false;
-  }
+  const data = await doRefresh();
+  return data !== null;
 }
 
 // Proactively refresh 60 seconds before expiry so requests never hit a 401
@@ -94,12 +104,5 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
 // Called once on app boot to restore session from the httpOnly refresh cookie
 export async function restoreSession(): Promise<AuthResponse | null> {
-  try {
-    const data = await request<AuthResponse>("/auth/refresh", { method: "POST" }, true);
-    setAccessToken(data.access_token);
-    scheduleRefresh(data.expires_in);
-    return data;
-  } catch {
-    return null;
-  }
+  return doRefresh();
 }
