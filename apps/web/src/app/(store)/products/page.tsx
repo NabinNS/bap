@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import ProductCard from "@/features/products/components/ProductCard";
 import ProductFilters from "@/features/products/components/ProductFilters";
@@ -29,8 +29,14 @@ type ApiResponse = {
 
 function ProductsPageContent() {
     const searchParams = useSearchParams();
-    const categoryParam = searchParams.get("category")?.trim() || null;
+    const categoryParam = searchParams.get("category_ulid")?.trim() || null;
     const qParam = searchParams.get("q")?.trim() || null;
+    const brandParam = searchParams.get("brand_ulid")?.trim() || null;
+    const minPriceParam = searchParams.get("min_price")?.trim() || null;
+    const maxPriceParam = searchParams.get("max_price")?.trim() || null;
+    const hasDiscountParam = searchParams.get("has_discount")?.trim() || null;
+    const sortParam = searchParams.get("sort") || "newest";
+    const router = useRouter();
 
     const [currentPage, setCurrentPage] = useState(1);
     const asideRef = useRef<HTMLElement>(null);
@@ -38,20 +44,42 @@ function ProductsPageContent() {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [categoryParam, qParam]);
+    }, [categoryParam, qParam, brandParam, minPriceParam, maxPriceParam, hasDiscountParam, sortParam]);
+
+    const SORT_MAP: Record<string, { sort_by: string; sort_dir: string }> = {
+        newest:        { sort_by: "created_at", sort_dir: "desc" },
+        oldest:        { sort_by: "created_at", sort_dir: "asc" },
+        price_asc:     { sort_by: "sales_price", sort_dir: "asc"  },
+        price_desc:    { sort_by: "sales_price", sort_dir: "desc" },
+        name_asc:      { sort_by: "name",         sort_dir: "asc" },
+    };
 
     const { data, isLoading } = useQuery({
-        queryKey: ["store-products", currentPage, categoryParam, qParam],
+        queryKey: ["store-products", currentPage, categoryParam, qParam, brandParam, minPriceParam, maxPriceParam, hasDiscountParam, sortParam],
         queryFn: () => {
             const params = new URLSearchParams();
             params.set("per_page", String(PER_PAGE));
             params.set("page", String(currentPage));
             params.set("is_active", "true");
+            const { sort_by, sort_dir } = SORT_MAP[sortParam] ?? SORT_MAP.newest;
+            params.set("sort_by", sort_by);
+            params.set("sort_dir", sort_dir);
             if (qParam) params.set("search", qParam);
             if (categoryParam) params.set("category_ulid", categoryParam);
+            if (brandParam) params.set("brand_ulid", brandParam);
+            if (minPriceParam) params.set("min_price", minPriceParam);
+            if (maxPriceParam) params.set("max_price", maxPriceParam);
+            if (hasDiscountParam) params.set("has_discount", hasDiscountParam);
             return apiFetch<ApiResponse>(`/products?${params.toString()}`);
         },
     });
+
+    function setSort(value: string) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("sort", value);
+        params.delete("page");
+        router.push(`/products?${params.toString()}`);
+    }
 
     const products = data?.data ?? [];
     const total = data?.meta?.total ?? 0;
@@ -107,11 +135,17 @@ function ProductsPageContent() {
                         <div className="shrink-0 border-b border-slate-300 px-4 py-3">
                             <div className="flex items-center justify-between flex-wrap gap-4">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-sm text-[#0d3b66]">Sort by:</span>
-                                    <select className="bg-white border border-slate-200 rounded-none px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3b66]">
-                                        <option>Newest First</option>
-                                        <option>Price: Low to High</option>
-                                        <option>Price: High to Low</option>
+                                    <span className="text-sm font-medium text-text-muted">Sort by:</span>
+                                    <select
+                                        value={sortParam}
+                                        onChange={(e) => setSort(e.target.value)}
+                                        className="bg-white border border-slate-300 px-3 py-1.5 text-sm text-text-default focus:outline-none focus:ring-2 focus:ring-[#0d3b66] cursor-pointer"
+                                    >
+                                        <option value="newest">Newest First</option>
+                                        <option value="oldest">Oldest First</option>
+                                        <option value="price_asc">Price: Low to High</option>
+                                        <option value="price_desc">Price: High to Low</option>
+                                        <option value="name_asc">Name: A to Z</option>
                                     </select>
                                 </div>
                                 <div className="flex items-center gap-4">

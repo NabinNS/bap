@@ -1,89 +1,93 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Search, X, Star } from "lucide-react";
+import { Search, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api";
 
-const LIST_LIMIT = 10;
+const LIST_LIMIT = 7;
 
-const CATEGORIES = [
-  "All",
-  "Batteries",
-  "Tyres",
-  "Engine",
-  "Brakes",
-  "Suspension",
-  "Electrical",
-  "Lubricants",
-  "Filters",
-  "Lights & Bulbs",
-  "Body Parts",
-  "Cooling",
-];
-
-const BRANDS = [
-  "BOSCH",
-  "DENSO",
-  "NGK",
-  "Exide",
-  "MRF",
-  "Apollo",
-  "Brembo",
-  "MANN+HUMMEL",
-];
-
-const RATING_OPTIONS = [
-  { value: "4.5", stars: 4.5 },
-  { value: "4", stars: 4 },
-  { value: "3", stars: 3 },
-];
-
-function RatingStars({ value }: { value: number }) {
-  const full = Math.floor(value);
-  const hasHalf = value % 1 >= 0.5;
-  return (
-    <span className="inline-flex items-center gap-0.5">
-      {Array.from({ length: full }).map((_, i) => (
-        <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-      ))}
-      {hasHalf && (
-        <Star className="w-4 h-4 fill-amber-400/50 text-amber-400" />
-      )}
-      <span className="text-xs text-gray-500 ml-1">& up</span>
-    </span>
-  );
-}
+type Option = { ulid: string; name: string };
 
 export default function ProductFilters() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [categoryExpanded, setCategoryExpanded] = useState(false);
   const [brandExpanded, setBrandExpanded] = useState(false);
+  const [minPrice, setMinPrice] = useState(searchParams.get("min_price") ?? "");
+  const [maxPrice, setMaxPrice] = useState(searchParams.get("max_price") ?? "");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Show first LIST_LIMIT (10) items until user clicks "Show more"; then show all.
-  const categoriesToShow = categoryExpanded ? CATEGORIES : CATEGORIES.slice(0, LIST_LIMIT);
-  const brandsToShow = brandExpanded ? BRANDS : BRANDS.slice(0, LIST_LIMIT);
-  // Only show the "Show more" button when there are more than LIST_LIMIT items.
-  const showCategoryMore = CATEGORIES.length > LIST_LIMIT;
-  const showBrandMore = BRANDS.length > LIST_LIMIT;
+  const activeCategoryUlid = searchParams.get("category_ulid") ?? "";
+  const activeBrandUlid = searchParams.get("brand_ulid") ?? "";
+  const hasDiscount = searchParams.get("has_discount") === "true";
 
-  const handleSearchClick = () => {
-    setSearchExpanded(true);
-    setTimeout(() => searchInputRef.current?.focus(), 0);
-  };
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories", "all"],
+    queryFn: () => apiFetch<{ data: Option[] }>("/categories?per_page=100"),
+  });
+  const { data: brandsData } = useQuery({
+    queryKey: ["brands", "all"],
+    queryFn: () => apiFetch<{ data: Option[] }>("/brands?per_page=100"),
+  });
 
-  const handleSearchBlur = () => {
-    if (!searchValue.trim()) setSearchExpanded(false);
-  };
+  const categories = categoriesData?.data ?? [];
+  const brands = brandsData?.data ?? [];
 
-  const handleCloseSearch = () => {
-    setSearchValue("");
-    setSearchExpanded(false);
-  };
+  const filteredCategories = searchValue
+    ? categories.filter((c) => c.name.toLowerCase().includes(searchValue.toLowerCase()))
+    : categories;
+  const filteredBrands = searchValue
+    ? brands.filter((b) => b.name.toLowerCase().includes(searchValue.toLowerCase()))
+    : brands;
+
+  const categoriesToShow = categoryExpanded ? filteredCategories : filteredCategories.slice(0, LIST_LIMIT);
+  const brandsToShow = brandExpanded ? filteredBrands : filteredBrands.slice(0, LIST_LIMIT);
+
+  const hasActiveFilters = !!(activeCategoryUlid || activeBrandUlid || hasDiscount || searchParams.get("min_price") || searchParams.get("max_price"));
+
+  function updateParam(key: string, value: string | null) {
+    const params = new URLSearchParams(searchParams.toString());
+    value ? params.set(key, value) : params.delete(key);
+    params.delete("page");
+    router.push(`/products?${params.toString()}`);
+  }
+
+  function toggleCategory(ulid: string) {
+    updateParam("category_ulid", activeCategoryUlid === ulid ? null : ulid);
+  }
+
+  function toggleBrand(ulid: string) {
+    updateParam("brand_ulid", activeBrandUlid === ulid ? null : ulid);
+  }
+
+  function toggleDiscount() {
+    updateParam("has_discount", hasDiscount ? null : "true");
+  }
+
+  function applyPrice() {
+    const params = new URLSearchParams(searchParams.toString());
+    minPrice ? params.set("min_price", minPrice) : params.delete("min_price");
+    maxPrice ? params.set("max_price", maxPrice) : params.delete("max_price");
+    params.delete("page");
+    router.push(`/products?${params.toString()}`);
+  }
+
+  function clearAll() {
+    const params = new URLSearchParams(searchParams.toString());
+    ["category_ulid", "brand_ulid", "has_discount", "min_price", "max_price"].forEach((k) => params.delete(k));
+    setMinPrice("");
+    setMaxPrice("");
+    router.push(`/products?${params.toString()}`);
+  }
 
   return (
     <div className="bg-white border border-slate-100 py-4 px-3 shadow-sm flex flex-col h-full min-h-0">
-      {/* Header: Filters + search, or full-width input (in flow so content doesn't hide) */}
+      {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-3 shrink-0">
         {searchExpanded ? (
           <div className="flex items-center gap-2 w-full">
@@ -93,28 +97,34 @@ export default function ProductFilters() {
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               placeholder="Search filters..."
-              onBlur={handleSearchBlur}
               className="flex-1 min-w-0 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3b66] focus:border-transparent"
             />
             <button
               type="button"
-              onClick={handleCloseSearch}
-              className="p-1.5 rounded-lg text-gray-500 hover:bg-slate-100 hover:text-gray-700 transition-colors cursor-pointer shrink-0"
-              aria-label="Close search"
+              onClick={() => { setSearchValue(""); setSearchExpanded(false); }}
+              className="p-1.5 rounded-lg text-text-muted hover:bg-slate-100 hover:text-text-default transition-colors cursor-pointer shrink-0"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         ) : (
           <>
-          <div className="px-4">
-            <h2 className="font-bold text-gray-900 text-lg">Filters</h2>
+            <div className="px-4 flex items-center gap-3">
+              <h2 className="font-bold text-text-default text-lg">Filters</h2>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="text-xs text-[#0d3b66] hover:underline cursor-pointer font-medium"
+                >
+                  Clear all
+                </button>
+              )}
             </div>
             <button
               type="button"
-              onClick={handleSearchClick}
-              className="p-1.5 rounded-lg text-gray-500 hover:bg-slate-100 hover:text-[#0d3b66] transition-colors cursor-pointer"
-              aria-label="Search"
+              onClick={() => { setSearchExpanded(true); setTimeout(() => searchInputRef.current?.focus(), 0); }}
+              className="p-1.5 rounded-lg text-text-muted hover:bg-slate-100 hover:text-text-brand-mid transition-colors cursor-pointer"
             >
               <Search className="w-5 h-5" />
             </button>
@@ -123,33 +133,31 @@ export default function ProductFilters() {
       </div>
 
       <div className="space-y-4 overflow-y-auto hide-scrollbar min-h-0 flex-1">
+
         {/* Category */}
         <div className="border border-slate-400 p-4">
-          <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
-            Category
-          </h3>
+          <h3 className="font-bold text-sm text-text-default mb-3 uppercase tracking-wider">Category</h3>
           <div className="max-h-48 overflow-y-auto overflow-x-hidden scrollbar-on-hover space-y-2">
-            {categoriesToShow.map((cat) => (
-              <label
-                key={cat}
-                className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-[#0d3b66]"
-              >
+            {categoriesToShow.length === 0 ? (
+              <p className="text-xs text-gray-400">No categories found</p>
+            ) : categoriesToShow.map((cat) => (
+              <label key={cat.ulid} className="flex items-center gap-2 text-sm text-text-muted cursor-pointer hover:text-text-brand-mid">
                 <input
                   type="checkbox"
-                  name="category"
-                  value={cat}
+                  checked={activeCategoryUlid === cat.ulid}
+                  onChange={() => toggleCategory(cat.ulid)}
                   className="rounded border-gray-300 text-[#0d3b66] focus:ring-[#0d3b66]"
                 />
-                {cat}
+                {cat.name}
               </label>
             ))}
-            {showCategoryMore && (
+            {filteredCategories.length > LIST_LIMIT && (
               <button
                 type="button"
                 onClick={() => setCategoryExpanded((v) => !v)}
                 className="text-sm text-[#0d3b66] font-medium hover:underline cursor-pointer mt-1"
               >
-                {categoryExpanded ? "Show less" : "Show more"}
+                {categoryExpanded ? "Show less" : `Show ${filteredCategories.length - LIST_LIMIT} more`}
               </button>
             )}
           </div>
@@ -157,14 +165,14 @@ export default function ProductFilters() {
 
         {/* Price range */}
         <div className="border border-slate-400 p-4">
-          <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
-            Price range
-          </h3>
-          <div className="flex items-center gap-2">
+          <h3 className="font-bold text-sm text-text-default mb-3 uppercase tracking-wider">Price range</h3>
+          <div className="flex items-center gap-2 mb-2">
             <input
               type="number"
               placeholder="Min"
               min={0}
+              value={minPrice}
+              onChange={(e) => setMinPrice(e.target.value)}
               className="w-full rounded-lg border border-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3b66] focus:border-transparent"
             />
             <span className="text-gray-400 text-sm">–</span>
@@ -172,119 +180,63 @@ export default function ProductFilters() {
               type="number"
               placeholder="Max"
               min={0}
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
               className="w-full rounded-lg border border-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3b66] focus:border-transparent"
             />
           </div>
+          <button
+            type="button"
+            onClick={applyPrice}
+            className="w-full mt-1 px-3 py-1.5 text-sm font-medium bg-[#0d3b66] text-white hover:bg-[#092d50] transition-colors cursor-pointer"
+          >
+            Apply
+          </button>
         </div>
 
         {/* Brand */}
         <div className="border border-slate-400 p-4">
-          <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
-            Brand
-          </h3>
+          <h3 className="font-bold text-sm text-text-default mb-3 uppercase tracking-wider">Brand</h3>
           <div className="max-h-48 overflow-y-auto overflow-x-hidden scrollbar-on-hover space-y-2">
-            {brandsToShow.map((brand) => (
-              <label
-                key={brand}
-                className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-[#0d3b66]"
-              >
+            {brandsToShow.length === 0 ? (
+              <p className="text-xs text-gray-400">No brands found</p>
+            ) : brandsToShow.map((brand) => (
+              <label key={brand.ulid} className="flex items-center gap-2 text-sm text-text-muted cursor-pointer hover:text-text-brand-mid">
                 <input
                   type="checkbox"
-                  name="brand"
-                  value={brand}
+                  checked={activeBrandUlid === brand.ulid}
+                  onChange={() => toggleBrand(brand.ulid)}
                   className="rounded border-gray-300 text-[#0d3b66] focus:ring-[#0d3b66]"
                 />
-                {brand}
+                {brand.name}
               </label>
             ))}
-            {showBrandMore && (
+            {filteredBrands.length > LIST_LIMIT && (
               <button
                 type="button"
                 onClick={() => setBrandExpanded((v) => !v)}
                 className="text-sm text-[#0d3b66] font-medium hover:underline cursor-pointer mt-1"
               >
-                {brandExpanded ? "Show less" : "Show more"}
+                {brandExpanded ? "Show less" : `Show ${filteredBrands.length - LIST_LIMIT} more`}
               </button>
             )}
           </div>
         </div>
 
-        {/* Vehicle fitment */}
-        <div className="border border-slate-400 p-4">
-          <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
-            Vehicle fitment
-          </h3>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-[#0d3b66]">
-              <input
-                type="radio"
-                name="vehicle"
-                value="four"
-                className="border-gray-300 text-[#0d3b66] focus:ring-[#0d3b66]"
-              />
-              Four Wheeler
-            </label>
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-[#0d3b66]">
-              <input
-                type="radio"
-                name="vehicle"
-                value="two"
-                className="border-gray-300 text-[#0d3b66] focus:ring-[#0d3b66]"
-              />
-              Two Wheeler
-            </label>
-          </div>
-        </div>
-
-        {/* Rating */}
-        <div className="border border-slate-400 p-4">
-          <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
-            Rating
-          </h3>
-          <div className="space-y-2">
-            {RATING_OPTIONS.map((opt) => (
-              <label
-                key={opt.value}
-                className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-[#0d3b66]"
-              >
-                <input
-                  type="checkbox"
-                  name="rating"
-                  value={opt.value}
-                  className="rounded border-gray-300 text-[#0d3b66] focus:ring-[#0d3b66]"
-                />
-                <RatingStars value={opt.stars} />
-              </label>
-            ))}
-          </div>
-        </div>
-
         {/* Deals */}
         <div className="border border-slate-400 p-4">
-          <h3 className="font-bold text-sm text-gray-900 mb-3 uppercase tracking-wider">
-            Deals
-          </h3>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-[#0d3b66]">
-              <input
-                type="checkbox"
-                name="deals"
-                value="sale"
-                className="rounded border-gray-300 text-[#0d3b66] focus:ring-[#0d3b66]"
-              />
-              On sale
-            </label>
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-[#0d3b66]">
-              <input
-                type="checkbox"
-                name="deals"
-                value="discount"
-                className="rounded border-gray-300 text-[#0d3b66] focus:ring-[#0d3b66]"
-              />
-              Discounted
-            </label>
-          </div>
+          <h3 className="font-bold text-sm text-text-default mb-3 uppercase tracking-wider">Deals</h3>
+          <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer hover:text-text-brand-mid">
+            <input
+              type="checkbox"
+              checked={hasDiscount}
+              onChange={toggleDiscount}
+              className="rounded border-gray-300 text-[#0d3b66] focus:ring-[#0d3b66]"
+            />
+            On sale / Discounted
+          </label>
         </div>
+
       </div>
     </div>
   );

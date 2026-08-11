@@ -2,11 +2,13 @@
 
 import { useRef, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 
 type Brand = {
+  ulid: string;
   name: string;
   logo: string | null;
 };
@@ -28,7 +30,7 @@ export default function BrandsShowcase() {
   });
 
   const brands: Brand[] = (data?.data ?? [])
-    .map((b) => ({ name: b.name, logo: b.thumbnail ?? null }));
+    .map((b) => ({ ulid: b.ulid, name: b.name, logo: b.thumbnail ?? null }));
 
   const loopedBrands = brands.length === 0 ? [] : [...brands, ...brands, ...brands];
 
@@ -111,9 +113,10 @@ export default function BrandsShowcase() {
           className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar"
         >
           {loopedBrands.map((brand, index) => (
-            <div
-              key={`${brand.name}-${index}`}
-              className="flex h-[110px] w-[150px] shrink-0 flex-col items-center justify-center border border-slate-300 bg-white px-2 py-2"
+            <Link
+              key={`${brand.ulid}-${index}`}
+              href={`/products?brand_ulid=${brand.ulid}`}
+              className="flex h-[110px] w-[150px] shrink-0 flex-col items-center justify-center border border-slate-300 bg-white px-2 py-2 transition-shadow hover:shadow-md hover:border-[#0d3b66]"
             >
               <div className="relative h-[90px] w-[130px] flex items-center justify-center">
                 {brand.logo ? (
@@ -133,7 +136,7 @@ export default function BrandsShowcase() {
               <p title={brand.name} className="mt-2 w-full line-clamp-1 text-center text-sm-custom font-semibold text-gray-700">
                 {brand.name}
               </p>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

@@ -19,6 +19,14 @@ class EloquentProductRepository implements ProductRepositoryInterface
             ->when($filters->categoryUlid, fn($q, $v) =>
                 $q->whereHas('category', fn($q) => $q->where('ulid', $v))
             )
+            ->when($filters->brandUlid, fn($q, $v) =>
+                $q->whereHas('brand', fn($q) => $q->where('ulid', $v))
+            )
+            ->when($filters->minPrice !== null, fn($q) => $q->where('sales_price', '>=', $filters->minPrice))
+            ->when($filters->maxPrice !== null, fn($q) => $q->where('sales_price', '<=', $filters->maxPrice))
+            ->when($filters->hasDiscount, fn($q) =>
+                $q->whereHas('activeDiscount')
+            )
             ->orderBy($filters->sortBy, $filters->sortDir)
             ->paginate($perPage);
     }

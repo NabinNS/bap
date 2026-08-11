@@ -64,7 +64,7 @@ export default function CategorySlider() {
             <CategoryCard
               name={category.name}
               image={category.thumbnail ?? undefined}
-              href={`/categories/${category.slug}`}
+              href={`/products?category_ulid=${category.ulid}`}
             />
           </div>
         ))}
