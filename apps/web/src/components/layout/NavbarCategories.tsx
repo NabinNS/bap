@@ -23,7 +23,7 @@ export function NavbarCategories() {
       {categories.map((cat) => (
         <Link
           key={cat.ulid}
-          href={`/products?category=${encodeURIComponent(cat.name)}`}
+          href={`/products?category_ulid=${cat.ulid}`}
           className="shrink-0 whitespace-nowrap px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/15 hover:text-white"
         >
           {cat.name}
