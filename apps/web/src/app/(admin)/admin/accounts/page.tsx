@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { Plus, Search, MapPin, Phone, Receipt, CreditCard } from "lucide-react";
+import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, ExternalLink, Download, Send } from "lucide-react";
 
 
 type Account = {
@@ -223,14 +223,119 @@ export default function AdminAccounts() {
             </div>
           </div>
 
-          <DataTable
-            columns={columns}
-            data={accounts}
-            loading={false}
-            searchColumn="name"
-            searchPlaceholder="Search accounts..."
-            meta={meta}
-          />
+          {/* Table + invoice detail panel */}
+          <div className="flex gap-4 flex-1 min-h-0">
+            <div className="flex-1 min-w-0">
+              <DataTable
+                columns={columns}
+                data={accounts}
+                loading={false}
+                searchColumn="name"
+                searchPlaceholder="Search accounts..."
+                meta={meta}
+              />
+            </div>
+
+            {/* Invoice detail panel */}
+            <div className="w-[350px] shrink-0 bg-white border border-slate-200 flex flex-col overflow-y-auto">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                <p className="text-sm-custom font-bold text-text-default">Invoice #1042</p>
+                <button className="text-text-muted hover:text-text-default transition-colors cursor-pointer">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Badges */}
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100">
+                <span className="text-xs font-semibold px-2 py-0.5 bg-slate-100 text-slate-600">INV-1042</span>
+                <span className="text-xs font-semibold px-2 py-0.5 bg-orange-50 text-orange-600">Unpaid</span>
+              </div>
+
+              {/* Invoice Details */}
+              <div className="px-4 py-3 border-b border-slate-100 space-y-2">
+                <p className="text-xs font-semibold text-text-default flex items-center gap-1.5">
+                  <Receipt className="h-3.5 w-3.5" /> Invoice Details
+                </p>
+                <div className="space-y-1.5">
+                  {[
+                    { label: "Date", value: "Jan 10, 2026" },
+                    { label: "Due Date", value: "Jan 25, 2026" },
+                    { label: "Customer", value: "Alice Johnson" },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex items-center justify-between">
+                      <span className="text-sm-custom text-text-body">{label}</span>
+                      <span className="text-sm-custom text-text-default">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Amount Details */}
+              <div className="px-4 py-3 border-b border-slate-100 space-y-2">
+                <p className="text-xs font-semibold text-text-default flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5" /> Amount Details
+                </p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm-custom text-text-body">Subtotal</span>
+                    <span className="text-sm-custom text-text-default">Rs. 13,392</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm-custom text-text-body">VAT (13%)</span>
+                    <span className="text-sm-custom text-text-default">Rs. 1,608</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm-custom text-text-body">Total Amount</span>
+                    <span className="text-sm-custom font-bold text-red-600">Rs. 15,000</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm-custom text-text-body">Paid Amount</span>
+                    <span className="text-sm-custom text-text-default">Rs. 0</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm-custom text-text-body">Due Amount</span>
+                    <span className="text-sm-custom font-bold text-red-600">Rs. 15,000</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items */}
+              <div className="px-4 py-3 border-b border-slate-100 space-y-2">
+                <p className="text-xs font-semibold text-text-default flex items-center gap-1.5">
+                  <Receipt className="h-3.5 w-3.5" /> Items (2)
+                </p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm-custom text-text-body">Exide Battery 60Ah</span>
+                    <span className="text-sm-custom text-text-default">2 × Rs. 6,000</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm-custom text-text-body">Engine Oil 5W-30</span>
+                    <span className="text-sm-custom text-text-default">2 × Rs. 1,500</span>
+                  </div>
+                </div>
+                <button className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer">View all items</button>
+              </div>
+
+              {/* Actions */}
+              <div className="px-4 py-3 space-y-2">
+                <p className="text-xs font-semibold text-text-default">Actions</p>
+                <button className="flex w-full items-center justify-center gap-2 border border-slate-200 px-3 py-2 text-sm-custom font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer">
+                  <ExternalLink className="h-3.5 w-3.5" /> View Invoice
+                </button>
+                <button className="flex w-full items-center justify-center gap-2 bg-green-600 px-3 py-2 text-sm-custom font-semibold text-white hover:bg-green-700 transition-colors cursor-pointer">
+                  <CreditCard className="h-3.5 w-3.5" /> Receive Payment
+                </button>
+                <button className="flex w-full items-center justify-center gap-2 border border-slate-200 px-3 py-2 text-sm-custom font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer">
+                  <Download className="h-3.5 w-3.5" /> Download PDF
+                </button>
+                <button className="flex w-full items-center justify-center gap-2 border border-slate-200 px-3 py-2 text-sm-custom font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer">
+                  <Send className="h-3.5 w-3.5" /> Send Invoice
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
