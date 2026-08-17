@@ -17,12 +17,14 @@ import {
   Bookmark,
   Images,
   BadgePercent,
+  CircleUserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/AuthProvider";
 
 const navItems = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "Accounts", href: "/admin/accounts", icon: CircleUserRound },
   { label: "Sliders", href: "/admin/sliders", icon: Images },
   { label: "Offers", href: "/admin/offers", icon: BadgePercent },
   { label: "Products", href: "/admin/products", icon: Package },
