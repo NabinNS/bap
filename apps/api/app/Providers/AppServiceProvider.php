@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Domain\AccVendors\Repositories\AccVendorRepositoryInterface;
 use App\Domain\Brands\Repositories\BrandRepositoryInterface;
 use App\Domain\Offers\Repositories\OfferRepositoryInterface;
 use App\Domain\Sliders\Repositories\SliderRepositoryInterface;
@@ -9,6 +10,7 @@ use App\Domain\Categories\Repositories\CategoryRepositoryInterface;
 use App\Domain\Images\Repositories\ImageGroupRepositoryInterface;
 use App\Domain\Products\Repositories\ProductDiscountRepositoryInterface;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
+use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorRepository;
 use App\Infrastructure\Repositories\Brands\EloquentBrandRepository;
 use App\Infrastructure\Repositories\Offers\EloquentOfferRepository;
 use App\Infrastructure\Repositories\Sliders\EloquentSliderRepository;
@@ -24,6 +26,8 @@ use App\Models\Product;
 use App\Models\Slider;
 use App\Models\Tenant;
 use App\Observers\ImageItemObserver;
+use App\Models\AccVendor;
+use App\Policies\AccVendorPolicy;
 use App\Policies\BrandPolicy;
 use App\Policies\CategoryPolicy;
 use App\Policies\OfferPolicy;
@@ -38,6 +42,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->bind(AccVendorRepositoryInterface::class, EloquentAccVendorRepository::class);
         $this->app->bind(BrandRepositoryInterface::class, EloquentBrandRepository::class);
         $this->app->bind(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
         $this->app->bind(ProductRepositoryInterface::class, EloquentProductRepository::class);
@@ -66,6 +71,7 @@ class AppServiceProvider extends ServiceProvider
         // cascadeOnDelete on the FK handles the DB rows; the observer handles the file.
         ImageItem::observe(ImageItemObserver::class);
 
+        Gate::policy(AccVendor::class, AccVendorPolicy::class);
         Gate::policy(Brand::class, BrandPolicy::class);
         Gate::policy(Category::class, CategoryPolicy::class);
         Gate::policy(Product::class, ProductPolicy::class);

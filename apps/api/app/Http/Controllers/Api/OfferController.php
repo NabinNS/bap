@@ -21,7 +21,7 @@ class OfferController extends Controller
     public function index(Request $request, ListOffersAction $action): JsonResponse
     {
         return ApiResponse::paginated(
-            $action->execute($this->tenantId($request), $request->integer('per_page', 15), OfferFilterData::fromRequest($request)),
+            $action->execute($this->tenantId(), $request->integer('per_page', 15), OfferFilterData::fromRequest($request)),
             OfferResource::class,
             'Offers retrieved successfully'
         );
@@ -30,7 +30,7 @@ class OfferController extends Controller
     public function store(StoreOfferRequest $request, CreateOfferAction $action): JsonResponse
     {
         return ApiResponse::created(
-            new OfferResource($action->execute($this->tenantId($request), $request->toDTO())),
+            new OfferResource($action->execute($this->tenantId(), $request->toDTO())),
             'Offer created successfully'
         );
     }

@@ -21,7 +21,7 @@ class SliderController extends Controller
     public function index(Request $request, ListSlidersAction $action): JsonResponse
     {
         return ApiResponse::paginated(
-            $action->execute($this->tenantId($request), $request->integer('per_page', 15), SliderFilterData::fromRequest($request)),
+            $action->execute($this->tenantId(), $request->integer('per_page', 15), SliderFilterData::fromRequest($request)),
             SliderResource::class,
             'Sliders retrieved successfully'
         );
@@ -30,7 +30,7 @@ class SliderController extends Controller
     public function store(StoreSliderRequest $request, CreateSliderAction $action): JsonResponse
     {
         return ApiResponse::created(
-            new SliderResource($action->execute($this->tenantId($request), $request->toDTO())),
+            new SliderResource($action->execute($this->tenantId(), $request->toDTO())),
             'Slider created successfully'
         );
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, ExternalLink, Download, Send } from "lucide-react";
@@ -101,6 +102,14 @@ export default function AdminAccounts() {
 
   return (
     <div className="flex-1 min-w-0 flex flex-col p-6 gap-6 h-full">
+      <nav className="flex items-center gap-1.5 text-sm text-text-muted">
+        <Link href="/admin" className="hover:text-text-default transition-colors">Dashboard</Link>
+        <span>/</span>
+        <span className="text-text-default font-medium">Accounts</span>
+      </nav>
+
+   
+
 {/* Two-column body */}
       <div className="flex gap-6 flex-1 min-h-0">
         {/* Side card */}
@@ -117,7 +126,7 @@ export default function AdminAccounts() {
                 className="w-full pl-8 pr-3 py-2 text-sm border border-slate-400 focus:outline-none focus:border-slate-600"
               />
             </div>
-            <button className="flex items-center gap-1.5 bg-black px-3 py-2 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0">
+            <button className="flex items-center gap-1.5 bg-black px-3 py-2 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer">
               <Plus className="h-4 w-4" />
               Add
             </button>

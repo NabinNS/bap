@@ -21,7 +21,7 @@ class BrandController extends Controller
     public function index(Request $request, ListBrandsAction $action): JsonResponse
     {
         return ApiResponse::paginated(
-            $action->execute($this->tenantId($request), $request->integer('per_page', 15), BrandFilterData::fromRequest($request)),
+            $action->execute($this->tenantId(), $request->integer('per_page', 15), BrandFilterData::fromRequest($request)),
             BrandResource::class,
             'Brands retrieved successfully'
         );
@@ -30,7 +30,7 @@ class BrandController extends Controller
     public function store(StoreBrandRequest $request, CreateBrandAction $action): JsonResponse
     {
         return ApiResponse::created(
-            new BrandResource($action->execute($this->tenantId($request), $request->toDTO())),
+            new BrandResource($action->execute($this->tenantId(), $request->toDTO())),
             'Brand created successfully'
         );
     }

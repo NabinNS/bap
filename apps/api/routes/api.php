@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AccVendorController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BrandController;
 use App\Http\Controllers\Api\CategoryController;
@@ -40,6 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('products/{product}/discounts/{discount}', [ProductDiscountController::class, 'destroy']);
     Route::apiResource('sliders', SliderController::class)->except(['index', 'show']);
     Route::apiResource('offers', OfferController::class)->except(['index', 'show']);
+    Route::apiResource('acc-vendors', AccVendorController::class);
 });
 
 Route::prefix('auth')->group(function () {

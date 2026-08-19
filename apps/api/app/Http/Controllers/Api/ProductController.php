@@ -23,7 +23,7 @@ class ProductController extends Controller
     public function index(Request $request, ListProductsAction $action): JsonResponse
     {
         return ApiResponse::paginated(
-            $action->execute($this->tenantId($request), $request->integer('per_page', 15), ProductFilterData::fromRequest($request)),
+            $action->execute($this->tenantId(), $request->integer('per_page', 15), ProductFilterData::fromRequest($request)),
             ProductResource::class,
             'Products retrieved successfully'
         );
@@ -32,7 +32,7 @@ class ProductController extends Controller
     public function store(StoreProductRequest $request, CreateProductAction $action): JsonResponse
     {
         return ApiResponse::created(
-            new ProductResource($action->execute($this->tenantId($request), $request->toDTO())),
+            new ProductResource($action->execute($this->tenantId(), $request->toDTO())),
             'Product created successfully'
         );
     }
@@ -40,7 +40,7 @@ class ProductController extends Controller
     public function show(Request $request, string $ulid, ShowProductAction $action): JsonResponse
     {
         return ApiResponse::success(
-            new ProductResource($action->execute($this->tenantId($request), $ulid)),
+            new ProductResource($action->execute($this->tenantId(), $ulid)),
             'Product retrieved successfully'
         );
     }
