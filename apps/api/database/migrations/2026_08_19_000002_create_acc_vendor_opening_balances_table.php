@@ -16,7 +16,7 @@ return new class extends Migration
             $table->decimal('opening_balance', 15, 2)->default(0);
             $table->timestamps();
 
-            $table->unique(['vendor_id', 'fiscal_year_id']);
+            $table->unique(['tenant_id', 'vendor_id', 'fiscal_year_id']);
         });
     }
 

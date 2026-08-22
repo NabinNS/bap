@@ -17,9 +17,10 @@ class AccVendorOpeningBalanceController extends Controller
 
         $validated = $request->validate([
             'opening_balance' => ['required', 'numeric', 'min:0'],
+            'fiscal_year_id'  => ['nullable', 'integer', 'exists:fiscal_years,id'],
         ]);
 
-        $balance = $action->execute($this->tenantId(), $accVendor, (float) $validated['opening_balance']);
+        $balance = $action->execute($this->tenantId(), $accVendor, (float) $validated['opening_balance'], $validated['fiscal_year_id'] ?? null);
 
         return ApiResponse::success([
             'vendor_id'       => $accVendor->ulid,

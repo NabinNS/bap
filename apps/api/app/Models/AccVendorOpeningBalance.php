@@ -10,6 +10,7 @@ class AccVendorOpeningBalance extends Model
     protected $table = 'acc_vendor_opening_balances';
 
     protected $fillable = [
+        'tenant_id',
         'vendor_id',
         'fiscal_year_id',
         'opening_balance',

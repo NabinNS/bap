@@ -12,6 +12,7 @@ class EloquentAccVendorOpeningBalanceRepository implements AccVendorOpeningBalan
     {
         return AccVendorOpeningBalance::updateOrCreate(
             [
+                'tenant_id'      => $vendor->tenant_id,
                 'vendor_id'      => $vendor->id,
                 'fiscal_year_id' => $fiscalYearId,
             ],

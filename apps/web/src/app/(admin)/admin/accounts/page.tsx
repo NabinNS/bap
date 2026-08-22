@@ -1,15 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, ExternalLink, Download, Send } from "lucide-react";
+import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, ExternalLink, Download, Send, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
-import { InputField, NumberField } from "@/components/ui/form/FormField";
+import { InputField, NumberField, SelectField } from "@/components/ui/form/FormField";
+
+type VendorOpeningBalance = {
+  fiscal_year_id: number;
+  opening_balance: string;
+};
 
 type Vendor = {
   ulid: string;
@@ -18,6 +24,7 @@ type Vendor = {
   phone: string | null;
   telephone: string | null;
   vat_no: string | null;
+  opening_balances: VendorOpeningBalance[];
 };
 
 type Meta = {
@@ -39,12 +46,19 @@ type Transaction = {
   credit: number | null;
 };
 
+type FiscalYear = {
+  id: number;
+  ulid: string;
+  name: string;
+};
+
 type FormState = {
   name: string;
   address: string;
   phone: string;
   telephone: string;
   vat_no: string;
+  fiscal_year_id: string;
   opening_balance: string;
 };
 
@@ -56,6 +70,7 @@ const INITIAL_FORM: FormState = {
   phone: "",
   telephone: "",
   vat_no: "",
+  fiscal_year_id: "",
   opening_balance: "",
 };
 
@@ -64,8 +79,17 @@ export default function AdminAccounts() {
   const [sideSearch, setSideSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
-  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [selectedVendorUlid, setSelectedVendorUlid] = useState<string | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [openMenuUlid, setOpenMenuUlid] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [cardMenuOpen, setCardMenuOpen] = useState(false);
+  const [cardMenuPos, setCardMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const cardMenuRef = useRef<HTMLDivElement>(null);
+  const [txMenuUlid, setTxMenuUlid] = useState<string | null>(null);
+  const [txMenuPos, setTxMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const txMenuRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
 
@@ -76,16 +100,18 @@ export default function AdminAccounts() {
 
   const { data: settingsData } = useQuery({
     queryKey: ["settings"],
-    queryFn: () => apiFetch<{ data: { fiscal_year: { ulid: string; name: string } | null } }>("/settings"),
+    queryFn: () => apiFetch<{ data: { fiscal_year_id: number | null; fiscal_year: { ulid: string; name: string } | null } }>("/settings"),
+  });
+
+  const { data: fiscalYearsData } = useQuery({
+    queryKey: ["fiscal-years"],
+    queryFn: () => apiFetch<{ data: FiscalYear[] }>("/fiscal-years"),
+    staleTime: Infinity,
   });
 
   const activeFiscalYear = settingsData?.data?.fiscal_year ?? null;
-
-  const { data: transactionsData, isLoading: transactionsLoading } = useQuery({
-    queryKey: ["acc-vendor-transactions", selectedVendor?.ulid],
-    queryFn: () => apiFetch<{ data: Transaction[] }>(`/acc-vendors/${selectedVendor!.ulid}/transactions`),
-    enabled: !!selectedVendor,
-  });
+  const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
+  const fiscalYears = fiscalYearsData?.data ?? [];
 
   const vendors = vendorsData?.data ?? [];
 
@@ -93,13 +119,49 @@ export default function AdminAccounts() {
     v.name.toLowerCase().includes(sideSearch.toLowerCase())
   );
 
+  // Always derived from live query data so it updates automatically after mutations
+  const selectedVendor = vendors.find((v) => v.ulid === selectedVendorUlid) ?? null;
+
+  const activeOpeningBalance = activeFiscalYearId && selectedVendor
+    ? selectedVendor.opening_balances?.find((ob) => ob.fiscal_year_id === activeFiscalYearId)?.opening_balance ?? null
+    : null;
+
+  const { data: transactionsData, isLoading: transactionsLoading } = useQuery({
+    queryKey: ["acc-vendor-transactions", selectedVendor?.ulid],
+    queryFn: () => apiFetch<{ data: Transaction[] }>(`/acc-vendors/${selectedVendor!.ulid}/transactions`),
+    enabled: !!selectedVendor,
+  });
+
   useEffect(() => {
-    if (!selectedVendor && vendors.length > 0) setSelectedVendor(vendors[0]);
+    if (!selectedVendorUlid && vendors.length > 0) setSelectedVendorUlid(vendors[0].ulid);
   }, [vendors]);
 
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) { setOpenMenuUlid(null); setMenuPos(null); }
+    }
+    if (openMenuUlid) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openMenuUlid]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (cardMenuRef.current && !cardMenuRef.current.contains(e.target as Node)) { setCardMenuOpen(false); setCardMenuPos(null); }
+    }
+    if (cardMenuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [cardMenuOpen]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (txMenuRef.current && !txMenuRef.current.contains(e.target as Node)) { setTxMenuUlid(null); setTxMenuPos(null); }
+    }
+    if (txMenuUlid) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [txMenuUlid]);
 
   const autoSaveMutation = useMutation({
-    mutationFn: ({ ulid, payload }: { ulid?: string; payload: Omit<FormState, never> }) =>
+    mutationFn: ({ ulid, payload }: { ulid?: string; payload: ReturnType<typeof buildPayload> }) =>
       ulid
         ? apiFetch(`/acc-vendors/${ulid}`, { method: "PUT", body: JSON.stringify(payload) })
         : apiFetch<{ data: Vendor }>("/acc-vendors", { method: "POST", body: JSON.stringify(payload) }),
@@ -112,10 +174,13 @@ export default function AdminAccounts() {
   });
 
   const saveOpeningBalanceMutation = useMutation({
-    mutationFn: ({ ulid, opening_balance }: { ulid: string; opening_balance: string }) =>
+    mutationFn: ({ ulid, opening_balance, fiscal_year_id }: { ulid: string; opening_balance: string; fiscal_year_id?: string }) =>
       apiFetch(`/acc-vendors/${ulid}/opening-balance`, {
         method: "POST",
-        body: JSON.stringify({ opening_balance: parseFloat(opening_balance) }),
+        body: JSON.stringify({
+          opening_balance: parseFloat(opening_balance),
+          fiscal_year_id: fiscal_year_id ? parseInt(fiscal_year_id) : undefined,
+        }),
       }),
     onError: () => {
       toast.warning("Vendor saved", "But opening balance could not be saved — check if active fiscal year is set in Settings.");
@@ -123,7 +188,7 @@ export default function AdminAccounts() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: ({ ulid, payload }: { ulid?: string; payload: Omit<FormState, never> }) =>
+    mutationFn: ({ ulid, payload }: { ulid?: string; payload: ReturnType<typeof buildPayload> }) =>
       ulid
         ? apiFetch(`/acc-vendors/${ulid}`, { method: "PUT", body: JSON.stringify(payload) })
         : apiFetch<{ data: Vendor }>("/acc-vendors", { method: "POST", body: JSON.stringify(payload) }),
@@ -133,7 +198,7 @@ export default function AdminAccounts() {
       if (!variables.ulid) setEditingVendor((data as { data: Vendor }).data);
 
       if (vendor && form.opening_balance) {
-        await saveOpeningBalanceMutation.mutateAsync({ ulid: vendor.ulid, opening_balance: form.opening_balance });
+        await saveOpeningBalanceMutation.mutateAsync({ ulid: vendor.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });
       }
 
       if (!variables.ulid) {
@@ -156,9 +221,35 @@ export default function AdminAccounts() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (ulid: string) => apiFetch(`/acc-vendors/${ulid}`, { method: "DELETE" }),
+    onSuccess: (_, ulid) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      if (selectedVendor?.ulid === ulid) setSelectedVendorUlid(null);
+      toast.success("Vendor deleted", "The vendor has been removed.");
+    },
+    onError: () => toast.error("Failed to delete", "Something went wrong."),
+  });
+
+  function openEdit(vendor: Vendor) {
+    setEditingVendor(vendor);
+    setForm({
+      name: vendor.name,
+      address: vendor.address ?? "",
+      phone: vendor.phone ?? "",
+      telephone: vendor.telephone ?? "",
+      vat_no: vendor.vat_no ?? "",
+      fiscal_year_id: activeFiscalYearId ? String(activeFiscalYearId) : "",
+      opening_balance: vendor.opening_balances?.find((ob) => ob.fiscal_year_id === activeFiscalYearId)?.opening_balance ?? "",
+    });
+    setErrors({});
+    setDrawerOpen(true);
+    setOpenMenuUlid(null);
+  }
+
   function openCreate() {
     setEditingVendor(null);
-    setForm(INITIAL_FORM);
+    setForm({ ...INITIAL_FORM, fiscal_year_id: activeFiscalYearId ? String(activeFiscalYearId) : "" });
     setErrors({});
     setDrawerOpen(true);
   }
@@ -197,16 +288,45 @@ export default function AdminAccounts() {
     saveMutation.mutate({ ulid: editingVendor?.ulid, payload: buildPayload(form) });
   }
 
-  const transactions = transactionsData?.data ?? [];
+  const rawTransactions = transactionsData?.data ?? [];
+
+  function fiscalYearStartDate(name: string): string {
+    // name like "2080/081" or "080/081" — start year is the first part
+    const match = name.match(/(\d+)/);
+    if (!match) return name;
+    const year = match[1].length === 4 ? match[1].slice(1) : match[1]; // keep last 3 digits
+    return `${year}-4-1`;
+  }
+
+  const openingBalanceRow: Transaction | null = activeOpeningBalance != null
+    ? {
+        ulid: "__opening_balance__",
+        date: activeFiscalYear ? fiscalYearStartDate(activeFiscalYear.name) : "Opening",
+        particular: "Opening Balance",
+        voucher_no: null,
+        type: "Opening",
+        debit: null,
+        credit: Number(activeOpeningBalance),
+      }
+    : null;
+
+  const transactions = openingBalanceRow ? [openingBalanceRow, ...rawTransactions] : rawTransactions;
+
+  // compute running balance per row: credit increases, debit decreases
+  const runningBalances = transactions.reduce<number[]>((acc, tx) => {
+    const prev = acc.length > 0 ? acc[acc.length - 1] : 0;
+    acc.push(prev + (tx.credit ?? 0) - (tx.debit ?? 0));
+    return acc;
+  }, []);
 
   const columns: ColumnDef<Transaction, unknown>[] = [
     {
       accessorKey: "date",
       header: "Date",
-      cell: ({ row }) =>
-        new Date(row.original.date).toLocaleDateString("en-US", {
-          year: "numeric", month: "short", day: "numeric",
-        }),
+      cell: ({ row }) => {
+        if (row.original.ulid === "__opening_balance__") return <span className="text-sm text-text-muted">{row.original.date}</span>;
+        return new Date(row.original.date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+      },
     },
     {
       accessorKey: "particular",
@@ -221,7 +341,7 @@ export default function AdminAccounts() {
       cell: ({ row }) =>
         row.original.voucher_no
           ? <span className="font-mono text-xs text-text-muted">{row.original.voucher_no}</span>
-          : <span className="text-text-muted">—</span>,
+          : null,
     },
     {
       accessorKey: "type",
@@ -237,7 +357,7 @@ export default function AdminAccounts() {
       cell: ({ row }) =>
         row.original.debit != null
           ? <span className="text-sm font-semibold text-red-600">{Number(row.original.debit).toLocaleString()}</span>
-          : <span className="text-text-muted">—</span>,
+          : null,
     },
     {
       accessorKey: "credit",
@@ -245,7 +365,37 @@ export default function AdminAccounts() {
       cell: ({ row }) =>
         row.original.credit != null
           ? <span className="text-sm font-semibold text-green-600">{Number(row.original.credit).toLocaleString()}</span>
-          : <span className="text-text-muted">—</span>,
+          : null,
+    },
+    {
+      id: "balance",
+      header: "Balance",
+      cell: ({ row }) => {
+        const balance = runningBalances[row.index];
+        if (!balance) return null;
+        return <span className={`text-sm font-semibold ${balance < 0 ? "text-red-600" : "text-text-default"}`}>{balance.toLocaleString()}</span>;
+      },
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        if (row.original.ulid === "__opening_balance__") return null;
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (txMenuUlid === row.original.ulid) { setTxMenuUlid(null); setTxMenuPos(null); return; }
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setTxMenuPos({ top: rect.bottom + 4, left: rect.right - 144 });
+              setTxMenuUlid(row.original.ulid);
+            }}
+            className="p-1 rounded hover:bg-slate-100 transition-colors text-text-muted hover:text-text-default cursor-pointer"
+          >
+            <MoreVertical className="h-3.5 w-3.5" />
+          </button>
+        );
+      },
     },
   ];
 
@@ -308,11 +458,29 @@ export default function AdminAccounts() {
                   filteredVendors.map((vendor) => (
                     <div
                       key={vendor.ulid}
-                      onClick={() => { setSelectedVendor(vendor); setSelectedTransaction(null); }}
-                      className={`flex items-center justify-between px-4 py-3.5 border-b border-slate-400 cursor-pointer transition-colors ${selectedVendor?.ulid === vendor.ulid ? "bg-slate-100" : "hover:bg-slate-50"}`}
+                      onClick={() => { setSelectedVendorUlid(vendor.ulid); setSelectedTransaction(null); setOpenMenuUlid(null); }}
+                      className={`relative flex items-center py-3.5 border-b border-slate-400 cursor-pointer transition-colors ${selectedVendor?.ulid === vendor.ulid ? "bg-slate-200 border-l-2 border-l-slate-700 pl-[14px] pr-10" : "pl-4 pr-10 hover:bg-slate-50"}`}
                     >
-                      <span className="text-sm font-medium text-text-default">{vendor.name}</span>
-                      <span className="text-sm font-semibold text-text-default">—</span>
+                      <span className={`text-sm truncate flex-1 min-w-0 ${selectedVendor?.ulid === vendor.ulid ? "font-semibold text-text-default" : "font-medium text-text-default"}`}>{vendor.name}</span>
+                      <span className="text-sm font-semibold text-text-default text-right shrink-0">
+                        {activeFiscalYearId && vendor.opening_balances?.find((ob) => ob.fiscal_year_id === activeFiscalYearId)
+                          ? Number(vendor.opening_balances.find((ob) => ob.fiscal_year_id === activeFiscalYearId)!.opening_balance).toLocaleString()
+                          : "—"}
+                      </span>
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (openMenuUlid === vendor.ulid) { setOpenMenuUlid(null); setMenuPos(null); return; }
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            setMenuPos({ top: rect.bottom + 4, left: rect.right - 144 });
+                            setOpenMenuUlid(vendor.ulid);
+                          }}
+                          className="p-1 rounded hover:bg-slate-300 transition-colors text-text-muted hover:text-text-default cursor-pointer"
+                        >
+                          <MoreVertical className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
@@ -368,15 +536,28 @@ export default function AdminAccounts() {
                     <CreditCard className="h-4 w-4" />
                     Amount Paid
                   </button>
+                  <button
+                    onClick={(e) => {
+                      if (cardMenuOpen) { setCardMenuOpen(false); setCardMenuPos(null); return; }
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      setCardMenuPos({ top: rect.bottom + 4, left: rect.right - 144 });
+                      setCardMenuOpen(true);
+                    }}
+                    className="flex items-center border border-slate-300 px-1.5 py-2.5 text-text-muted hover:bg-slate-50 hover:text-text-default transition-colors cursor-pointer"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
 
               {selectedVendor && (
                 <div className="grid grid-cols-6 gap-4 pt-1 border-t border-slate-100">
                   <div>
-                    <p className="text-sm-custom text-text-body">Outstanding</p>
-                    <p className="text-sm-custom font-bold text-red-600 mt-0.5">—</p>
-                    <p className="text-sm-custom text-text-body mt-0.5">Due Amount</p>
+                    <p className="text-sm-custom text-text-body">Opening Balance</p>
+                    <p className="text-sm-custom font-bold text-text-default mt-0.5">
+                      {activeOpeningBalance != null ? Number(activeOpeningBalance).toLocaleString() : "—"}
+                    </p>
+                    <p className="text-sm-custom text-text-body mt-0.5">{activeFiscalYear?.name ?? "No fiscal year"}</p>
                   </div>
                   <div>
                     <p className="text-sm-custom text-text-body">Total Purchase</p>
@@ -524,13 +705,92 @@ export default function AdminAccounts() {
         </div>
       </div>
 
+      {/* Vendor context menu portal */}
+      {openMenuUlid && menuPos && createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: "fixed", top: menuPos.top, left: menuPos.left, zIndex: 9999 }}
+          className="w-36 bg-white border border-slate-200 shadow-md"
+        >
+          {filteredVendors.filter(v => v.ulid === openMenuUlid).map(vendor => (
+            <div key={vendor.ulid}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setSelectedVendorUlid(vendor.ulid); setOpenMenuUlid(null); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+              >
+                <Eye className="h-3.5 w-3.5" /> View
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); openEdit(vendor); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(vendor.ulid); setOpenMenuUlid(null); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
+
+      {/* Card three-dot menu portal */}
+      {cardMenuOpen && cardMenuPos && createPortal(
+        <div
+          ref={cardMenuRef}
+          style={{ position: "fixed", top: cardMenuPos.top, left: cardMenuPos.left, zIndex: 9999 }}
+          className="w-36 bg-white border border-slate-200 shadow-md"
+        >
+          <button
+            onClick={() => { selectedVendor && openEdit(selectedVendor); setCardMenuOpen(false); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Edit
+          </button>
+          <button
+            onClick={() => { selectedVendor && deleteMutation.mutate(selectedVendor.ulid); setCardMenuOpen(false); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </button>
+        </div>,
+        document.body
+      )}
+
+      {/* Transaction row three-dot menu portal */}
+      {txMenuUlid && txMenuPos && createPortal(
+        <div
+          ref={txMenuRef}
+          style={{ position: "fixed", top: txMenuPos.top, left: txMenuPos.left, zIndex: 9999 }}
+          className="w-36 bg-white border border-slate-200 shadow-md"
+        >
+          <button
+            onClick={() => { setTxMenuUlid(null); setTxMenuPos(null); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+          >
+            <Eye className="h-3.5 w-3.5" /> View
+          </button>
+          <button
+            onClick={() => { setTxMenuUlid(null); setTxMenuPos(null); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </button>
+        </div>,
+        document.body
+      )}
+
       {/* Add Vendor slide panel */}
       <SlidePanel
         open={drawerOpen}
         onClose={closeDrawer}
-        title="Add Vendor"
-        description="Fill in the details to create a new vendor."
-        submitLabel={saveMutation.isPending ? "Saving..." : "Save Vendor"}
+        title={editingVendor ? "Edit Vendor" : "Add Vendor"}
+        description={editingVendor ? "Update the vendor details." : "Fill in the details to create a new vendor."}
+        submitLabel={saveMutation.isPending ? "Saving..." : editingVendor ? "Update Vendor" : "Save Vendor"}
         onSubmit={handleSubmit}
       >
         <InputField
@@ -573,19 +833,27 @@ export default function AdminAccounts() {
           onChange={(e) => setForm((f) => ({ ...f, vat_no: e.target.value }))}
           onBlur={() => autoSave()}
         />
-        <div className="space-y-2">
-          <p className="text-sm font-semibold text-text-default">Fiscal Year</p>
-          <div className={`h-10 px-3 flex items-center text-sm border ${activeFiscalYear ? "border-slate-400 text-text-default" : "border-slate-300 text-text-muted"}`}>
-            {activeFiscalYear ? activeFiscalYear.name : "No active fiscal year — set one in Settings"}
-          </div>
-        </div>
+        <SelectField
+          label="Fiscal Year"
+          value={form.fiscal_year_id}
+          onChange={(e) => setForm((f) => ({ ...f, fiscal_year_id: e.target.value }))}
+          options={[
+            { label: "— Select fiscal year —", value: "" },
+            ...fiscalYears.map((fy) => ({ label: fy.name, value: String(fy.id) })),
+          ]}
+        />
 
         <NumberField
           label="Opening Balance"
           placeholder="0.00"
           allowDecimal
-value={form.opening_balance}
+          value={form.opening_balance}
           onChange={(e) => setForm((f) => ({ ...f, opening_balance: e.target.value }))}
+          onBlur={() => {
+            if (editingVendor?.ulid && form.opening_balance) {
+              saveOpeningBalanceMutation.mutate({ ulid: editingVendor.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });
+            }
+          }}
         />
       </SlidePanel>
     </div>

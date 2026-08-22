@@ -13,6 +13,7 @@ class EloquentAccVendorRepository implements AccVendorRepositoryInterface
     public function paginate(int $tenantId, int $perPage, AccVendorFilterData $filters): LengthAwarePaginator
     {
         return AccVendor::where('tenant_id', $tenantId)
+            ->with('openingBalances')
             ->when($filters->search, fn($q, $v) => $q->where('name', 'like', "%$v%"))
             ->orderBy($filters->sortBy, $filters->sortDir)
             ->paginate($perPage);

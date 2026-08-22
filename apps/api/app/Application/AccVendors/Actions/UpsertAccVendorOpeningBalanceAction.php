@@ -15,16 +15,21 @@ class UpsertAccVendorOpeningBalanceAction
         private TenantSettingRepositoryInterface $settings,
     ) {}
 
-    public function execute(int $tenantId, AccVendor $vendor, float $openingBalance): AccVendorOpeningBalance
+    public function execute(int $tenantId, AccVendor $vendor, float $openingBalance, ?int $fiscalYearId = null): AccVendorOpeningBalance
     {
-        $settings = $this->settings->getOrCreate($tenantId);
+        $resolvedFiscalYearId = $fiscalYearId;
 
-        if (!$settings->fiscal_year_id) {
+        if (!$resolvedFiscalYearId) {
+            $settings = $this->settings->getOrCreate($tenantId);
+            $resolvedFiscalYearId = $settings->fiscal_year_id;
+        }
+
+        if (!$resolvedFiscalYearId) {
             throw ValidationException::withMessages([
                 'fiscal_year_id' => ['No active fiscal year set. Please configure it in Settings.'],
             ]);
         }
 
-        return $this->openingBalances->upsert($vendor, $settings->fiscal_year_id, $openingBalance);
+        return $this->openingBalances->upsert($vendor, $resolvedFiscalYearId, $openingBalance);
     }
 }
