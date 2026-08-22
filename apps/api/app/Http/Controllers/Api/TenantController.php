@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ApiResponse;
+use App\Http\Resources\Settings\TenantResource;
 use App\Models\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,14 +15,10 @@ class TenantController extends Controller
     {
         $tenant = Tenant::findOrFail($this->tenantId());
 
-        return ApiResponse::success([
-            'ulid'      => $tenant->ulid,
-            'name'      => $tenant->name,
-            'email'     => $tenant->email,
-            'phone'     => $tenant->phone,
-            'address'   => $tenant->address,
-            'vat_no'    => $tenant->vat_no ?? null,
-        ], 'Tenant retrieved successfully');
+        return ApiResponse::success(
+            new TenantResource($tenant),
+            'Tenant retrieved successfully'
+        );
     }
 
     public function update(Request $request): JsonResponse
@@ -37,13 +34,9 @@ class TenantController extends Controller
         $tenant = Tenant::findOrFail($this->tenantId());
         $tenant->update($validated);
 
-        return ApiResponse::success([
-            'ulid'    => $tenant->ulid,
-            'name'    => $tenant->name,
-            'email'   => $tenant->email,
-            'phone'   => $tenant->phone,
-            'address' => $tenant->address,
-            'vat_no'  => $tenant->vat_no ?? null,
-        ], 'Tenant updated successfully');
+        return ApiResponse::success(
+            new TenantResource($tenant),
+            'Tenant updated successfully'
+        );
     }
 }
