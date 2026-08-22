@@ -49,6 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('acc-vendors', AccVendorController::class);
     Route::post('acc-vendors/{accVendor}/opening-balance', [AccVendorOpeningBalanceController::class, 'upsert']);
     Route::get('acc-vendors/{accVendor}/transactions', [AccVendorTransactionController::class, 'index']);
+    Route::get('settings/bootstrap', [TenantSettingController::class, 'bootstrap']);
     Route::get('tenant', [TenantController::class, 'show']);
     Route::put('tenant', [TenantController::class, 'update']);
     Route::get('settings', [TenantSettingController::class, 'show']);

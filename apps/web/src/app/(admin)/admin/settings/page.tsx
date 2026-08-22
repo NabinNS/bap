@@ -48,23 +48,14 @@ const INITIAL_TENANT_FORM: TenantForm = {
 export default function AdminSettings() {
   const queryClient = useQueryClient();
 
-  const { data: fiscalYearsData, isLoading: fiscalYearsLoading } = useQuery({
-    queryKey: ["fiscal-years"],
-    queryFn: () => apiFetch<{ data: FiscalYear[] }>("/fiscal-years"),
+  const { data: bootstrap, isLoading } = useQuery({
+    queryKey: ["settings-bootstrap"],
+    queryFn: () => apiFetch<{ data: { tenant: TenantInfo; settings: TenantSettings; fiscal_years: FiscalYear[] } }>("/settings/bootstrap"),
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: settingsData, isLoading: settingsLoading } = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => apiFetch<{ data: TenantSettings }>("/settings"),
-  });
-
-  const { data: tenantData, isLoading: tenantLoading } = useQuery({
-    queryKey: ["tenant"],
-    queryFn: () => apiFetch<{ data: TenantInfo }>("/tenant"),
-  });
-
-  const fiscalYears = fiscalYearsData?.data ?? [];
-  const settings = settingsData?.data ?? null;
+  const fiscalYears = bootstrap?.data.fiscal_years ?? [];
+  const settings = bootstrap?.data.settings ?? null;
 
   const [selectedFiscalYearId, setSelectedFiscalYearId] = useState<string>("");
   const [tenantForm, setTenantForm] = useState<TenantForm>(INITIAL_TENANT_FORM);
@@ -76,8 +67,8 @@ export default function AdminSettings() {
   }, [settings]);
 
   useEffect(() => {
-    if (tenantData?.data) {
-      const t = tenantData.data;
+    if (bootstrap?.data.tenant) {
+      const t = bootstrap.data.tenant;
       setTenantForm({
         name: t.name ?? "",
         email: t.email ?? "",
@@ -86,7 +77,7 @@ export default function AdminSettings() {
         vat_no: t.vat_no ?? "",
       });
     }
-  }, [tenantData]);
+  }, [bootstrap]);
 
   const updateSettingsMutation = useMutation({
     mutationFn: (fiscalYearId: number | null) =>
@@ -95,7 +86,7 @@ export default function AdminSettings() {
         body: JSON.stringify({ fiscal_year_id: fiscalYearId }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["settings-bootstrap"] });
       toast.success("Settings saved", "Fiscal year has been updated.");
     },
     onError: (err: any) => {
@@ -110,15 +101,13 @@ export default function AdminSettings() {
         body: JSON.stringify(payload),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tenant"] });
+      queryClient.invalidateQueries({ queryKey: ["settings-bootstrap"] });
       toast.success("Company info saved", "Your company details have been updated.");
     },
     onError: (err: any) => {
       toast.error("Failed to save", err?.message ?? "Something went wrong.");
     },
   });
-
-  const isLoading = fiscalYearsLoading || settingsLoading || tenantLoading;
 
   const fiscalYearOptions = fiscalYears.map((fy) => ({
     label: fy.name,

@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('tenant_settings', function (Blueprint $table) {
             $table->id();
+            $table->ulid('ulid')->unique();
             $table->foreignId('tenant_id')->unique()->constrained('tenants')->cascadeOnDelete();
             $table->foreignId('fiscal_year_id')->nullable()->constrained('fiscal_years')->nullOnDelete();
 

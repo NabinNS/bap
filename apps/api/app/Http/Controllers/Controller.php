@@ -10,6 +10,6 @@ abstract class Controller
 
     protected function tenantId(): int
     {
-        return app('current_tenant')?->id ?? auth()->user()->currentTenantId();
+        return (app()->bound('current_tenant') ? app('current_tenant')?->id : null) ?? auth()->user()->currentTenantId();
     }
 }
