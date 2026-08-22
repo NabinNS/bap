@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Database\Seeders\FiscalYearSeeder;
 use Database\Seeders\TenantSeeder;
 
 class DatabaseSeeder extends Seeder
@@ -20,5 +21,6 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call(TenantSeeder::class);
+        $this->call(FiscalYearSeeder::class);
     }
 }

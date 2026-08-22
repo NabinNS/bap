@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Domain\AccVendors\Repositories\AccVendorRepositoryInterface;
+use App\Domain\AccVendors\Repositories\AccVendorOpeningBalanceRepositoryInterface;
+use App\Domain\AccVendors\Repositories\AccVendorTransactionRepositoryInterface;
+use App\Domain\Settings\Repositories\TenantSettingRepositoryInterface;
+use App\Infrastructure\Repositories\Settings\EloquentTenantSettingRepository;
 use App\Domain\Brands\Repositories\BrandRepositoryInterface;
 use App\Domain\Offers\Repositories\OfferRepositoryInterface;
 use App\Domain\Sliders\Repositories\SliderRepositoryInterface;
@@ -11,6 +15,8 @@ use App\Domain\Images\Repositories\ImageGroupRepositoryInterface;
 use App\Domain\Products\Repositories\ProductDiscountRepositoryInterface;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorRepository;
+use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorOpeningBalanceRepository;
+use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorTransactionRepository;
 use App\Infrastructure\Repositories\Brands\EloquentBrandRepository;
 use App\Infrastructure\Repositories\Offers\EloquentOfferRepository;
 use App\Infrastructure\Repositories\Sliders\EloquentSliderRepository;
@@ -43,6 +49,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(AccVendorRepositoryInterface::class, EloquentAccVendorRepository::class);
+        $this->app->bind(AccVendorOpeningBalanceRepositoryInterface::class, EloquentAccVendorOpeningBalanceRepository::class);
+        $this->app->bind(AccVendorTransactionRepositoryInterface::class, EloquentAccVendorTransactionRepository::class);
         $this->app->bind(BrandRepositoryInterface::class, EloquentBrandRepository::class);
         $this->app->bind(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
         $this->app->bind(ProductRepositoryInterface::class, EloquentProductRepository::class);
@@ -50,6 +58,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ImageGroupRepositoryInterface::class, EloquentImageGroupRepository::class);
         $this->app->bind(SliderRepositoryInterface::class, EloquentSliderRepository::class);
         $this->app->bind(OfferRepositoryInterface::class, EloquentOfferRepository::class);
+        $this->app->bind(TenantSettingRepositoryInterface::class, EloquentTenantSettingRepository::class);
     }
 
     public function boot(): void

@@ -1,6 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\AccVendorController;
+use App\Http\Controllers\Api\AccVendorOpeningBalanceController;
+use App\Http\Controllers\Api\AccVendorTransactionController;
+use App\Http\Controllers\Api\TenantController;
+use App\Http\Controllers\Api\FiscalYearController;
+use App\Http\Controllers\Api\TenantSettingController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BrandController;
 use App\Http\Controllers\Api\CategoryController;
@@ -42,6 +47,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('sliders', SliderController::class)->except(['index', 'show']);
     Route::apiResource('offers', OfferController::class)->except(['index', 'show']);
     Route::apiResource('acc-vendors', AccVendorController::class);
+    Route::post('acc-vendors/{accVendor}/opening-balance', [AccVendorOpeningBalanceController::class, 'upsert']);
+    Route::get('acc-vendors/{accVendor}/transactions', [AccVendorTransactionController::class, 'index']);
+    Route::get('tenant', [TenantController::class, 'show']);
+    Route::put('tenant', [TenantController::class, 'update']);
+    Route::get('settings', [TenantSettingController::class, 'show']);
+    Route::put('settings', [TenantSettingController::class, 'update']);
+    Route::get('fiscal-years', [FiscalYearController::class, 'index']);
 });
 
 Route::prefix('auth')->group(function () {

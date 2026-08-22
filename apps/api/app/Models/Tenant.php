@@ -16,7 +16,7 @@ class Tenant extends Model
 {
     use HasPublicUlid;
 
-    protected $fillable = ['name', 'slug', 'email', 'phone', 'address', 'map_url', 'longitude', 'latitude', 'status', 'created_by'];
+    protected $fillable = ['name', 'slug', 'email', 'phone', 'address', 'vat_no', 'map_url', 'longitude', 'latitude', 'status', 'created_by'];
 
     public function users(): BelongsToMany
     {

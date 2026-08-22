@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Noto_Sans_Devanagari } from "next/font/google";
-import { AuthProvider } from "@/features/auth/AuthProvider";
 import { QueryProvider } from "@/components/QueryProvider";
 import { Toaster } from "sonner";
 import "@/styles/globals.css";
@@ -13,7 +12,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 const notoDevanagari = Noto_Sans_Devanagari({
   variable: "--font-noto-devanagari",
   subsets: ["devanagari"],
-  weight: ["400", "500", "600", "700", "800", "900"],
+  weight: ["400", "600"],
 });
 
 export const metadata: Metadata = {
@@ -30,7 +29,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${plusJakarta.variable} ${notoDevanagari.variable} antialiased`}>
         <QueryProvider>
-          <AuthProvider>{children}</AuthProvider>
+          {children}
         </QueryProvider>
         <Toaster
           position="top-right"

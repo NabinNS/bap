@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { AuthProvider } from "@/features/auth/AuthProvider";
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -36,7 +37,7 @@ const navItems = [
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
@@ -139,5 +140,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <main className="flex-1 overflow-y-auto h-full">{children}</main>
       </div>
     </div>
+  );
+}
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </AuthProvider>
   );
 }

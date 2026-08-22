@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AuthProvider } from "@/features/auth/AuthProvider";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { LayoutDashboard, ShoppingBag, User, LogOut } from "lucide-react";
@@ -13,7 +14,7 @@ const navItems = [
   { label: "Profile", href: "/customer/profile", icon: User },
 ];
 
-export default function CustomerLayout({ children }: { children: React.ReactNode }) {
+function CustomerLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
@@ -75,5 +76,13 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>
+  );
+}
+
+export default function CustomerLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <CustomerLayoutInner>{children}</CustomerLayoutInner>
+    </AuthProvider>
   );
 }

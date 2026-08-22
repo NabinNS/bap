@@ -11,12 +11,13 @@ return new class extends Migration
         Schema::create('acc_vendor_transactions', function (Blueprint $table) {
             $table->id();
             $table->ulid('ulid')->unique();
+            $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
             $table->foreignId('vendor_id')->constrained('acc_vendors')->cascadeOnDelete();
-            $table->string('fiscal_year'); // e.g. "2081-82"
+            $table->foreignId('fiscal_year_id')->constrained('fiscal_years')->cascadeOnDelete();
             $table->date('date');
             $table->string('particular');
             $table->string('voucher_no')->nullable();
-            $table->enum('type', ['purchase', 'payment', 'credit_note', 'journal']);
+            $table->string('type')->nullable();
             $table->decimal('debit', 15, 2)->nullable();
             $table->decimal('credit', 15, 2)->nullable();
             $table->timestamps();
