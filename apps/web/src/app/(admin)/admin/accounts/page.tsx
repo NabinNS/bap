@@ -78,6 +78,24 @@ const INITIAL_FORM: FormState = {
 };
 
 
+function isValidBsDate(str: string): boolean {
+  if (!str || str.length !== 10) return false;
+  const parts = str.split("-");
+  if (parts.length !== 3) return false;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 32) return false;
+  try {
+    new NepaliDate(str);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function DraftDateInput({ vendorUlid, onDateChange, onBlur }: { vendorUlid: string; onDateChange: (val: string) => void; onBlur: () => void }) {
   const [text, setText] = useState("");
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -109,7 +127,7 @@ function DraftDateInput({ vendorUlid, onDateChange, onBlur }: { vendorUlid: stri
             open={true}
             showclear={false}
             className="draft-date-picker"
-            value={(() => { try { return text.length === 10 ? text : undefined; } catch { return undefined; } })()}
+            value={isValidBsDate(text) ? text : undefined}
             onChange={(d) => {
               if (d instanceof NepaliDate) {
                 const val = `${d.getFullYear()}-${String((d.getMonth() as number) + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -251,7 +269,7 @@ export default function AdminAccounts() {
     if (!selectedVendorUlid) return;
     const { particular, debit, credit } = draftRef.current;
     const date = draftRef.current.date;
-    if (!date || date.length < 10 || !particular.trim() || (!debit && !credit)) return;
+    if (!isValidBsDate(date) || !particular.trim() || (!debit && !credit)) return;
     saveTransactionMutation.mutate({
       vendorUlid: selectedVendorUlid,
       payload: {
