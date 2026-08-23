@@ -10,7 +10,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, ExternalLink, Download, Send, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { TRANSACTION_PARTICULARS } from "@/constants/accounting";
+import { TRANSACTION_PARTICULARS, getParticularLabel } from "@/constants/accounting";
 import { toast } from "@/lib/toast";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, NumberField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
@@ -144,7 +144,7 @@ function DraftDateInput({ vendorUlid, onDateChange, onBlur }: { vendorUlid: stri
   );
 }
 
-const PARTICULAR_OPTIONS = TRANSACTION_PARTICULARS.map((p) => ({ value: p, label: p }));
+const PARTICULAR_OPTIONS = TRANSACTION_PARTICULARS.map((p) => ({ value: p.value, label: p.label }));
 
 function ParticularCombobox({ vendorUlid, onChange, onBlur }: { vendorUlid: string; onChange: (val: string) => void; onBlur: () => void }) {
   const [value, setValue] = useState("");
@@ -494,7 +494,7 @@ export default function AdminAccounts() {
             onBlur={tryAutoSaveTransaction}
           />
         );
-        return <span className="text-sm font-medium text-black">{row.original.particular}</span>;
+        return <span className="text-sm font-medium text-black">{getParticularLabel(row.original.particular)}</span>;
       },
     },
     {

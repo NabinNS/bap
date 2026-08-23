@@ -219,10 +219,13 @@ export function ComboboxField({
     setActiveIndex(-1);
   }, [value, options]);
 
-  // Close on outside click
+  // Close on outside click — also check portaled listbox
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideContainer = containerRef.current?.contains(target);
+      const insideList = listRef.current?.contains(target);
+      if (!insideContainer && !insideList) {
         closeAndRevert();
       }
     }

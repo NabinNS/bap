@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\AccVendors;
 
+use App\Enums\TransactionParticular;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreAccVendorTransactionRequest extends FormRequest
 {
@@ -10,7 +12,7 @@ class StoreAccVendorTransactionRequest extends FormRequest
     {
         return [
             'date'       => ['required', 'string', 'max:20'],
-            'particular' => ['required', 'string', 'max:500'],
+            'particular' => ['required', Rule::enum(TransactionParticular::class)],
             'voucher_no' => ['nullable', 'string', 'max:100'],
             'debit'      => ['nullable', 'numeric', 'min:0'],
             'credit'     => ['nullable', 'numeric', 'min:0'],
