@@ -13,6 +13,7 @@ class AccVendorTransaction extends Model
     protected $table = 'acc_vendor_transactions';
 
     protected $fillable = [
+        'tenant_id',
         'vendor_id',
         'fiscal_year_id',
         'date',

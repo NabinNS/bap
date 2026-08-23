@@ -32,4 +32,9 @@ class AccVendor extends Model
     {
         return $this->hasMany(AccVendorOpeningBalance::class, 'vendor_id');
     }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(AccVendorTransaction::class, 'vendor_id');
+    }
 }

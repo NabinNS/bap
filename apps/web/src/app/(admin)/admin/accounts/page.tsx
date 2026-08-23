@@ -170,6 +170,38 @@ export default function AdminAccounts() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [txMenuUlid]);
 
+  const saveTransactionMutation = useMutation({
+    mutationFn: ({ vendorUlid, payload }: { vendorUlid: string; payload: object }) =>
+      apiFetch(`/acc-vendors/${vendorUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }),
+    onSuccess: (_data, variables) => {
+      queryClient.refetchQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
+      draftRef.current = { particular: "", voucher_no: "", debit: "", credit: "" };
+      setDraftDate(null);
+      forceUpdate();
+      toast.success("Transaction saved", "Entry has been recorded.");
+    },
+    onError: () => toast.error("Failed to save", "Could not save the transaction."),
+  });
+
+  function tryAutoSaveTransaction() {
+    if (!selectedVendorUlid) return;
+    const { particular, debit, credit } = draftRef.current;
+    if (!draftDate || !particular.trim() || (!debit && !credit)) return;
+    const bsStr = `${draftDate.getFullYear()}-${String((draftDate.getMonth() as number) + 1).padStart(2, "0")}-${String(draftDate.getDate()).padStart(2, "0")}`;
+    let adDate = "";
+    try { const ad = toAD(bsStr); adDate = `${ad.year}-${String(ad.month).padStart(2, "0")}-${String(ad.date).padStart(2, "0")}`; } catch { return; }
+    saveTransactionMutation.mutate({
+      vendorUlid: selectedVendorUlid,
+      payload: {
+        date: adDate,
+        particular: particular.trim(),
+        voucher_no: draftRef.current.voucher_no || null,
+        debit: debit ? parseFloat(debit) : null,
+        credit: credit ? parseFloat(credit) : null,
+      },
+    });
+  }
+
   const autoSaveMutation = useMutation({
     mutationFn: ({ ulid, payload }: { ulid?: string; payload: ReturnType<typeof buildPayload> }) =>
       ulid
@@ -370,7 +402,7 @@ export default function AdminAccounts() {
           <div className="nepali-date-field-inline">
             <NepaliDatePicker
               value={draftDate}
-              onChange={(d) => setDraftDate(d)}
+              onChange={(d) => { setDraftDate(d); }}
               placeholder="Select date"
               lang="en"
             />
@@ -390,6 +422,7 @@ export default function AdminAccounts() {
             type="text"
             defaultValue=""
             onChange={(e) => { draftRef.current.particular = e.target.value; forceUpdate(); }}
+            onBlur={tryAutoSaveTransaction}
             placeholder="Particular..."
             className={inputCls}
           />
@@ -408,6 +441,7 @@ export default function AdminAccounts() {
             type="text"
             defaultValue=""
             onChange={(e) => { draftRef.current.voucher_no = e.target.value; }}
+            onBlur={tryAutoSaveTransaction}
             placeholder="Voucher no..."
             className={inputCls}
           />
@@ -428,6 +462,7 @@ export default function AdminAccounts() {
             type="number"
             defaultValue=""
             onChange={(e) => { draftRef.current.debit = e.target.value; draftRef.current.credit = e.target.value ? "" : draftRef.current.credit; forceUpdate(); }}
+            onBlur={tryAutoSaveTransaction}
             placeholder="0"
             className={inputCls}
           />
@@ -448,6 +483,7 @@ export default function AdminAccounts() {
             type="number"
             defaultValue=""
             onChange={(e) => { draftRef.current.credit = e.target.value; draftRef.current.debit = e.target.value ? "" : draftRef.current.debit; forceUpdate(); }}
+            onBlur={tryAutoSaveTransaction}
             placeholder="0"
             className={inputCls}
           />
