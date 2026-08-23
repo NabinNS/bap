@@ -78,6 +78,54 @@ const INITIAL_FORM: FormState = {
 };
 
 
+function DraftDateInput({ vendorUlid, onDateChange, onBlur }: { vendorUlid: string; onDateChange: (val: string) => void; onBlur: () => void }) {
+  const [text, setText] = useState("");
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
+    let formatted = raw;
+    if (raw.length > 4) formatted = `${raw.slice(0, 4)}-${raw.slice(4)}`;
+    if (raw.length > 6) formatted = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6)}`;
+    setText(formatted);
+    onDateChange(formatted);
+  }
+
+  return (
+    <div className="relative w-full">
+      <input
+        key={vendorUlid}
+        type="text"
+        value={text}
+        onChange={handleChange}
+        onFocus={() => setCalendarOpen(true)}
+        onBlur={() => { setTimeout(() => { setCalendarOpen(false); onBlur(); }, 200); }}
+        placeholder="YYYY-MM-DD"
+        className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+      />
+      {calendarOpen && (
+        <div className="absolute top-full left-0 z-50">
+          <NepaliDatePicker
+            open={true}
+            showclear={false}
+            className="draft-date-picker"
+            value={(() => { try { return text.length === 10 ? text : undefined; } catch { return undefined; } })()}
+            onChange={(d) => {
+              if (d instanceof NepaliDate) {
+                const val = `${d.getFullYear()}-${String((d.getMonth() as number) + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                setText(val);
+                onDateChange(val);
+              }
+              setCalendarOpen(false);
+            }}
+            lang="en"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 const PARTICULAR_OPTIONS = TRANSACTION_PARTICULARS.map((p) => ({ value: p, label: p }));
 
 function ParticularCombobox({ vendorUlid, onChange, onBlur }: { vendorUlid: string; onChange: (val: string) => void; onBlur: () => void }) {
@@ -406,23 +454,11 @@ export default function AdminAccounts() {
       cell: ({ row }) => {
         if (row.original.ulid === "__opening_balance__") return <span className="text-sm font-medium text-black">{row.original.date}</span>;
         if (row.original.ulid === "__new__") return (
-          <div className="nepali-date-field-inline">
-            <NepaliDatePicker
-              key={`date-${selectedVendorUlid}`}
-              onChange={(d) => {
-                if (d instanceof NepaliDate) {
-                  const y = d.getFullYear();
-                  const m = String((d.getMonth() as number) + 1).padStart(2, "0");
-                  const day = String(d.getDate()).padStart(2, "0");
-                  draftRef.current.date = `${y}-${m}-${day}`;
-                } else {
-                  draftRef.current.date = "";
-                }
-              }}
-              placeholder="YYYY-MM-DD"
-              lang="en"
-            />
-          </div>
+          <DraftDateInput
+            vendorUlid={selectedVendorUlid ?? ""}
+            onDateChange={(val) => { draftRef.current.date = val; }}
+            onBlur={tryAutoSaveTransaction}
+          />
         );
         return <span className="text-sm font-medium text-black">{row.original.date}</span>;
       },
