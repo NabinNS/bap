@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import "@zener/nepali-datepicker-react/index.css";
+import { useState, useEffect, useRef, useMemo, useReducer } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, ExternalLink, Download, Send, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
+import NepaliDatePicker, { NepaliDate, toAD, toBS } from "@zener/nepali-datepicker-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
@@ -92,6 +94,9 @@ export default function AdminAccounts() {
   const txMenuRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
+  const draftRef = useRef({ particular: "", voucher_no: "", debit: "", credit: "" });
+  const [draftDate, setDraftDate] = useState<NepaliDate | null>(null);
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
     queryKey: ["acc-vendors"],
@@ -135,6 +140,11 @@ export default function AdminAccounts() {
   useEffect(() => {
     if (!selectedVendorUlid && vendors.length > 0) setSelectedVendorUlid(vendors[0].ulid);
   }, [vendors]);
+
+  useEffect(() => {
+    draftRef.current = { particular: "", voucher_no: "", debit: "", credit: "" };
+    setDraftDate(null);
+  }, [selectedVendorUlid]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -310,7 +320,29 @@ export default function AdminAccounts() {
       }
     : null;
 
-  const transactions = openingBalanceRow ? [openingBalanceRow, ...rawTransactions] : rawTransactions;
+  const draftAdDate = (() => {
+    if (!draftDate) return "";
+    try {
+      const bsStr = `${draftDate.getFullYear()}-${String((draftDate.getMonth() as number) + 1).padStart(2, "0")}-${String(draftDate.getDate()).padStart(2, "0")}`;
+      const ad = toAD(bsStr);
+      return `${ad.year}-${String(ad.month).padStart(2, "0")}-${String(ad.date).padStart(2, "0")}`;
+    } catch { return ""; }
+  })();
+
+  const draftTransaction: Transaction = {
+    ulid: "__new__",
+    date: draftAdDate,
+    particular: draftRef.current.particular,
+    voucher_no: draftRef.current.voucher_no || null,
+    type: null,
+    debit: draftRef.current.debit ? Number(draftRef.current.debit) : null,
+    credit: draftRef.current.credit ? Number(draftRef.current.credit) : null,
+  };
+
+  const transactions = [
+    ...(openingBalanceRow ? [openingBalanceRow, ...rawTransactions] : rawTransactions),
+    draftTransaction,
+  ];
 
   // compute running balance per row: credit increases, debit decreases
   const runningBalances = transactions.reduce<number[]>((acc, tx) => {
@@ -319,85 +351,140 @@ export default function AdminAccounts() {
     return acc;
   }, []);
 
-  const columns: ColumnDef<Transaction, unknown>[] = [
+  // Stable refs so useMemo columns don't need these as deps
+  const runningBalancesRef = useRef<number[]>([]);
+  runningBalancesRef.current = runningBalances;
+  const txMenuUlidRef = useRef<string | null>(null);
+  txMenuUlidRef.current = txMenuUlid;
+
+  const inputCls = "w-full text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-600 bg-white px-2 py-1 rounded-none";
+
+  const columns: ColumnDef<Transaction, unknown>[] = useMemo(() => [
     {
       accessorKey: "date",
       header: "Date",
+      size: 140,
       cell: ({ row }) => {
-        if (row.original.ulid === "__opening_balance__") return <span className="text-sm text-text-muted">{row.original.date}</span>;
-        return new Date(row.original.date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+        if (row.original.ulid === "__opening_balance__") return <span className="text-sm font-medium text-black">{row.original.date}</span>;
+        if (row.original.ulid === "__new__") return (
+          <div className="nepali-date-field-inline">
+            <NepaliDatePicker
+              value={draftDate}
+              onChange={(d) => setDraftDate(d)}
+              placeholder="Select date"
+              lang="en"
+            />
+          </div>
+        );
+        return <span className="text-sm font-medium text-black">{new Date(row.original.date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>;
       },
     },
     {
       accessorKey: "particular",
       header: "Particular",
-      cell: ({ row }) => (
-        <span className="text-sm text-text-default">{row.original.particular}</span>
-      ),
+      size: 350,
+      cell: ({ row }) => {
+        if (row.original.ulid === "__new__") return (
+          <input
+            key={`particular-${selectedVendorUlid}`}
+            type="text"
+            defaultValue=""
+            onChange={(e) => { draftRef.current.particular = e.target.value; forceUpdate(); }}
+            placeholder="Particular..."
+            className={inputCls}
+          />
+        );
+        return <span className="text-sm font-medium text-black">{row.original.particular}</span>;
+      },
     },
     {
       accessorKey: "voucher_no",
       header: "Voucher No",
-      cell: ({ row }) =>
-        row.original.voucher_no
-          ? <span className="font-mono text-xs text-text-muted">{row.original.voucher_no}</span>
-          : null,
-    },
-    {
-      accessorKey: "type",
-      header: "Type",
-      cell: ({ row }) =>
-        row.original.type
-          ? <span className="text-xs font-semibold px-2 py-0.5 bg-slate-100 text-slate-600">{row.original.type}</span>
-          : <span className="text-text-muted">—</span>,
+      size: 140,
+      cell: ({ row }) => {
+        if (row.original.ulid === "__new__") return (
+          <input
+            key={`voucher-${selectedVendorUlid}`}
+            type="text"
+            defaultValue=""
+            onChange={(e) => { draftRef.current.voucher_no = e.target.value; }}
+            placeholder="Voucher no..."
+            className={inputCls}
+          />
+        );
+        return row.original.voucher_no
+          ? <span className="text-sm font-medium text-black">{row.original.voucher_no}</span>
+          : null;
+      },
     },
     {
       accessorKey: "debit",
       header: "Debit",
-      cell: ({ row }) =>
-        row.original.debit != null
-          ? <span className="text-sm font-semibold text-red-600">{Number(row.original.debit).toLocaleString()}</span>
-          : null,
+      size: 140,
+      cell: ({ row }) => {
+        if (row.original.ulid === "__new__") return (
+          <input
+            key={`debit-${selectedVendorUlid}`}
+            type="number"
+            defaultValue=""
+            onChange={(e) => { draftRef.current.debit = e.target.value; draftRef.current.credit = e.target.value ? "" : draftRef.current.credit; forceUpdate(); }}
+            placeholder="0"
+            className={inputCls}
+          />
+        );
+        return row.original.debit != null
+          ? <span className="text-sm font-medium text-black">{Number(row.original.debit).toLocaleString()}</span>
+          : null;
+      },
     },
     {
       accessorKey: "credit",
       header: "Credit",
-      cell: ({ row }) =>
-        row.original.credit != null
-          ? <span className="text-sm font-semibold text-green-600">{Number(row.original.credit).toLocaleString()}</span>
-          : null,
+      size: 140,
+      cell: ({ row }) => {
+        if (row.original.ulid === "__new__") return (
+          <input
+            key={`credit-${selectedVendorUlid}`}
+            type="number"
+            defaultValue=""
+            onChange={(e) => { draftRef.current.credit = e.target.value; draftRef.current.debit = e.target.value ? "" : draftRef.current.debit; forceUpdate(); }}
+            placeholder="0"
+            className={inputCls}
+          />
+        );
+        return row.original.credit != null
+          ? <span className="text-sm font-medium text-black">{Number(row.original.credit).toLocaleString()}</span>
+          : null;
+      },
     },
     {
       id: "balance",
       header: "Balance",
       cell: ({ row }) => {
-        const balance = runningBalances[row.index];
-        if (!balance) return null;
-        return <span className={`text-sm font-semibold ${balance < 0 ? "text-red-600" : "text-text-default"}`}>{balance.toLocaleString()}</span>;
-      },
-    },
-    {
-      id: "actions",
-      header: "",
-      cell: ({ row }) => {
-        if (row.original.ulid === "__opening_balance__") return null;
+        const balance = runningBalancesRef.current[row.index];
+        const isSpecial = row.original.ulid === "__opening_balance__" || row.original.ulid === "__new__";
         return (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (txMenuUlid === row.original.ulid) { setTxMenuUlid(null); setTxMenuPos(null); return; }
-              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-              setTxMenuPos({ top: rect.bottom + 4, left: rect.right - 144 });
-              setTxMenuUlid(row.original.ulid);
-            }}
-            className="p-1 rounded hover:bg-slate-100 transition-colors text-text-muted hover:text-text-default cursor-pointer"
-          >
-            <MoreVertical className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-black">{balance ? balance.toLocaleString() : null}</span>
+            {!isSpecial && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (txMenuUlidRef.current === row.original.ulid) { setTxMenuUlid(null); setTxMenuPos(null); return; }
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setTxMenuPos({ top: rect.bottom + 4, left: rect.right - 144 });
+                  setTxMenuUlid(row.original.ulid);
+                }}
+                className="p-1 rounded hover:bg-slate-100 transition-colors text-text-muted hover:text-text-default cursor-pointer"
+              >
+                <MoreVertical className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         );
       },
     },
-  ];
+  ], [selectedVendorUlid, draftDate]);
 
   return (
     <div className="flex gap-0 transition-all duration-300 h-full">
@@ -422,7 +509,7 @@ export default function AdminAccounts() {
             {/* Search + button row */}
             <div className="flex items-center pb-3 shrink-0">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted" />
+                <Search className="absolute left-3 inset-y-0 my-auto h-3.5 w-3.5 text-text-muted pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search..."
@@ -459,7 +546,7 @@ export default function AdminAccounts() {
                     <div
                       key={vendor.ulid}
                       onClick={() => { setSelectedVendorUlid(vendor.ulid); setSelectedTransaction(null); setOpenMenuUlid(null); }}
-                      className={`relative flex items-center py-3.5 border-b border-slate-400 cursor-pointer transition-colors ${selectedVendor?.ulid === vendor.ulid ? "bg-slate-200 border-l-2 border-l-slate-700 pl-[14px] pr-10" : "pl-4 pr-10 hover:bg-slate-50"}`}
+                      className={`flex items-center py-3.5 border-b border-slate-400 cursor-pointer transition-colors ${selectedVendor?.ulid === vendor.ulid ? "bg-slate-200 border-l-2 border-l-slate-700 pl-[14px] pr-1" : "pl-4 pr-1 hover:bg-slate-50"}`}
                     >
                       <span className={`text-sm truncate flex-1 min-w-0 ${selectedVendor?.ulid === vendor.ulid ? "font-semibold text-text-default" : "font-medium text-text-default"}`}>{vendor.name}</span>
                       <span className="text-sm font-semibold text-text-default text-right shrink-0">
@@ -467,20 +554,18 @@ export default function AdminAccounts() {
                           ? Number(vendor.opening_balances.find((ob) => ob.fiscal_year_id === activeFiscalYearId)!.opening_balance).toLocaleString()
                           : "—"}
                       </span>
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (openMenuUlid === vendor.ulid) { setOpenMenuUlid(null); setMenuPos(null); return; }
-                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                            setMenuPos({ top: rect.bottom + 4, left: rect.right - 144 });
-                            setOpenMenuUlid(vendor.ulid);
-                          }}
-                          className="p-1 rounded hover:bg-slate-300 transition-colors text-text-muted hover:text-text-default cursor-pointer"
-                        >
-                          <MoreVertical className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (openMenuUlid === vendor.ulid) { setOpenMenuUlid(null); setMenuPos(null); return; }
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setMenuPos({ top: rect.bottom + 4, left: rect.right - 144 });
+                          setOpenMenuUlid(vendor.ulid);
+                        }}
+                        className="ml-1 shrink-0 p-1 rounded hover:bg-slate-300 transition-colors text-text-muted hover:text-text-default cursor-pointer"
+                      >
+                        <MoreVertical className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   ))
                 )}
@@ -489,7 +574,7 @@ export default function AdminAccounts() {
           </div>
 
           {/* Table + detail card */}
-          <div className="flex-1 min-w-0 flex flex-col gap-4">
+          <div className="flex-1 min-w-0 flex flex-col gap-4 self-start">
             {/* Account detail card */}
             <div className="bg-white px-5 py-4 space-y-3">
               {/* Top row: name + buttons */}
@@ -503,15 +588,19 @@ export default function AdminAccounts() {
                       {selectedVendor.address && (
                         <div className="flex items-center gap-1 text-text-body text-sm-custom">
                           <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          <span className="font-medium text-text-muted">Address:</span>
                           <span>{selectedVendor.address}</span>
                         </div>
                       )}
-                      {selectedVendor.phone && (
+                      {(selectedVendor.phone || selectedVendor.telephone) && (
                         <>
                           <span className="text-slate-300">|</span>
                           <div className="flex items-center gap-1 text-text-body text-sm-custom">
                             <Phone className="h-3.5 w-3.5 shrink-0" />
-                            <span>{selectedVendor.phone}</span>
+                            <span className="font-medium text-text-muted">Phone:</span>
+                            <span>
+                              {[selectedVendor.phone, selectedVendor.telephone].filter(Boolean).join(" / ")}
+                            </span>
                           </div>
                         </>
                       )}
@@ -588,7 +677,7 @@ export default function AdminAccounts() {
             </div>
 
             {/* Table + invoice detail panel */}
-            <div className="flex gap-4 flex-1 min-h-0">
+            <div className="flex gap-4">
               <div className="flex-1 min-w-0">
                 <DataTable
                   columns={columns}
@@ -597,7 +686,8 @@ export default function AdminAccounts() {
                   searchColumn="particular"
                   searchPlaceholder="Search transactions..."
                   meta={null}
-                  onRowDoubleClick={(row) => setSelectedTransaction(row)}
+                  tableClassName="table-fixed"
+                  onRowDoubleClick={(row) => { if (row.ulid !== "__new__") setSelectedTransaction(row); }}
                 />
               </div>
 

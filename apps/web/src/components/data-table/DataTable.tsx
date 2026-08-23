@@ -41,6 +41,7 @@ interface DataTableProps<TData> {
   searchPlaceholder?: string;
   loading?: boolean;
   onRowDoubleClick?: (row: TData) => void;
+  tableClassName?: string;
   // server-side pagination
   meta?: Meta | null;
   onPageChange?: (page: number) => void;
@@ -53,6 +54,7 @@ export function DataTable<TData>({
   searchPlaceholder = "Search...",
   loading = false,
   onRowDoubleClick,
+  tableClassName,
   meta,
   onPageChange,
 }: DataTableProps<TData>) {
@@ -87,8 +89,8 @@ export function DataTable<TData>({
   return (
     <div className="space-y-4">
       {/* Search */}
-      <div className="relative w-full">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+      <div className="relative w-full h-10">
+        <Search className="absolute left-3 inset-y-0 my-auto h-4 w-4 text-slate-400 pointer-events-none" />
         <Input
           placeholder={searchPlaceholder}
           value={
@@ -107,7 +109,7 @@ export function DataTable<TData>({
 
       {/* Table */}
       <div className="border border-slate-300 bg-slate-50 overflow-hidden">
-        <Table>
+        <Table className={tableClassName}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="bg-black hover:bg-black border-black">

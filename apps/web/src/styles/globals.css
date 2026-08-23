@@ -416,3 +416,17 @@
 .nepali-date-field--error .zener-border-input-border { border-color: #ef4444; }
 .nepali-date-field .zener-border-input-border input { font-size: 0.875rem; }
 
+/* Inline Nepali date picker for table draft row */
+.nepali-date-field-inline .zener-date-picker { width: 100%; }
+.nepali-date-field-inline .zener-border-input-border {
+  height: 2rem;
+  border-radius: 0;
+  border-color: #cbd5e1;
+  padding: 0 0.5rem;
+  background: white;
+  display: flex;
+  align-items: center;
+}
+.nepali-date-field-inline .zener-border-input-border:focus-within { border-color: #475569; }
+.nepali-date-field-inline .zener-border-input-border input { font-size: 0.75rem; }
+
