@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
             $table->foreignId('vendor_id')->constrained('acc_vendors')->cascadeOnDelete();
             $table->foreignId('fiscal_year_id')->constrained('fiscal_years')->cascadeOnDelete();
-            $table->date('date');
+            $table->string('date', 20);
             $table->string('particular');
             $table->string('voucher_no')->nullable();
             $table->string('type')->nullable();

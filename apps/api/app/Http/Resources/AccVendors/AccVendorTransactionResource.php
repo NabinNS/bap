@@ -11,7 +11,7 @@ class AccVendorTransactionResource extends JsonResource
     {
         return [
             'ulid'       => $this->ulid,
-            'date'       => $this->date?->format('Y-m-d'),
+            'date'       => $this->date,
             'particular' => $this->particular,
             'voucher_no' => $this->voucher_no,
             'type'       => $this->type,

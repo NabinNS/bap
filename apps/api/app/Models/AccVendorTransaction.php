@@ -25,7 +25,6 @@ class AccVendorTransaction extends Model
     ];
 
     protected $casts = [
-        'date'   => 'date',
         'debit'  => 'decimal:2',
         'credit' => 'decimal:2',
     ];

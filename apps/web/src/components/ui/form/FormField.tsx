@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, forwardRef, useRef, useState, useEffect, useId, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Upload, Loader2 } from "lucide-react";
 
 // BaseProps are shared across every field type
@@ -311,13 +312,20 @@ export function ComboboxField({
           </div>
         )}
 
-        {open && (
+        {open && typeof document !== "undefined" && createPortal(
           <ul
             ref={listRef}
             id={listboxId}
             role="listbox"
             aria-label={label}
-            className="absolute z-50 mt-1 w-full bg-white border border-slate-200 shadow-lg max-h-48 overflow-y-auto"
+            style={{
+              position: "fixed",
+              top: (inputRef.current?.getBoundingClientRect().bottom ?? 0) + 2,
+              left: inputRef.current?.getBoundingClientRect().left ?? 0,
+              width: inputRef.current?.getBoundingClientRect().width ?? "auto",
+              zIndex: 9999,
+            }}
+            className="bg-white border border-slate-200 shadow-lg max-h-48 overflow-y-auto"
           >
             {filtered.length === 0 && (
               <li role="option" aria-selected={false} className="px-3 py-2 text-sm text-text-muted">
@@ -358,7 +366,8 @@ export function ComboboxField({
                 + Add "{inputValue.trim()}"
               </li>
             )}
-          </ul>
+          </ul>,
+          document.body
         )}
       </div>
     </FieldWrapper>

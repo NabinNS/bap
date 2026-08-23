@@ -2,17 +2,18 @@
 
 import "@zener/nepali-datepicker-react/index.css";
 import { useState, useEffect, useRef, useMemo, useReducer } from "react";
+import NepaliDatePicker, { NepaliDate } from "@zener/nepali-datepicker-react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, ExternalLink, Download, Send, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
-import NepaliDatePicker, { NepaliDate, toAD, toBS } from "@zener/nepali-datepicker-react";
 import { apiFetch } from "@/lib/api";
+import { TRANSACTION_PARTICULARS } from "@/constants/accounting";
 import { toast } from "@/lib/toast";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
-import { InputField, NumberField, SelectField } from "@/components/ui/form/FormField";
+import { InputField, NumberField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
 
 type VendorOpeningBalance = {
   fiscal_year_id: number;
@@ -76,6 +77,24 @@ const INITIAL_FORM: FormState = {
   opening_balance: "",
 };
 
+
+const PARTICULAR_OPTIONS = TRANSACTION_PARTICULARS.map((p) => ({ value: p, label: p }));
+
+function ParticularCombobox({ vendorUlid, onChange, onBlur }: { vendorUlid: string; onChange: (val: string) => void; onBlur: () => void }) {
+  const [value, setValue] = useState("");
+  return (
+    <div onBlur={onBlur} className="[&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
+      <ComboboxField
+        key={vendorUlid}
+        label=""
+        options={PARTICULAR_OPTIONS}
+        value={value}
+        onChange={(v) => { setValue(v); onChange(v); }}
+      />
+    </div>
+  );
+}
+
 export default function AdminAccounts() {
   const queryClient = useQueryClient();
   const [sideSearch, setSideSearch] = useState("");
@@ -94,8 +113,7 @@ export default function AdminAccounts() {
   const txMenuRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
-  const draftRef = useRef({ particular: "", voucher_no: "", debit: "", credit: "" });
-  const [draftDate, setDraftDate] = useState<NepaliDate | null>(null);
+  const draftRef = useRef({ particular: "", voucher_no: "", debit: "", credit: "", date: "" });
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
@@ -142,8 +160,7 @@ export default function AdminAccounts() {
   }, [vendors]);
 
   useEffect(() => {
-    draftRef.current = { particular: "", voucher_no: "", debit: "", credit: "" };
-    setDraftDate(null);
+    draftRef.current = { particular: "", voucher_no: "", debit: "", credit: "", date: "" };
   }, [selectedVendorUlid]);
 
   useEffect(() => {
@@ -175,8 +192,7 @@ export default function AdminAccounts() {
       apiFetch(`/acc-vendors/${vendorUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }),
     onSuccess: (_data, variables) => {
       queryClient.refetchQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
-      draftRef.current = { particular: "", voucher_no: "", debit: "", credit: "" };
-      setDraftDate(null);
+      draftRef.current = { particular: "", voucher_no: "", debit: "", credit: "", date: "" };
       forceUpdate();
       toast.success("Transaction saved", "Entry has been recorded.");
     },
@@ -186,14 +202,12 @@ export default function AdminAccounts() {
   function tryAutoSaveTransaction() {
     if (!selectedVendorUlid) return;
     const { particular, debit, credit } = draftRef.current;
-    if (!draftDate || !particular.trim() || (!debit && !credit)) return;
-    const bsStr = `${draftDate.getFullYear()}-${String((draftDate.getMonth() as number) + 1).padStart(2, "0")}-${String(draftDate.getDate()).padStart(2, "0")}`;
-    let adDate = "";
-    try { const ad = toAD(bsStr); adDate = `${ad.year}-${String(ad.month).padStart(2, "0")}-${String(ad.date).padStart(2, "0")}`; } catch { return; }
+    const date = draftRef.current.date;
+    if (!date || date.length < 10 || !particular.trim() || (!debit && !credit)) return;
     saveTransactionMutation.mutate({
       vendorUlid: selectedVendorUlid,
       payload: {
-        date: adDate,
+        date,
         particular: particular.trim(),
         voucher_no: draftRef.current.voucher_no || null,
         debit: debit ? parseFloat(debit) : null,
@@ -352,18 +366,11 @@ export default function AdminAccounts() {
       }
     : null;
 
-  const draftAdDate = (() => {
-    if (!draftDate) return "";
-    try {
-      const bsStr = `${draftDate.getFullYear()}-${String((draftDate.getMonth() as number) + 1).padStart(2, "0")}-${String(draftDate.getDate()).padStart(2, "0")}`;
-      const ad = toAD(bsStr);
-      return `${ad.year}-${String(ad.month).padStart(2, "0")}-${String(ad.date).padStart(2, "0")}`;
-    } catch { return ""; }
-  })();
+  const draftBsDate = draftRef.current.date;
 
   const draftTransaction: Transaction = {
     ulid: "__new__",
-    date: draftAdDate,
+    date: draftBsDate,
     particular: draftRef.current.particular,
     voucher_no: draftRef.current.voucher_no || null,
     type: null,
@@ -379,7 +386,7 @@ export default function AdminAccounts() {
   // compute running balance per row: credit increases, debit decreases
   const runningBalances = transactions.reduce<number[]>((acc, tx) => {
     const prev = acc.length > 0 ? acc[acc.length - 1] : 0;
-    acc.push(prev + (tx.credit ?? 0) - (tx.debit ?? 0));
+    acc.push(prev + Number(tx.credit ?? 0) - Number(tx.debit ?? 0));
     return acc;
   }, []);
 
@@ -401,14 +408,23 @@ export default function AdminAccounts() {
         if (row.original.ulid === "__new__") return (
           <div className="nepali-date-field-inline">
             <NepaliDatePicker
-              value={draftDate}
-              onChange={(d) => { setDraftDate(d); }}
-              placeholder="Select date"
+              key={`date-${selectedVendorUlid}`}
+              onChange={(d) => {
+                if (d instanceof NepaliDate) {
+                  const y = d.getFullYear();
+                  const m = String((d.getMonth() as number) + 1).padStart(2, "0");
+                  const day = String(d.getDate()).padStart(2, "0");
+                  draftRef.current.date = `${y}-${m}-${day}`;
+                } else {
+                  draftRef.current.date = "";
+                }
+              }}
+              placeholder="YYYY-MM-DD"
               lang="en"
             />
           </div>
         );
-        return <span className="text-sm font-medium text-black">{new Date(row.original.date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>;
+        return <span className="text-sm font-medium text-black">{row.original.date}</span>;
       },
     },
     {
@@ -417,14 +433,11 @@ export default function AdminAccounts() {
       size: 350,
       cell: ({ row }) => {
         if (row.original.ulid === "__new__") return (
-          <input
+          <ParticularCombobox
             key={`particular-${selectedVendorUlid}`}
-            type="text"
-            defaultValue=""
-            onChange={(e) => { draftRef.current.particular = e.target.value; forceUpdate(); }}
+            vendorUlid={selectedVendorUlid ?? ""}
+            onChange={(v) => { draftRef.current.particular = v; forceUpdate(); }}
             onBlur={tryAutoSaveTransaction}
-            placeholder="Particular..."
-            className={inputCls}
           />
         );
         return <span className="text-sm font-medium text-black">{row.original.particular}</span>;
@@ -460,11 +473,12 @@ export default function AdminAccounts() {
           <input
             key={`debit-${selectedVendorUlid}`}
             type="number"
+            min="0"
             defaultValue=""
             onChange={(e) => { draftRef.current.debit = e.target.value; draftRef.current.credit = e.target.value ? "" : draftRef.current.credit; forceUpdate(); }}
             onBlur={tryAutoSaveTransaction}
             placeholder="0"
-            className={inputCls}
+            className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
           />
         );
         return row.original.debit != null
@@ -481,11 +495,12 @@ export default function AdminAccounts() {
           <input
             key={`credit-${selectedVendorUlid}`}
             type="number"
+            min="0"
             defaultValue=""
             onChange={(e) => { draftRef.current.credit = e.target.value; draftRef.current.debit = e.target.value ? "" : draftRef.current.debit; forceUpdate(); }}
             onBlur={tryAutoSaveTransaction}
             placeholder="0"
-            className={inputCls}
+            className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
           />
         );
         return row.original.credit != null
@@ -520,7 +535,7 @@ export default function AdminAccounts() {
         );
       },
     },
-  ], [selectedVendorUlid, draftDate]);
+  ], [selectedVendorUlid]);
 
   return (
     <div className="flex gap-0 transition-all duration-300 h-full">
@@ -616,8 +631,15 @@ export default function AdminAccounts() {
               {/* Top row: name + buttons */}
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-lg font-bold text-text-default leading-tight">
-                    {selectedVendor?.name ?? <span className="text-text-muted font-normal text-sm">Select a vendor</span>}
+                  <p className="text-lg font-bold text-text-default leading-tight flex items-center gap-1.5">
+                    {selectedVendor ? (
+                      <>
+                        <span className="text-base font-medium text-text-muted">Name:</span>
+                        {selectedVendor.name}
+                      </>
+                    ) : (
+                      <span className="text-text-muted font-normal text-sm">Select a vendor</span>
+                    )}
                   </p>
                   {selectedVendor && (
                     <div className="flex items-center gap-3 mt-1 flex-wrap">
