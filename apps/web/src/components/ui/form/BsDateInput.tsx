@@ -35,6 +35,7 @@ type Props = {
   onBlur?: () => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
   /** Remounts the internal text state when this changes (e.g. switching rows/records). */
   resetKey?: string | number;
 };
@@ -44,7 +45,7 @@ type Props = {
  * Nepali calendar popover on focus. Used anywhere a dense, label-less date
  * cell is needed (transaction tables, bill headers, etc).
  */
-export function BsDateInput({ value, onChange, onBlur, placeholder = "YYYY-MM-DD", className, resetKey }: Props) {
+export function BsDateInput({ value, onChange, onBlur, placeholder = "YYYY-MM-DD", className, disabled, resetKey }: Props) {
   const [text, setText] = useState(value);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -64,12 +65,13 @@ export function BsDateInput({ value, onChange, onBlur, placeholder = "YYYY-MM-DD
         type="text"
         value={text}
         onChange={handleChange}
-        onFocus={() => setCalendarOpen(true)}
+        onFocus={() => !disabled && setCalendarOpen(true)}
         onBlur={() => { setTimeout(() => { setCalendarOpen(false); onBlur?.(); }, 200); }}
         placeholder={placeholder}
-        className={className ?? "w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"}
+        disabled={disabled}
+        className={className ?? "w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"}
       />
-      {calendarOpen && (
+      {calendarOpen && !disabled && (
         <div className="absolute top-full left-0 z-50">
           <NepaliDatePicker
             open={true}

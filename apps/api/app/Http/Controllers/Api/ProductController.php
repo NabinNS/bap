@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Application\Products\Actions\CreateProductAction;
 use App\Application\Products\Actions\DeleteProductAction;
 use App\Application\Products\Actions\ListProductsAction;
+use App\Application\Products\Actions\SearchProductsLiteAction;
 use App\Application\Products\Actions\ShowProductAction;
 use App\Application\Products\Actions\UpdateProductAction;
 use App\Domain\Products\DTOs\ProductFilterData;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Products\StoreProductRequest;
 use App\Http\Requests\Products\UpdateProductRequest;
 use App\Http\Resources\ApiResponse;
+use App\Http\Resources\Products\ProductLiteResource;
 use App\Http\Resources\Products\ProductResource;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
@@ -25,6 +27,16 @@ class ProductController extends Controller
         return ApiResponse::paginated(
             $action->execute($this->tenantId(), $request->integer('per_page', 15), ProductFilterData::fromRequest($request)),
             ProductResource::class,
+            'Products retrieved successfully'
+        );
+    }
+
+    public function search(Request $request, SearchProductsLiteAction $action): JsonResponse
+    {
+        $limit = min($request->integer('per_page', 5), 20);
+
+        return ApiResponse::success(
+            ProductLiteResource::collection($action->execute($this->tenantId(), $request->string('search')->toString() ?: null, $limit)),
             'Products retrieved successfully'
         );
     }

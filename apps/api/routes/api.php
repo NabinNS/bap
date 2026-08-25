@@ -23,6 +23,7 @@ Route::middleware('resolve.tenant')->group(function () {
     Route::get('categories', [CategoryController::class, 'index']);
     Route::get('categories/{category}', [CategoryController::class, 'show']);
     Route::get('products', [ProductController::class, 'index']);
+    Route::get('products/search', [ProductController::class, 'search']);
     Route::get('products/{ulid}', [ProductController::class, 'show']);
     Route::get('sliders', [SliderController::class, 'index']);
     Route::get('sliders/{slider}', [SliderController::class, 'show']);
@@ -50,6 +51,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('acc-vendors/{accVendor}/opening-balance', [AccVendorOpeningBalanceController::class, 'upsert']);
     Route::get('acc-vendors/{accVendor}/transactions', [AccVendorTransactionController::class, 'index']);
     Route::post('acc-vendors/{accVendor}/transactions', [AccVendorTransactionController::class, 'store']);
+    Route::post('acc-vendors/{accVendor}/transactions/{transaction}/items', [AccVendorTransactionController::class, 'storeItem']);
+    Route::patch('acc-vendors/{accVendor}/transactions/{transaction}/totals', [AccVendorTransactionController::class, 'updateTotals']);
     Route::get('settings/bootstrap', [TenantSettingController::class, 'bootstrap']);
     Route::get('tenant', [TenantController::class, 'show']);
     Route::put('tenant', [TenantController::class, 'update']);

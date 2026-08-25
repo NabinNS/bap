@@ -1,13 +1,16 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { MapPin, Phone, Receipt, Search, Trash2, Plus, Save, ArrowLeft, ListOrdered } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { MapPin, Phone, Receipt, Search, Trash2, Plus, ArrowLeft, ListOrdered, Check } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
-import { BsDateInput, getTodayBs } from "@/components/ui/form/BsDateInput";
+import { BsDateInput, getTodayBs, isValidBsDate } from "@/components/ui/form/BsDateInput";
+import { numberToWords } from "@/lib/numberToWords";
+import { ProductCombobox, ProductOption } from "@/components/products/ProductCombobox";
+import { CreateProductPanel } from "@/components/products/CreateProductPanel";
 
 type VendorOpeningBalance = {
   fiscal_year_id: number;
@@ -35,15 +38,25 @@ type Meta = {
 
 type LineItem = {
   key: number;
+  productUlid: string;
   particular: string;
   quantity: string;
   rate: string;
+  discount: string;
+  saved: boolean;
+  itemUlid: string | null;
+};
+
+type BillTotals = {
+  taxableAmount: number;
+  vatAmount: number;
+  grandTotal: number;
 };
 
 let nextKey = 1;
 
 function emptyRow(): LineItem {
-  return { key: nextKey++, particular: "", quantity: "", rate: "" };
+  return { key: nextKey++, productUlid: "", particular: "", quantity: "", rate: "", discount: "0", saved: false, itemUlid: null };
 }
 
 
@@ -51,12 +64,20 @@ function GoodsPurchasedContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const vendorParam = searchParams.get("vendor");
+  const queryClient = useQueryClient();
 
   const [sideSearch, setSideSearch] = useState("");
   const [selectedVendorUlid, setSelectedVendorUlid] = useState<string | null>(vendorParam);
   const [rows, setRows] = useState<LineItem[]>([emptyRow()]);
   const [billDate, setBillDate] = useState(getTodayBs);
   const [billNo, setBillNo] = useState("");
+  const [transactionUlid, setTransactionUlid] = useState<string | null>(null);
+  const [discountPercent, setDiscountPercent] = useState("0");
+  const [discountAmountDraft, setDiscountAmountDraft] = useState<string | null>(null);
+  const [billTotals, setBillTotals] = useState<BillTotals | null>(null);
+  const [createProductRowKey, setCreateProductRowKey] = useState<number | null>(null);
+  const [createProductQuery, setCreateProductQuery] = useState("");
+  const savingKeysRef = useRef<Set<number>>(new Set());
 
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
     queryKey: ["acc-vendors"],
@@ -78,13 +99,30 @@ function GoodsPurchasedContent() {
     if (!selectedVendorUlid && vendors.length > 0) setSelectedVendorUlid(vendors[0].ulid);
   }, [vendors]);
 
+  // Starting a fresh bill whenever the vendor changes — previous vendor's draft/transaction doesn't carry over.
+  useEffect(() => {
+    setRows([emptyRow()]);
+    setTransactionUlid(null);
+    setBillDate(getTodayBs());
+    setBillNo("");
+    setDiscountPercent("0");
+    setDiscountAmountDraft(null);
+    setBillTotals(null);
+  }, [selectedVendorUlid]);
+
   function selectVendor(ulid: string) {
     setSelectedVendorUlid(ulid);
     router.replace(`/admin/accounts/goods-purchased?vendor=${ulid}`);
   }
 
-  function updateRow(key: number, field: keyof Omit<LineItem, "key">, value: string) {
+  function updateRow(key: number, field: keyof Omit<LineItem, "key" | "saved" | "itemUlid">, value: string) {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
+  }
+
+  function selectProduct(key: number, ulid: string, product: ProductOption | null) {
+    setRows((prev) => prev.map((r) => (r.key === key
+      ? { ...r, productUlid: ulid, particular: product?.name ?? "", rate: product?.cost_price != null ? String(product.cost_price) : r.rate }
+      : r)));
   }
 
   function addRow() {
@@ -101,10 +139,131 @@ function GoodsPurchasedContent() {
     return qty * rate;
   }
 
-  const totalAmount = rows.reduce((sum, r) => sum + rowAmount(r), 0);
+  function rowDiscount(row: LineItem): number {
+    return parseFloat(row.discount) || 0;
+  }
 
-  function handleSave() {
-    toast.warning("Not wired up yet", "Recording goods purchased entries will be connected soon.");
+  function rowTotal(row: LineItem): number {
+    return Math.max(0, rowAmount(row) - rowDiscount(row));
+  }
+
+  const subtotal = rows.reduce((sum, r) => sum + rowTotal(r), 0);
+  const totalQuantity = rows.reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
+  const grandTotalValue = billTotals?.grandTotal ?? subtotal;
+
+  // Derived from discountPercent + subtotal unless the user is actively typing into the amount field.
+  const calculatedDiscount = (subtotal * (Number(discountPercent) || 0)) / 100;
+  const discountAmountValue = discountAmountDraft ?? (subtotal > 0 ? String(Math.round(calculatedDiscount * 100) / 100) : "0");
+
+  const createTransactionMutation = useMutation({
+    mutationFn: ({ vendorUlid, payload }: { vendorUlid: string; payload: object }) =>
+      apiFetch<{ data: { ulid: string; discount_percent: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null } }>(
+        `/acc-vendors/${vendorUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }
+      ),
+  });
+
+  const addItemMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid, payload }: { vendorUlid: string; txUlid: string; payload: object }) =>
+      apiFetch<{ data: { ulid: string; transaction: { discount_percent: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null } } }>(
+        `/acc-vendors/${vendorUlid}/transactions/${txUlid}/items`, { method: "POST", body: JSON.stringify(payload) }
+      ),
+  });
+
+  const updateTotalsMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid, discountPercent }: { vendorUlid: string; txUlid: string; discountPercent: number }) =>
+      apiFetch<{ data: { discount_percent: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null } }>(
+        `/acc-vendors/${vendorUlid}/transactions/${txUlid}/totals`, { method: "PATCH", body: JSON.stringify({ discount_percent: discountPercent }) }
+      ),
+  });
+
+  async function saveDiscountPercent() {
+    if (!selectedVendorUlid || !transactionUlid) return;
+    const pct = Math.max(0, Math.min(100, Number(discountPercent) || 0));
+    try {
+      const res = await updateTotalsMutation.mutateAsync({ vendorUlid: selectedVendorUlid, txUlid: transactionUlid, discountPercent: pct });
+      setDiscountPercent(String(res.data.discount_percent ?? pct));
+      setBillTotals({
+        taxableAmount: res.data.taxable_amount ?? 0,
+        vatAmount: res.data.vat_amount ?? 0,
+        grandTotal: res.data.grand_total ?? 0,
+      });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+    } catch (err: any) {
+      toast.error("Failed to update discount", err?.message ?? "Something went wrong.");
+    }
+  }
+
+  function handleDiscountAmountChange(value: string) {
+    setDiscountAmountDraft(value);
+    const amount = Number(value) || 0;
+    const pct = subtotal > 0 ? Math.round((amount / subtotal) * 10000) / 100 : 0;
+    setDiscountPercent(String(Math.max(0, Math.min(100, pct))));
+  }
+
+  function handleDiscountAmountBlur() {
+    saveDiscountPercent();
+  }
+
+  async function trySaveRow(key: number, overrides?: Partial<LineItem>) {
+    if (!selectedVendorUlid || !isValidBsDate(billDate)) return;
+    if (savingKeysRef.current.has(key)) return;
+
+    const found = rows.find((r) => r.key === key);
+    if (!found || found.saved) return;
+    const row = overrides ? { ...found, ...overrides } : found;
+    if (!row.productUlid || !row.quantity || Number(row.quantity) <= 0 || row.rate === "") return;
+
+    savingKeysRef.current.add(key);
+    try {
+      const itemPayload = {
+        product_ulid: row.productUlid,
+        quantity: Number(row.quantity),
+        rate: Number(row.rate),
+        discount: rowDiscount(row),
+      };
+      let itemUlid: string | null = null;
+
+      if (!transactionUlid) {
+        const res = await createTransactionMutation.mutateAsync({
+          vendorUlid: selectedVendorUlid,
+          payload: {
+            date: billDate,
+            particular: "purchase",
+            voucher_no: billNo || null,
+            discount_percent: Math.max(0, Math.min(100, Number(discountPercent) || 0)),
+            items: [itemPayload],
+          },
+        });
+        setTransactionUlid(res.data.ulid);
+        setDiscountPercent(String(res.data.discount_percent ?? discountPercent));
+        setBillTotals({
+          taxableAmount: res.data.taxable_amount ?? 0,
+          vatAmount: res.data.vat_amount ?? 0,
+          grandTotal: res.data.grand_total ?? 0,
+        });
+      } else {
+        const res = await addItemMutation.mutateAsync({ vendorUlid: selectedVendorUlid, txUlid: transactionUlid, payload: itemPayload });
+        itemUlid = res.data.ulid;
+        setBillTotals({
+          taxableAmount: res.data.transaction.taxable_amount ?? 0,
+          vatAmount: res.data.transaction.vat_amount ?? 0,
+          grandTotal: res.data.transaction.grand_total ?? 0,
+        });
+      }
+
+      setRows((prev) => {
+        const next = prev.map((r) => (r.key === key ? { ...r, saved: true, itemUlid } : r));
+        const isLast = prev[prev.length - 1]?.key === key;
+        return isLast ? [...next, emptyRow()] : next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      toast.success("Item recorded", `${row.particular} has been added to this purchase.`);
+    } catch (err: any) {
+      toast.error("Failed to save item", err?.message ?? "Something went wrong.");
+    } finally {
+      savingKeysRef.current.delete(key);
+    }
   }
 
   const inputCls = "w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white";
@@ -244,63 +403,105 @@ function GoodsPurchasedContent() {
                     type="text"
                     value={billNo}
                     onChange={(e) => setBillNo(e.target.value)}
+                    disabled={!!transactionUlid}
                     placeholder="Bill no..."
-                    className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                    className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
                   />
-                  <BsDateInput value={billDate} onChange={setBillDate} />
+                  <BsDateInput value={billDate} onChange={setBillDate} disabled={!!transactionUlid} />
                 </div>
               </div>
             </div>
 
             {/* Line item table */}
-            <div className="border border-slate-300 bg-white flex flex-col">
-              <div className="grid grid-cols-[60px_1fr_140px_140px_140px_44px] bg-black">
-                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">SN</span>
-                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Particular</span>
+            <div className="border border-slate-300 bg-white flex flex-col overflow-x-auto">
+              <div className="grid grid-cols-[50px_1fr_170px_160px_130px_100px_50px] min-w-[909px] bg-black">
+                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">S.N.</span>
+                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Particulars (Name of Stock)</span>
                 <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Quantity</span>
                 <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Rate</span>
+                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Discount</span>
                 <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Amount</span>
                 <span></span>
               </div>
 
               {rows.map((row, idx) => (
-                <div key={row.key} className="grid grid-cols-[60px_1fr_140px_140px_140px_44px] border-b border-slate-200 items-center">
+                <div
+                  key={row.key}
+                  onBlur={(e) => {
+                    if (!row.saved && !e.currentTarget.contains(e.relatedTarget as Node)) trySaveRow(row.key);
+                  }}
+                  className="grid grid-cols-[50px_1fr_170px_160px_130px_100px_50px] min-w-[909px] border-b border-slate-200 items-center"
+                >
                   <span className="px-3 py-2 text-sm font-medium text-black">{idx + 1}</span>
-                  <div className="px-3 py-1.5">
-                    <input
-                      type="text"
-                      value={row.particular}
-                      onChange={(e) => updateRow(row.key, "particular", e.target.value)}
-                      placeholder="Item name..."
-                      className={inputCls}
-                    />
-                  </div>
-                  <div className="px-3 py-1.5">
-                    <input
-                      type="number"
-                      min="0"
-                      value={row.quantity}
-                      onChange={(e) => updateRow(row.key, "quantity", e.target.value)}
-                      placeholder="0"
-                      className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                    />
-                  </div>
-                  <div className="px-3 py-1.5">
-                    <input
-                      type="number"
-                      min="0"
-                      value={row.rate}
-                      onChange={(e) => updateRow(row.key, "rate", e.target.value)}
-                      placeholder="0.00"
-                      className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                    />
-                  </div>
+
+                  {row.saved ? (
+                    <>
+                      <span className="px-3 py-2 text-sm font-medium text-black truncate flex items-center gap-1.5">
+                        {row.particular}
+                        <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                      </span>
+                      <span className="px-3 py-2 text-sm font-medium text-black">{row.quantity}</span>
+                      <span className="px-3 py-2 text-sm font-medium text-black">{Number(row.rate).toLocaleString()}</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="px-3 py-1.5 [&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
+                        <ProductCombobox
+                          placeholder="Select a product..."
+                          value={row.productUlid}
+                          onChange={(val, product) => {
+                            selectProduct(row.key, val, product);
+                            trySaveRow(row.key, { productUlid: val, rate: product?.cost_price != null ? String(product.cost_price) : row.rate });
+                          }}
+                          onAddNew={(query) => { setCreateProductRowKey(row.key); setCreateProductQuery(query); }}
+                        />
+                      </div>
+                      <div className="px-3 py-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          value={row.quantity}
+                          onChange={(e) => updateRow(row.key, "quantity", e.target.value)}
+                          placeholder="0"
+                          className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                        />
+                      </div>
+                      <div className="px-3 py-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          value={row.rate}
+                          onChange={(e) => updateRow(row.key, "rate", e.target.value)}
+                          placeholder="0.00"
+                          className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {row.saved ? (
+                    <span className="px-3 py-2 text-sm font-medium text-black">{rowDiscount(row).toLocaleString()}</span>
+                  ) : (
+                    <div className="px-3 py-1.5">
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.discount}
+                        onChange={(e) => updateRow(row.key, "discount", e.target.value)}
+                        placeholder="0"
+                        className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                      />
+                    </div>
+                  )}
+
                   <span className="px-3 py-2 text-sm font-medium text-black">
                     {rowAmount(row) ? rowAmount(row).toLocaleString() : "—"}
                   </span>
+
                   <button
                     onClick={() => removeRow(row.key)}
-                    disabled={rows.length === 1}
+                    disabled={rows.length === 1 || row.saved}
+                    title={row.saved ? "Already recorded" : undefined}
                     className="flex items-center justify-center h-full py-2 text-text-muted hover:text-red-600 disabled:opacity-30 disabled:hover:text-text-muted transition-colors cursor-pointer disabled:cursor-not-allowed"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -308,33 +509,97 @@ function GoodsPurchasedContent() {
                 </div>
               ))}
 
-              <div className="flex items-center justify-between px-3 py-2.5">
+              <div className="px-4 py-2.5 flex items-center min-w-[909px]">
                 <button
                   onClick={addRow}
                   className="flex items-center gap-1.5 text-sm font-semibold text-text-default hover:text-black transition-colors cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" /> Add Row
                 </button>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm-custom text-text-body">Total:</span>
-                  <span className="text-sm-custom font-bold text-text-default">{totalAmount.toLocaleString()}</span>
+              </div>
+
+              {/* Totals breakdown — aligned with table columns: words (col 1-2) · total quantity (col 3: quantity) · breakdown (col 4-7) */}
+              <div className="grid grid-cols-[50px_1fr_170px_160px_130px_100px_50px] min-w-[909px] border-t border-slate-100">
+                <div className="col-span-2 px-4 py-3">
+                  <p className="text-xs font-semibold text-text-default uppercase tracking-wide mb-0">Amount In Words</p>
+                  <p className="text-sm-custom text-text-body leading-tight">{numberToWords(grandTotalValue)} Only</p>
+                </div>
+
+                <div className="px-3 py-3 border-l border-slate-100 flex items-baseline gap-1.5">
+                  <span className="text-sm-custom text-text-body">Total Quantity</span>
+                  <span className="text-sm-custom font-semibold text-text-default">
+                    {totalQuantity ? totalQuantity.toLocaleString() : "0"}
+                  </span>
+                </div>
+
+                <div className="col-span-4 border-l border-slate-100">
+                  <div className="w-72 ml-auto">
+                    <div className="flex items-center justify-between px-4 py-1.5 border-b border-slate-100">
+                      <span className="text-sm-custom text-text-body">Total</span>
+                      <span className="text-sm-custom font-semibold text-text-default">{subtotal.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-1.5 border-b border-slate-100">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm-custom text-text-body">Discount</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={discountPercent}
+                          onChange={(e) => {
+                            setDiscountPercent(e.target.value);
+                            setDiscountAmountDraft(null);
+                          }}
+                          onBlur={saveDiscountPercent}
+                          className="w-12 h-7 px-1.5 text-sm font-medium text-black text-right border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <span className="text-sm-custom text-text-body shrink-0">%</span>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        value={discountAmountValue}
+                        onChange={(e) => handleDiscountAmountChange(e.target.value)}
+                        onBlur={handleDiscountAmountBlur}
+                        placeholder="Amount"
+                        className="w-20 h-7 px-1.5 text-sm font-medium text-black text-right border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-1.5 border-b border-slate-100">
+                      <span className="text-sm-custom text-text-body">Taxable Amount</span>
+                      <span className="text-sm-custom font-semibold text-text-default">{(billTotals?.taxableAmount ?? subtotal).toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-1.5 border-b border-slate-100">
+                      <span className="text-sm-custom text-text-body">VAT 13%</span>
+                      <span className="text-sm-custom font-semibold text-text-default">{(billTotals?.vatAmount ?? 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-2 bg-slate-50">
+                      <span className="text-sm-custom font-bold text-text-default">Grand Total</span>
+                      <span className="text-sm-custom font-bold text-text-default">{grandTotalValue.toLocaleString()}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={handleSave}
-                disabled={!selectedVendor}
-                className="flex items-center gap-2 bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/80 disabled:opacity-40 disabled:hover:bg-black transition-colors cursor-pointer disabled:cursor-not-allowed"
-              >
-                <Save className="h-4 w-4" />
-                Save Purchase
-              </button>
             </div>
           </div>
         </div>
       </div>
+
+      <CreateProductPanel
+        open={createProductRowKey !== null}
+        onClose={() => setCreateProductRowKey(null)}
+        initialName={createProductQuery}
+        onCreated={(product) => {
+          if (createProductRowKey !== null) {
+            selectProduct(createProductRowKey, product.ulid, product);
+            trySaveRow(createProductRowKey, {
+              productUlid: product.ulid,
+              ...(product.cost_price != null ? { rate: String(product.cost_price) } : {}),
+            });
+          }
+          setCreateProductRowKey(null);
+        }}
+      />
     </div>
   );
 }

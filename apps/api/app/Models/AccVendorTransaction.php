@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasPublicUlid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AccVendorTransaction extends Model
 {
@@ -22,11 +23,19 @@ class AccVendorTransaction extends Model
         'type',
         'debit',
         'credit',
+        'discount_percent',
+        'taxable_amount',
+        'vat_amount',
+        'grand_total',
     ];
 
     protected $casts = [
-        'debit'  => 'decimal:2',
-        'credit' => 'decimal:2',
+        'debit'            => 'decimal:2',
+        'credit'           => 'decimal:2',
+        'discount_percent' => 'integer',
+        'taxable_amount'   => 'integer',
+        'vat_amount'       => 'integer',
+        'grand_total'      => 'integer',
     ];
 
     public function vendor(): BelongsTo
@@ -37,5 +46,10 @@ class AccVendorTransaction extends Model
     public function fiscalYear(): BelongsTo
     {
         return $this->belongsTo(FiscalYear::class);
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(AccVendorTransactionItem::class, 'transaction_id');
     }
 }

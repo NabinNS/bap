@@ -6,15 +6,30 @@ use App\Domain\Products\DTOs\ProductData;
 use App\Domain\Products\DTOs\ProductFilterData;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Models\Product;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class EloquentProductRepository implements ProductRepositoryInterface
 {
+    public function searchLite(int $tenantId, ?string $search, int $limit): Collection
+    {
+        return Product::where('tenant_id', $tenantId)
+            ->select(['ulid', 'name', 'sku', 'cost_price', 'sales_price'])
+            ->when($search, fn($q, $v) => $q->where(
+                fn($q) => $q->where('name', 'ilike', "%$v%")->orWhere('sku', 'ilike', "%$v%")
+            ))
+            ->orderBy($search ? 'name' : 'created_at', $search ? 'asc' : 'desc')
+            ->limit($limit)
+            ->get();
+    }
+
     public function paginate(int $tenantId, int $perPage, ProductFilterData $filters): LengthAwarePaginator
     {
         return Product::where('tenant_id', $tenantId)
             ->with(['category', 'brand', 'imageGroups.imageItems', 'activeDiscount'])
-            ->when($filters->search, fn($q, $v) => $q->where('name', 'like', "%$v%"))
+            ->when($filters->search, fn($q, $v) => $q->where(
+                fn($q) => $q->where('name', 'ilike', "%$v%")->orWhere('sku', 'ilike', "%$v%")
+            ))
             ->when($filters->isActive !== null, fn($q) => $q->where('is_active', $filters->isActive))
             ->when($filters->categoryUlid, fn($q, $v) =>
                 $q->whereHas('category', fn($q) => $q->where('ulid', $v))

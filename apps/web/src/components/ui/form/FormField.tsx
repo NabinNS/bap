@@ -38,6 +38,8 @@ type ComboboxFieldProps = BaseProps & {
   loading?: boolean;
   emptyMessage?: string;
   onAddNew?: (query: string) => void;
+  /** Reports the raw typed text as the user types — use for server-side search instead of/alongside local filtering. */
+  onSearchChange?: (query: string) => void;
 };
 
 type FileUploadFieldProps = BaseProps & {
@@ -181,6 +183,7 @@ export function ComboboxField({
   loading = false,
   emptyMessage = "No results found.",
   onAddNew,
+  onSearchChange,
 }: ComboboxFieldProps) {
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -196,10 +199,13 @@ export function ComboboxField({
     ? options.filter((o) => o.label.toLowerCase().includes(inputValue.toLowerCase()))
     : options;
 
-  // Sync display text when value changes externally (e.g. form reset)
+  // Sync display text when value changes externally (e.g. form reset).
+  // Skipped while open so a rebuilt `options` array (e.g. server-search results
+  // arriving as the user types) doesn't stomp on what they're currently typing.
   useEffect(() => {
+    if (open) return;
     setInputValue(options.find((o) => o.value === value)?.label ?? "");
-  }, [value, options]);
+  }, [value, options, open]);
 
   // Reset active highlight when filtered list changes
   useEffect(() => {
@@ -244,6 +250,7 @@ export function ComboboxField({
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     setInputValue(e.target.value);
     setOpen(true);
+    onSearchChange?.(e.target.value);
     if (e.target.value === "") onChange("");
   }
 

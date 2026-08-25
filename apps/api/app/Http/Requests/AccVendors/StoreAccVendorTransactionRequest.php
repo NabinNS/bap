@@ -16,6 +16,13 @@ class StoreAccVendorTransactionRequest extends FormRequest
             'voucher_no' => ['nullable', 'string', 'max:100'],
             'debit'      => ['nullable', 'numeric', 'min:0'],
             'credit'     => ['nullable', 'numeric', 'min:0'],
+            'discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
+
+            'items'                    => ['nullable', 'array'],
+            'items.*.product_ulid'     => ['required_with:items', 'string', 'exists:products,ulid'],
+            'items.*.quantity'         => ['required_with:items', 'integer', 'min:1'],
+            'items.*.rate'             => ['required_with:items', 'integer', 'min:0'],
+            'items.*.discount'         => ['nullable', 'integer', 'min:0'],
         ];
     }
 }
