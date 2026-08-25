@@ -1,10 +1,9 @@
 "use client";
 
-import "@zener/nepali-datepicker-react/index.css";
-import { useState, useEffect, useRef, useMemo, useReducer } from "react";
-import NepaliDatePicker, { NepaliDate } from "@zener/nepali-datepicker-react";
+import { Suspense, useState, useEffect, useRef, useMemo, useReducer } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
@@ -14,6 +13,7 @@ import { TRANSACTION_PARTICULARS, getParticularLabel } from "@/constants/account
 import { toast } from "@/lib/toast";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, NumberField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
+import { BsDateInput, isValidBsDate } from "@/components/ui/form/BsDateInput";
 
 type VendorOpeningBalance = {
   fiscal_year_id: number;
@@ -78,72 +78,6 @@ const INITIAL_FORM: FormState = {
 };
 
 
-function isValidBsDate(str: string): boolean {
-  if (!str || str.length !== 10) return false;
-  const parts = str.split("-");
-  if (parts.length !== 3) return false;
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10);
-  const day = parseInt(parts[2], 10);
-  if (isNaN(year) || isNaN(month) || isNaN(day)) return false;
-  if (month < 1 || month > 12) return false;
-  if (day < 1 || day > 32) return false;
-  try {
-    new NepaliDate(str);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function DraftDateInput({ vendorUlid, onDateChange, onBlur }: { vendorUlid: string; onDateChange: (val: string) => void; onBlur: () => void }) {
-  const [text, setText] = useState("");
-  const [calendarOpen, setCalendarOpen] = useState(false);
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
-    let formatted = raw;
-    if (raw.length > 4) formatted = `${raw.slice(0, 4)}-${raw.slice(4)}`;
-    if (raw.length > 6) formatted = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6)}`;
-    setText(formatted);
-    onDateChange(formatted);
-  }
-
-  return (
-    <div className="relative w-full">
-      <input
-        key={vendorUlid}
-        type="text"
-        value={text}
-        onChange={handleChange}
-        onFocus={() => setCalendarOpen(true)}
-        onBlur={() => { setTimeout(() => { setCalendarOpen(false); onBlur(); }, 200); }}
-        placeholder="YYYY-MM-DD"
-        className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
-      />
-      {calendarOpen && (
-        <div className="absolute top-full left-0 z-50">
-          <NepaliDatePicker
-            open={true}
-            showclear={false}
-            className="draft-date-picker"
-            value={isValidBsDate(text) ? text : undefined}
-            onChange={(d) => {
-              if (d instanceof NepaliDate) {
-                const val = `${d.getFullYear()}-${String((d.getMonth() as number) + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-                setText(val);
-                onDateChange(val);
-              }
-              setCalendarOpen(false);
-            }}
-            lang="en"
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
 const PARTICULAR_OPTIONS = TRANSACTION_PARTICULARS.map((p) => ({ value: p.value, label: p.label }));
 
 function ParticularCombobox({ vendorUlid, onChange, onBlur }: { vendorUlid: string; onChange: (val: string) => void; onBlur: () => void }) {
@@ -161,12 +95,13 @@ function ParticularCombobox({ vendorUlid, onChange, onBlur }: { vendorUlid: stri
   );
 }
 
-export default function AdminAccounts() {
+function AdminAccountsContent() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   const [sideSearch, setSideSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
-  const [selectedVendorUlid, setSelectedVendorUlid] = useState<string | null>(null);
+  const [selectedVendorUlid, setSelectedVendorUlid] = useState<string | null>(searchParams.get("vendor"));
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [openMenuUlid, setOpenMenuUlid] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -472,9 +407,10 @@ export default function AdminAccounts() {
       cell: ({ row }) => {
         if (row.original.ulid === "__opening_balance__") return <span className="text-sm font-medium text-black">{row.original.date}</span>;
         if (row.original.ulid === "__new__") return (
-          <DraftDateInput
-            vendorUlid={selectedVendorUlid ?? ""}
-            onDateChange={(val) => { draftRef.current.date = val; }}
+          <BsDateInput
+            resetKey={selectedVendorUlid ?? ""}
+            value=""
+            onChange={(val) => { draftRef.current.date = val; }}
             onBlur={tryAutoSaveTransaction}
           />
         );
@@ -729,10 +665,13 @@ export default function AdminAccounts() {
                   )}
                 </div>
                 <div className="flex items-center shrink-0">
-                  <button className="flex items-center gap-2 bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/80 transition-colors cursor-pointer">
+                  <Link
+                    href={selectedVendor ? `/admin/accounts/goods-purchased?vendor=${selectedVendor.ulid}` : "/admin/accounts/goods-purchased"}
+                    className="flex items-center gap-2 bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/80 transition-colors cursor-pointer"
+                  >
                     <Plus className="h-4 w-4" />
                     Goods Purchased
-                  </button>
+                  </Link>
                   <button className="flex items-center gap-2 border border-slate-300 px-4 py-2 text-sm font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer">
                     <CreditCard className="h-4 w-4" />
                     Amount Paid
@@ -1059,5 +998,13 @@ export default function AdminAccounts() {
         />
       </SlidePanel>
     </div>
+  );
+}
+
+export default function AdminAccounts() {
+  return (
+    <Suspense fallback={null}>
+      <AdminAccountsContent />
+    </Suspense>
   );
 }
