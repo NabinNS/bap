@@ -14,6 +14,7 @@ class StoreAccVendorTransactionRequest extends FormRequest
             'date'       => ['required', 'string', 'max:20'],
             'particular' => ['required', Rule::enum(TransactionParticular::class)],
             'voucher_no' => ['nullable', 'string', 'max:100'],
+            'cheque_no'  => ['nullable', 'string', 'max:100'],
             'debit'      => ['nullable', 'numeric', 'min:0'],
             'credit'     => ['nullable', 'numeric', 'min:0'],
             'discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],

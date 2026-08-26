@@ -71,7 +71,11 @@ class AccVendorTransactionController extends Controller
         $this->authorize('update', $accVendor);
         abort_unless($transaction->vendor_id === $accVendor->id, 404);
 
-        $updated = $action->execute($transaction, $request->integer('discount_percent'));
+        $updated = $action->execute(
+            $transaction,
+            $request->filled('discount_percent') ? $request->integer('discount_percent') : null,
+            $request->filled('discount_amount') ? $request->integer('discount_amount') : null,
+        );
 
         return ApiResponse::success(
             new AccVendorTransactionResource($updated),

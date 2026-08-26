@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasPublicUlid;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -20,23 +21,44 @@ class AccVendorTransaction extends Model
         'date',
         'particular',
         'voucher_no',
+        'cheque_no',
         'type',
         'debit',
         'credit',
-        'discount_percent',
-        'taxable_amount',
-        'vat_amount',
-        'grand_total',
+        'bill_details',
     ];
 
     protected $casts = [
-        'debit'            => 'decimal:2',
-        'credit'           => 'decimal:2',
-        'discount_percent' => 'integer',
-        'taxable_amount'   => 'integer',
-        'vat_amount'       => 'integer',
-        'grand_total'      => 'integer',
+        'debit'        => 'decimal:2',
+        'credit'       => 'decimal:2',
+        'bill_details' => 'array',
     ];
+
+    /** Purchase-bill breakdown, e.g. ['discount_percent' => .., 'taxable_amount' => .., 'vat_amount' => .., 'grand_total' => ..]. Only meaningful for item-based (purchase) transactions. */
+    protected function discountPercent(): Attribute
+    {
+        return Attribute::get(fn () => $this->bill_details['discount_percent'] ?? null);
+    }
+
+    protected function discountAmount(): Attribute
+    {
+        return Attribute::get(fn () => $this->bill_details['discount_amount'] ?? null);
+    }
+
+    protected function taxableAmount(): Attribute
+    {
+        return Attribute::get(fn () => $this->bill_details['taxable_amount'] ?? null);
+    }
+
+    protected function vatAmount(): Attribute
+    {
+        return Attribute::get(fn () => $this->bill_details['vat_amount'] ?? null);
+    }
+
+    protected function grandTotal(): Attribute
+    {
+        return Attribute::get(fn () => $this->bill_details['grand_total'] ?? null);
+    }
 
     public function vendor(): BelongsTo
     {

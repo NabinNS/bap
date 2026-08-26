@@ -672,10 +672,13 @@ function AdminAccountsContent() {
                     <Plus className="h-4 w-4" />
                     Goods Purchased
                   </Link>
-                  <button className="flex items-center gap-2 border border-slate-300 px-4 py-2 text-sm font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer">
+                  <Link
+                    href={selectedVendor ? `/admin/accounts/amount-paid?vendor=${selectedVendor.ulid}` : "/admin/accounts/amount-paid"}
+                    className="flex items-center gap-2 border border-slate-300 px-4 py-2 text-sm font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
                     <CreditCard className="h-4 w-4" />
                     Amount Paid
-                  </button>
+                  </Link>
                   <button
                     onClick={(e) => {
                       if (cardMenuOpen) { setCardMenuOpen(false); setCardMenuPos(null); return; }

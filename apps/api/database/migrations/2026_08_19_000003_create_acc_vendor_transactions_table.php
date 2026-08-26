@@ -17,9 +17,13 @@ return new class extends Migration
             $table->string('date', 20);
             $table->string('particular');
             $table->string('voucher_no')->nullable();
+            $table->string('cheque_no')->nullable();
             $table->string('type')->nullable();
             $table->decimal('debit', 15, 2)->nullable();
             $table->decimal('credit', 15, 2)->nullable();
+            // Purchase-bill breakdown (discount_percent, taxable_amount, vat_amount, grand_total) —
+            // only meaningful for item-based (purchase) transactions.
+            $table->jsonb('bill_details')->nullable();
             $table->timestamps();
         });
     }

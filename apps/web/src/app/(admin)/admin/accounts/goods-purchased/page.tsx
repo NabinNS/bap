@@ -48,6 +48,7 @@ type LineItem = {
 };
 
 type BillTotals = {
+  discountAmount: number;
   taxableAmount: number;
   vatAmount: number;
   grandTotal: number;
@@ -151,42 +152,65 @@ function GoodsPurchasedContent() {
   const totalQuantity = rows.reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
   const grandTotalValue = billTotals?.grandTotal ?? subtotal;
 
-  // Derived from discountPercent + subtotal unless the user is actively typing into the amount field.
+  // Displayed amount: the draft while typing, otherwise the server-computed value (falls back
+  // to a client-side estimate from discountPercent before the first save round-trips).
   const calculatedDiscount = (subtotal * (Number(discountPercent) || 0)) / 100;
-  const discountAmountValue = discountAmountDraft ?? (subtotal > 0 ? String(Math.round(calculatedDiscount * 100) / 100) : "0");
+  const discountAmountValue = discountAmountDraft
+    ?? (billTotals ? String(billTotals.discountAmount) : (subtotal > 0 ? String(Math.round(calculatedDiscount * 100) / 100) : "0"));
+
+  type TotalsPayload = { discount_percent: number | null; discount_amount: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null };
 
   const createTransactionMutation = useMutation({
     mutationFn: ({ vendorUlid, payload }: { vendorUlid: string; payload: object }) =>
-      apiFetch<{ data: { ulid: string; discount_percent: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null } }>(
+      apiFetch<{ data: { ulid: string } & TotalsPayload }>(
         `/acc-vendors/${vendorUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }
       ),
   });
 
   const addItemMutation = useMutation({
     mutationFn: ({ vendorUlid, txUlid, payload }: { vendorUlid: string; txUlid: string; payload: object }) =>
-      apiFetch<{ data: { ulid: string; transaction: { discount_percent: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null } } }>(
+      apiFetch<{ data: { ulid: string; transaction: TotalsPayload } }>(
         `/acc-vendors/${vendorUlid}/transactions/${txUlid}/items`, { method: "POST", body: JSON.stringify(payload) }
       ),
   });
 
   const updateTotalsMutation = useMutation({
-    mutationFn: ({ vendorUlid, txUlid, discountPercent }: { vendorUlid: string; txUlid: string; discountPercent: number }) =>
-      apiFetch<{ data: { discount_percent: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null } }>(
-        `/acc-vendors/${vendorUlid}/transactions/${txUlid}/totals`, { method: "PATCH", body: JSON.stringify({ discount_percent: discountPercent }) }
+    mutationFn: ({ vendorUlid, txUlid, body }: { vendorUlid: string; txUlid: string; body: { discount_percent?: number; discount_amount?: number } }) =>
+      apiFetch<{ data: TotalsPayload }>(
+        `/acc-vendors/${vendorUlid}/transactions/${txUlid}/totals`, { method: "PATCH", body: JSON.stringify(body) }
       ),
   });
+
+  function applyTotalsResult(res: TotalsPayload) {
+    setDiscountPercent(String(res.discount_percent ?? 0));
+    setBillTotals({
+      discountAmount: res.discount_amount ?? 0,
+      taxableAmount: res.taxable_amount ?? 0,
+      vatAmount: res.vat_amount ?? 0,
+      grandTotal: res.grand_total ?? 0,
+    });
+  }
 
   async function saveDiscountPercent() {
     if (!selectedVendorUlid || !transactionUlid) return;
     const pct = Math.max(0, Math.min(100, Number(discountPercent) || 0));
     try {
-      const res = await updateTotalsMutation.mutateAsync({ vendorUlid: selectedVendorUlid, txUlid: transactionUlid, discountPercent: pct });
-      setDiscountPercent(String(res.data.discount_percent ?? pct));
-      setBillTotals({
-        taxableAmount: res.data.taxable_amount ?? 0,
-        vatAmount: res.data.vat_amount ?? 0,
-        grandTotal: res.data.grand_total ?? 0,
-      });
+      const res = await updateTotalsMutation.mutateAsync({ vendorUlid: selectedVendorUlid, txUlid: transactionUlid, body: { discount_percent: pct } });
+      applyTotalsResult(res.data);
+      setDiscountAmountDraft(null);
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+    } catch (err: any) {
+      toast.error("Failed to update discount", err?.message ?? "Something went wrong.");
+    }
+  }
+
+  async function saveDiscountAmount() {
+    if (!selectedVendorUlid || !transactionUlid) return;
+    const amount = Math.max(0, Number(discountAmountDraft) || 0);
+    try {
+      const res = await updateTotalsMutation.mutateAsync({ vendorUlid: selectedVendorUlid, txUlid: transactionUlid, body: { discount_amount: Math.round(amount) } });
+      applyTotalsResult(res.data);
+      setDiscountAmountDraft(null);
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
     } catch (err: any) {
       toast.error("Failed to update discount", err?.message ?? "Something went wrong.");
@@ -195,13 +219,10 @@ function GoodsPurchasedContent() {
 
   function handleDiscountAmountChange(value: string) {
     setDiscountAmountDraft(value);
-    const amount = Number(value) || 0;
-    const pct = subtotal > 0 ? Math.round((amount / subtotal) * 10000) / 100 : 0;
-    setDiscountPercent(String(Math.max(0, Math.min(100, pct))));
   }
 
   function handleDiscountAmountBlur() {
-    saveDiscountPercent();
+    saveDiscountAmount();
   }
 
   async function trySaveRow(key: number, overrides?: Partial<LineItem>) {
@@ -235,20 +256,11 @@ function GoodsPurchasedContent() {
           },
         });
         setTransactionUlid(res.data.ulid);
-        setDiscountPercent(String(res.data.discount_percent ?? discountPercent));
-        setBillTotals({
-          taxableAmount: res.data.taxable_amount ?? 0,
-          vatAmount: res.data.vat_amount ?? 0,
-          grandTotal: res.data.grand_total ?? 0,
-        });
+        applyTotalsResult(res.data);
       } else {
         const res = await addItemMutation.mutateAsync({ vendorUlid: selectedVendorUlid, txUlid: transactionUlid, payload: itemPayload });
         itemUlid = res.data.ulid;
-        setBillTotals({
-          taxableAmount: res.data.transaction.taxable_amount ?? 0,
-          vatAmount: res.data.transaction.vat_amount ?? 0,
-          grandTotal: res.data.transaction.grand_total ?? 0,
-        });
+        applyTotalsResult(res.data.transaction);
       }
 
       setRows((prev) => {
@@ -579,6 +591,24 @@ function GoodsPurchasedContent() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="flex items-center justify-end px-4 py-3 border-t border-slate-100">
+                <button
+                  onClick={() => router.push(selectedVendor ? `/admin/accounts?vendor=${selectedVendor.ulid}` : "/admin/accounts")}
+                  className="px-6 py-2 text-sm font-semibold text-text-default border border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    toast.success("Purchase recorded", "The bill has been saved.");
+                    router.push(selectedVendor ? `/admin/accounts?vendor=${selectedVendor.ulid}` : "/admin/accounts");
+                  }}
+                  className="px-6 py-2 text-sm font-semibold text-white bg-black hover:bg-black/80 transition-colors cursor-pointer"
+                >
+                  Save
+                </button>
               </div>
             </div>
           </div>

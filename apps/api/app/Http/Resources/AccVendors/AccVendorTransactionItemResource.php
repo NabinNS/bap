@@ -15,6 +15,7 @@ class AccVendorTransactionItemResource extends JsonResource
                 'ulid'             => $this->transaction->ulid,
                 'debit'            => $this->transaction->debit,
                 'discount_percent' => $this->transaction->discount_percent,
+                'discount_amount'  => $this->transaction->discount_amount,
                 'taxable_amount'   => $this->transaction->taxable_amount,
                 'vat_amount'       => $this->transaction->vat_amount,
                 'grand_total'      => $this->transaction->grand_total,
