@@ -8,6 +8,14 @@ import { MapPin, Phone, Receipt, Search, ArrowLeft, ListOrdered } from "lucide-r
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { BsDateInput, getTodayBs, isValidBsDate } from "@/components/ui/form/BsDateInput";
+import { SelectField } from "@/components/ui/form/FormField";
+
+const PAYMENT_METHODS = [
+  { value: "cash", label: "Cash" },
+  { value: "cheque", label: "Cheque" },
+] as const;
+
+type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
 
 type VendorOpeningBalance = {
   fiscal_year_id: number;
@@ -44,6 +52,7 @@ function AmountPaidContent() {
   const [billDate, setBillDate] = useState(getTodayBs);
   const [billNo, setBillNo] = useState("");
   const [amount, setAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [chequeNo, setChequeNo] = useState("");
 
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
@@ -66,16 +75,28 @@ function AmountPaidContent() {
     if (!selectedVendorUlid && vendors.length > 0) setSelectedVendorUlid(vendors[0].ulid);
   }, [vendors]);
 
+  // Starting a fresh payment whenever the vendor changes — previous vendor's draft doesn't carry over.
+  useEffect(() => {
+    resetForm();
+  }, [selectedVendorUlid]);
+
   function selectVendor(ulid: string) {
     setSelectedVendorUlid(ulid);
     router.replace(`/admin/accounts/amount-paid?vendor=${ulid}`);
   }
 
+  // Set once the current draft has been persisted (by auto-save or Save) — since there's no
+  // endpoint to update a plain ledger entry, further field edits are locked to avoid either
+  // silently losing them or creating duplicate transactions on every blur.
+  const [paymentSaved, setPaymentSaved] = useState(false);
+
   function resetForm() {
     setBillDate(getTodayBs());
     setBillNo("");
     setAmount("");
+    setPaymentMethod("cash");
     setChequeNo("");
+    setPaymentSaved(false);
   }
 
   const savePaymentMutation = useMutation({
@@ -84,14 +105,44 @@ function AmountPaidContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
       queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", selectedVendorUlid] });
-      toast.success("Payment saved", "The payment has been recorded.");
-      resetForm();
     },
     onError: (err: any) => toast.error("Failed to save payment", err?.message ?? "Something went wrong."),
   });
 
-  function handleSave() {
+  function isFormReady(): boolean {
+    if (!selectedVendorUlid) return false;
+    if (!isValidBsDate(billDate)) return false;
+    if (!amount || Number(amount) <= 0) return false;
+    return true;
+  }
+
+  async function savePayment() {
     if (!selectedVendorUlid) return;
+    await savePaymentMutation.mutateAsync({
+      date: billDate,
+      particular: paymentMethod,
+      voucher_no: billNo || null,
+      cheque_no: paymentMethod === "cheque" ? chequeNo : null,
+      debit: Number(amount),
+    });
+    setPaymentSaved(true);
+  }
+
+  // Fires on blur of any field — silently no-ops until Date and Amount are filled in, and only
+  // saves once per draft (no success toast, form stays as-is — see `paymentSaved`).
+  function tryAutoSave() {
+    if (paymentSaved || savePaymentMutation.isPending) return;
+    if (!isFormReady()) return;
+    savePayment().catch(() => {});
+  }
+
+  async function handleSave() {
+    if (!selectedVendorUlid) return;
+    if (paymentSaved) {
+      toast.success("Payment saved", "The payment has been recorded.");
+      router.push(selectedVendor ? `/admin/accounts?vendor=${selectedVendor.ulid}` : "/admin/accounts");
+      return;
+    }
     if (!isValidBsDate(billDate)) {
       toast.error("Invalid date", "Please enter a valid date.");
       return;
@@ -100,13 +151,13 @@ function AmountPaidContent() {
       toast.error("Amount required", "Enter a valid amount to save.");
       return;
     }
-    savePaymentMutation.mutate({
-      date: billDate,
-      particular: "cash",
-      voucher_no: billNo || null,
-      cheque_no: chequeNo || null,
-      debit: Number(amount),
-    });
+    try {
+      await savePayment();
+      toast.success("Payment saved", "The payment has been recorded.");
+      router.push(selectedVendor ? `/admin/accounts?vendor=${selectedVendor.ulid}` : "/admin/accounts");
+    } catch {
+      // error toast already shown by the mutation
+    }
   }
 
   function handleCancel() {
@@ -248,10 +299,10 @@ function AmountPaidContent() {
 
             {/* Payment form */}
             <div className="border border-slate-300 bg-white p-6">
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-5 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">Date</label>
-                  <BsDateInput value={billDate} onChange={setBillDate} />
+                  <BsDateInput value={billDate} onChange={setBillDate} onBlur={tryAutoSave} disabled={paymentSaved} />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">Bill No</label>
@@ -259,8 +310,24 @@ function AmountPaidContent() {
                     type="text"
                     value={billNo}
                     onChange={(e) => setBillNo(e.target.value)}
+                    onBlur={tryAutoSave}
+                    disabled={paymentSaved}
                     placeholder="Bill no..."
-                    className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                    className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
+                  />
+                </div>
+                <div className="[&_select]:h-8 [&_select]:text-sm [&_select]:font-medium [&_select]:text-black [&_.mt-1]:mt-0">
+                  <SelectField
+                    label="Method"
+                    value={paymentMethod}
+                    disabled={paymentSaved}
+                    onChange={(e) => {
+                      const method = e.target.value as PaymentMethod;
+                      setPaymentMethod(method);
+                      if (method === "cash") setChequeNo("");
+                      tryAutoSave();
+                    }}
+                    options={PAYMENT_METHODS.map((m) => ({ label: m.label, value: m.value }))}
                   />
                 </div>
                 <div>
@@ -270,8 +337,10 @@ function AmountPaidContent() {
                     min="0"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
+                    onBlur={tryAutoSave}
+                    disabled={paymentSaved}
                     placeholder="0.00"
-                    className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
                 <div>
@@ -280,8 +349,10 @@ function AmountPaidContent() {
                     type="text"
                     value={chequeNo}
                     onChange={(e) => setChequeNo(e.target.value)}
+                    onBlur={tryAutoSave}
+                    disabled={paymentSaved}
                     placeholder="Cheque no..."
-                    className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                    className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
                   />
                 </div>
               </div>

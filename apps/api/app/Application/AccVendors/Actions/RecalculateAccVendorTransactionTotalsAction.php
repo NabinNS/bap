@@ -11,7 +11,7 @@ class RecalculateAccVendorTransactionTotalsAction
     /**
      * Recompute the bill's discount/VAT breakdown from its line items and either a newly set
      * discount percent OR discount amount (whichever the caller just edited), then persist it —
-     * debit ends up holding the final grand total.
+     * credit ends up holding the final grand total (a purchase increases what's owed to the vendor).
      *
      * Idempotent: always derives from the current sum of item amounts, so it's safe to call
      * again after adding more items or changing the discount.
@@ -44,7 +44,7 @@ class RecalculateAccVendorTransactionTotalsAction
                 'grand_total'      => $grandTotal,
             ],
             // Kept in sync with grand_total so the vendor's ledger balance reflects the real amount owed.
-            'debit' => $grandTotal,
+            'credit' => $grandTotal,
         ]);
 
         return $transaction->fresh();

@@ -31,6 +31,7 @@ type Product = {
   thumbnail: string | null;
   sku: string | null;
   cost_price: number | null;
+  wacc: number | null;
   sales_price: number | null;
   stock: number;
   low_stock_quantity: number | null;
@@ -109,6 +110,15 @@ export default function AdminProducts() {
       accessorKey: "category",
       header: "Category",
       cell: ({ row }) => row.original.category?.name ?? <span className="text-text-muted">—</span>,
+    },
+    {
+      accessorKey: "wacc",
+      header: "WACC",
+      cell: ({ row }) => {
+        const { wacc } = row.original;
+        if (wacc == null) return <span className="text-text-muted">—</span>;
+        return <span className="text-sm">{wacc.toLocaleString()}</span>;
+      },
     },
     {
       accessorKey: "sales_price",

@@ -10,6 +10,7 @@ export type ProductOption = {
   name: string;
   sku: string | null;
   cost_price: number | null;
+  wacc: number | null;
   sales_price: number | null;
 };
 

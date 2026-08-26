@@ -14,6 +14,7 @@ class ProductLiteResource extends JsonResource
             'name'        => $this->name,
             'sku'         => $this->sku,
             'cost_price'  => $this->cost_price,
+            'wacc'        => $this->wacc,
             'sales_price' => $this->sales_price,
         ];
     }

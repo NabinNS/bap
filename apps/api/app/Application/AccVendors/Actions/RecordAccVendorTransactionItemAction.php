@@ -45,19 +45,20 @@ class RecordAccVendorTransactionItemAction
                 'total'      => $total,
             ]);
 
-            // Weighted average cost: blend the new purchase into existing stock
-            // instead of overwriting cost_price with the latest purchase rate.
+            // Weighted average cost: blend the new purchase into existing stock instead of
+            // overwriting it with the latest purchase rate. Stored separately from cost_price,
+            // which stays a manually-entered reference cost on the product form.
             $currentStock = $product->stock;
-            $currentCost  = $product->cost_price ?? $rate;
+            $currentCost  = $product->wacc ?? $rate;
             $newStock     = $currentStock + $quantity;
 
-            $newCost = $newStock > 0
+            $newWacc = $newStock > 0
                 ? (int) round((($currentStock * $currentCost) + ($quantity * $rate)) / $newStock)
                 : $rate;
 
             $product->update([
-                'stock'      => $newStock,
-                'cost_price' => $newCost,
+                'stock' => $newStock,
+                'wacc'  => $newWacc,
             ]);
 
             $this->recalculateTotals->execute($transaction);

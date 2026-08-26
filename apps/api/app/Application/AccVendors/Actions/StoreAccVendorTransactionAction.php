@@ -35,10 +35,11 @@ class StoreAccVendorTransactionAction
                 'particular'     => $data['particular'],
                 'voucher_no'     => $data['voucher_no'] ?? null,
                 'cheque_no'      => $data['cheque_no'] ?? null,
-                // When items are supplied, debit is derived from their amounts (see below);
-                // otherwise use the manually entered debit/credit (plain ledger entry).
-                'debit'  => $items ? 0 : ($data['debit'] ?? null),
-                'credit' => $data['credit'] ?? null,
+                // When items are supplied, credit is derived from their amounts (see below) since a
+                // purchase increases what's owed to the vendor; otherwise use the manually entered
+                // debit/credit (plain ledger entry, e.g. a payment).
+                'debit'  => $data['debit'] ?? null,
+                'credit' => $items ? 0 : ($data['credit'] ?? null),
                 // Applied to the very first item's totals recalculation below, if given.
                 'bill_details' => isset($data['discount_percent']) ? ['discount_percent' => $data['discount_percent']] : null,
             ]);

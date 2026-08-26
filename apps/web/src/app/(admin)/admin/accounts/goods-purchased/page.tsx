@@ -120,9 +120,14 @@ function GoodsPurchasedContent() {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
   }
 
+  function suggestedRate(product: ProductOption | null): number | null {
+    return product?.wacc ?? product?.cost_price ?? null;
+  }
+
   function selectProduct(key: number, ulid: string, product: ProductOption | null) {
+    const rate = suggestedRate(product);
     setRows((prev) => prev.map((r) => (r.key === key
-      ? { ...r, productUlid: ulid, particular: product?.name ?? "", rate: product?.cost_price != null ? String(product.cost_price) : r.rate }
+      ? { ...r, productUlid: ulid, particular: product?.name ?? "", rate: rate != null ? String(rate) : r.rate }
       : r)));
   }
 
@@ -463,7 +468,8 @@ function GoodsPurchasedContent() {
                           value={row.productUlid}
                           onChange={(val, product) => {
                             selectProduct(row.key, val, product);
-                            trySaveRow(row.key, { productUlid: val, rate: product?.cost_price != null ? String(product.cost_price) : row.rate });
+                            const rate = suggestedRate(product);
+                            trySaveRow(row.key, { productUlid: val, rate: rate != null ? String(rate) : row.rate });
                           }}
                           onAddNew={(query) => { setCreateProductRowKey(row.key); setCreateProductQuery(query); }}
                         />
@@ -472,6 +478,8 @@ function GoodsPurchasedContent() {
                         <input
                           type="number"
                           min="0"
+                          name={`quantity-${row.key}`}
+                          autoComplete="off"
                           value={row.quantity}
                           onChange={(e) => updateRow(row.key, "quantity", e.target.value)}
                           placeholder="0"
@@ -482,6 +490,8 @@ function GoodsPurchasedContent() {
                         <input
                           type="number"
                           min="0"
+                          name={`rate-${row.key}`}
+                          autoComplete="off"
                           value={row.rate}
                           onChange={(e) => updateRow(row.key, "rate", e.target.value)}
                           placeholder="0.00"
@@ -498,6 +508,8 @@ function GoodsPurchasedContent() {
                       <input
                         type="number"
                         min="0"
+                        name={`discount-${row.key}`}
+                        autoComplete="off"
                         value={row.discount}
                         onChange={(e) => updateRow(row.key, "discount", e.target.value)}
                         placeholder="0"
@@ -622,9 +634,10 @@ function GoodsPurchasedContent() {
         onCreated={(product) => {
           if (createProductRowKey !== null) {
             selectProduct(createProductRowKey, product.ulid, product);
+            const rate = suggestedRate(product);
             trySaveRow(createProductRowKey, {
               productUlid: product.ulid,
-              ...(product.cost_price != null ? { rate: String(product.cost_price) } : {}),
+              ...(rate != null ? { rate: String(rate) } : {}),
             });
           }
           setCreateProductRowKey(null);

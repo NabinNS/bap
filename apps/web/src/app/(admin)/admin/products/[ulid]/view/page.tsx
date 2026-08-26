@@ -34,6 +34,7 @@ type Product = {
   description: string | null;
   sales_price: number | null;
   cost_price: number | null;
+  wacc: number | null;
   stock: number;
   low_stock_quantity: number | null;
   is_active: boolean;
@@ -284,6 +285,7 @@ export default function AdminProductViewPage() {
             </div>
             <div className="p-4 space-y-3">
               <SidebarRow label="Cost Price" value={<span className="text-sm text-text-default">{product.cost_price != null ? `Rs. ${product.cost_price.toLocaleString()}` : "—"}</span>} />
+              <SidebarRow label="WACC" value={<span className="text-sm text-text-default">{product.wacc != null ? `Rs. ${product.wacc.toLocaleString()}` : "—"}</span>} />
               <SidebarRow label="Selling Price" value={<span className="text-sm text-text-default">Rs. {salesPrice.toLocaleString()}</span>} />
               <SidebarRow label="Discount" value={<span className="text-sm text-text-default">{activeDiscount ? `${activeDiscount.percentage}%` : "—"}</span>} />
               <SidebarRow label="Final Price" value={<span className={`text-sm font-semibold ${discountedPrice != null ? "text-red-500" : "text-text-default"}`}>{discountedPrice != null ? `Rs. ${discountedPrice.toLocaleString()}` : `Rs. ${salesPrice.toLocaleString()}`}</span>} />
