@@ -8,12 +8,13 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('acc_vendor_opening_balances', function (Blueprint $table) {
+        Schema::create('acc_vendor_balances', function (Blueprint $table) {
             $table->id();
             $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
             $table->foreignId('vendor_id')->constrained('acc_vendors')->cascadeOnDelete();
             $table->foreignId('fiscal_year_id')->constrained('fiscal_years')->cascadeOnDelete();
             $table->decimal('opening_balance', 15, 2)->default(0);
+            $table->decimal('remaining_balance', 15, 2)->default(0);
             $table->timestamps();
 
             $table->unique(['tenant_id', 'vendor_id', 'fiscal_year_id']);
@@ -22,6 +23,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('acc_vendor_opening_balances');
+        Schema::dropIfExists('acc_vendor_balances');
     }
 };

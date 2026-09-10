@@ -8,6 +8,10 @@ class RecalculateAccVendorTransactionTotalsAction
 {
     private const VAT_RATE = 0.13;
 
+    public function __construct(
+        private RecalculateVendorBalanceAction $recalculateBalance,
+    ) {}
+
     /**
      * Recompute the bill's discount/VAT breakdown from its line items and either a newly set
      * discount percent OR discount amount (whichever the caller just edited), then persist it —
@@ -47,6 +51,11 @@ class RecalculateAccVendorTransactionTotalsAction
             'credit' => $grandTotal,
         ]);
 
-        return $transaction->fresh();
+        $updated = $transaction->fresh();
+        $updated->loadMissing('vendor');
+
+        $this->recalculateBalance->execute($updated->vendor, $updated->fiscal_year_id);
+
+        return $updated;
     }
 }

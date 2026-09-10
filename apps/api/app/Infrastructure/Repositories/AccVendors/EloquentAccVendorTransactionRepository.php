@@ -15,4 +15,12 @@ class EloquentAccVendorTransactionRepository implements AccVendorTransactionRepo
             ->orderBy('date', 'asc')
             ->paginate($perPage);
     }
+
+    public function netTotal(AccVendor $vendor, int $fiscalYearId): float
+    {
+        return (float) $vendor->transactions()
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->selectRaw('COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as net')
+            ->value('net');
+    }
 }

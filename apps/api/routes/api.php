@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccVendorController;
-use App\Http\Controllers\Api\AccVendorOpeningBalanceController;
+use App\Http\Controllers\Api\AccVendorBalanceController;
 use App\Http\Controllers\Api\AccVendorTransactionController;
 use App\Http\Controllers\Api\TenantController;
 use App\Http\Controllers\Api\FiscalYearController;
@@ -48,7 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('sliders', SliderController::class)->except(['index', 'show']);
     Route::apiResource('offers', OfferController::class)->except(['index', 'show']);
     Route::apiResource('acc-vendors', AccVendorController::class);
-    Route::post('acc-vendors/{accVendor}/opening-balance', [AccVendorOpeningBalanceController::class, 'upsert']);
+    Route::post('acc-vendors/{accVendor}/balance', [AccVendorBalanceController::class, 'upsert']);
     Route::get('acc-vendors/{accVendor}/transactions', [AccVendorTransactionController::class, 'index']);
     Route::post('acc-vendors/{accVendor}/transactions', [AccVendorTransactionController::class, 'store']);
     Route::post('acc-vendors/{accVendor}/transactions/{transaction}/items', [AccVendorTransactionController::class, 'storeItem']);

@@ -15,9 +15,10 @@ import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, NumberField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
 import { BsDateInput, isValidBsDate } from "@/components/ui/form/BsDateInput";
 
-type VendorOpeningBalance = {
+type VendorBalance = {
   fiscal_year_id: number;
   opening_balance: string;
+  remaining_balance: string;
 };
 
 type Vendor = {
@@ -27,7 +28,7 @@ type Vendor = {
   phone: string | null;
   telephone: string | null;
   vat_no: string | null;
-  opening_balances: VendorOpeningBalance[];
+  balances: VendorBalance[];
 };
 
 type Meta = {
@@ -146,9 +147,12 @@ function AdminAccountsContent() {
   // Always derived from live query data so it updates automatically after mutations
   const selectedVendor = vendors.find((v) => v.ulid === selectedVendorUlid) ?? null;
 
-  const activeOpeningBalance = activeFiscalYearId && selectedVendor
-    ? selectedVendor.opening_balances?.find((ob) => ob.fiscal_year_id === activeFiscalYearId)?.opening_balance ?? null
+  const activeBalance = activeFiscalYearId && selectedVendor
+    ? selectedVendor.balances?.find((b) => b.fiscal_year_id === activeFiscalYearId) ?? null
     : null;
+
+  const activeOpeningBalance = activeBalance?.opening_balance ?? null;
+  const activeRemainingBalance = activeBalance?.remaining_balance ?? null;
 
   const { data: transactionsData, isLoading: transactionsLoading } = useQuery({
     queryKey: ["acc-vendor-transactions", selectedVendor?.ulid],
@@ -230,15 +234,18 @@ function AdminAccountsContent() {
     },
   });
 
-  const saveOpeningBalanceMutation = useMutation({
+  const saveBalanceMutation = useMutation({
     mutationFn: ({ ulid, opening_balance, fiscal_year_id }: { ulid: string; opening_balance: string; fiscal_year_id?: string }) =>
-      apiFetch(`/acc-vendors/${ulid}/opening-balance`, {
+      apiFetch(`/acc-vendors/${ulid}/balance`, {
         method: "POST",
         body: JSON.stringify({
           opening_balance: parseFloat(opening_balance),
           fiscal_year_id: fiscal_year_id ? parseInt(fiscal_year_id) : undefined,
         }),
       }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+    },
     onError: () => {
       toast.warning("Vendor saved", "But opening balance could not be saved — check if active fiscal year is set in Settings.");
     },
@@ -255,7 +262,7 @@ function AdminAccountsContent() {
       if (!variables.ulid) setEditingVendor((data as { data: Vendor }).data);
 
       if (vendor && form.opening_balance) {
-        await saveOpeningBalanceMutation.mutateAsync({ ulid: vendor.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });
+        await saveBalanceMutation.mutateAsync({ ulid: vendor.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });
       }
 
       if (!variables.ulid) {
@@ -297,7 +304,7 @@ function AdminAccountsContent() {
       telephone: vendor.telephone ?? "",
       vat_no: vendor.vat_no ?? "",
       fiscal_year_id: activeFiscalYearId ? String(activeFiscalYearId) : "",
-      opening_balance: vendor.opening_balances?.find((ob) => ob.fiscal_year_id === activeFiscalYearId)?.opening_balance ?? "",
+      opening_balance: vendor.balances?.find((b) => b.fiscal_year_id === activeFiscalYearId)?.opening_balance ?? "",
     });
     setErrors({});
     setDrawerOpen(true);
@@ -591,8 +598,8 @@ function AdminAccountsContent() {
                     >
                       <span className={`text-sm truncate flex-1 min-w-0 ${selectedVendor?.ulid === vendor.ulid ? "font-semibold text-text-default" : "font-medium text-text-default"}`}>{vendor.name}</span>
                       <span className="text-sm font-semibold text-text-default text-right shrink-0">
-                        {activeFiscalYearId && vendor.opening_balances?.find((ob) => ob.fiscal_year_id === activeFiscalYearId)
-                          ? Number(vendor.opening_balances.find((ob) => ob.fiscal_year_id === activeFiscalYearId)!.opening_balance).toLocaleString()
+                        {activeFiscalYearId && vendor.balances?.find((b) => b.fiscal_year_id === activeFiscalYearId)
+                          ? Number(vendor.balances.find((b) => b.fiscal_year_id === activeFiscalYearId)!.remaining_balance).toLocaleString()
                           : "—"}
                       </span>
                       <button
@@ -696,9 +703,9 @@ function AdminAccountsContent() {
               {selectedVendor && (
                 <div className="grid grid-cols-6 gap-4 pt-1 border-t border-slate-100">
                   <div>
-                    <p className="text-sm-custom text-text-body">Opening Balance</p>
+                    <p className="text-sm-custom text-text-body">Remaining Balance</p>
                     <p className="text-sm-custom font-bold text-text-default mt-0.5">
-                      {activeOpeningBalance != null ? Number(activeOpeningBalance).toLocaleString() : "—"}
+                      {activeRemainingBalance != null ? Number(activeRemainingBalance).toLocaleString() : "—"}
                     </p>
                     <p className="text-sm-custom text-text-body mt-0.5">{activeFiscalYear?.name ?? "No fiscal year"}</p>
                   </div>
@@ -995,7 +1002,7 @@ function AdminAccountsContent() {
           onChange={(e) => setForm((f) => ({ ...f, opening_balance: e.target.value }))}
           onBlur={() => {
             if (editingVendor?.ulid && form.opening_balance) {
-              saveOpeningBalanceMutation.mutate({ ulid: editingVendor.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });
+              saveBalanceMutation.mutate({ ulid: editingVendor.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });
             }
           }}
         />

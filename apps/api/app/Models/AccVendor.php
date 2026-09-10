@@ -28,9 +28,9 @@ class AccVendor extends Model
         return $this->belongsTo(Tenant::class);
     }
 
-    public function openingBalances(): HasMany
+    public function balances(): HasMany
     {
-        return $this->hasMany(AccVendorOpeningBalance::class, 'vendor_id');
+        return $this->hasMany(AccVendorBalance::class, 'vendor_id');
     }
 
     public function transactions(): HasMany

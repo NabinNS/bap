@@ -13,6 +13,7 @@ class StoreAccVendorTransactionAction
     public function __construct(
         private TenantSettingRepositoryInterface $settings,
         private RecordAccVendorTransactionItemAction $recordItem,
+        private RecalculateVendorBalanceAction $recalculateBalance,
     ) {}
 
     public function execute(int $tenantId, AccVendor $vendor, array $data): AccVendorTransaction
@@ -45,7 +46,12 @@ class StoreAccVendorTransactionAction
             ]);
 
             foreach ($items as $item) {
+                // Each call already recalculates the vendor balance via RecalculateAccVendorTransactionTotalsAction.
                 $this->recordItem->execute($tenantId, $vendor, $transaction, $item);
+            }
+
+            if (!$items) {
+                $this->recalculateBalance->execute($vendor, $settings->fiscal_year_id);
             }
 
             return $transaction->fresh();

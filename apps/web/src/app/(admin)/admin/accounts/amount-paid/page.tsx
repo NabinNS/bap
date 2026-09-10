@@ -17,9 +17,10 @@ const PAYMENT_METHODS = [
 
 type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
 
-type VendorOpeningBalance = {
+type VendorBalance = {
   fiscal_year_id: number;
   opening_balance: string;
+  remaining_balance: string;
 };
 
 type Vendor = {
@@ -29,7 +30,7 @@ type Vendor = {
   phone: string | null;
   telephone: string | null;
   vat_no: string | null;
-  opening_balances: VendorOpeningBalance[];
+  balances: VendorBalance[];
 };
 
 type Meta = {
@@ -236,8 +237,8 @@ function AmountPaidContent() {
                     >
                       <span className={`text-sm truncate flex-1 min-w-0 ${selectedVendor?.ulid === vendor.ulid ? "font-semibold text-text-default" : "font-medium text-text-default"}`}>{vendor.name}</span>
                       <span className="text-sm font-semibold text-text-default text-right shrink-0">
-                        {activeFiscalYearId && vendor.opening_balances?.find((ob) => ob.fiscal_year_id === activeFiscalYearId)
-                          ? Number(vendor.opening_balances.find((ob) => ob.fiscal_year_id === activeFiscalYearId)!.opening_balance).toLocaleString()
+                        {activeFiscalYearId && vendor.balances?.find((b) => b.fiscal_year_id === activeFiscalYearId)
+                          ? Number(vendor.balances.find((b) => b.fiscal_year_id === activeFiscalYearId)!.remaining_balance).toLocaleString()
                           : "—"}
                       </span>
                     </div>

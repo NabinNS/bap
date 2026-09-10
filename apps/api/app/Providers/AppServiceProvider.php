@@ -3,7 +3,7 @@
 namespace App\Providers;
 
 use App\Domain\AccVendors\Repositories\AccVendorRepositoryInterface;
-use App\Domain\AccVendors\Repositories\AccVendorOpeningBalanceRepositoryInterface;
+use App\Domain\AccVendors\Repositories\AccVendorBalanceRepositoryInterface;
 use App\Domain\AccVendors\Repositories\AccVendorTransactionRepositoryInterface;
 use App\Domain\Settings\Repositories\TenantSettingRepositoryInterface;
 use App\Infrastructure\Repositories\Settings\EloquentTenantSettingRepository;
@@ -15,7 +15,7 @@ use App\Domain\Images\Repositories\ImageGroupRepositoryInterface;
 use App\Domain\Products\Repositories\ProductDiscountRepositoryInterface;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorRepository;
-use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorOpeningBalanceRepository;
+use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorBalanceRepository;
 use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorTransactionRepository;
 use App\Infrastructure\Repositories\Brands\EloquentBrandRepository;
 use App\Infrastructure\Repositories\Offers\EloquentOfferRepository;
@@ -49,7 +49,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(AccVendorRepositoryInterface::class, EloquentAccVendorRepository::class);
-        $this->app->bind(AccVendorOpeningBalanceRepositoryInterface::class, EloquentAccVendorOpeningBalanceRepository::class);
+        $this->app->bind(AccVendorBalanceRepositoryInterface::class, EloquentAccVendorBalanceRepository::class);
         $this->app->bind(AccVendorTransactionRepositoryInterface::class, EloquentAccVendorTransactionRepository::class);
         $this->app->bind(BrandRepositoryInterface::class, EloquentBrandRepository::class);
         $this->app->bind(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
