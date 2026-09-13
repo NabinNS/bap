@@ -2,15 +2,19 @@
 
 namespace App\Application\AccVendors\Actions;
 
+use App\Domain\AccVendors\DTOs\AccVendorTransactionItemData;
+use App\Domain\AccVendors\Repositories\AccVendorTransactionRepositoryInterface;
+use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Models\AccVendor;
 use App\Models\AccVendorTransaction;
 use App\Models\AccVendorTransactionItem;
-use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 
 class RecordAccVendorTransactionItemAction
 {
     public function __construct(
+        private AccVendorTransactionRepositoryInterface $transactions,
+        private ProductRepositoryInterface $products,
         private RecalculateAccVendorTransactionTotalsAction $recalculateTotals,
     ) {}
 
@@ -19,49 +23,27 @@ class RecordAccVendorTransactionItemAction
      * the product's stock/cost_price via weighted average cost, then recompute the bill's
      * overall discount/VAT breakdown from the resulting line totals.
      */
-    public function execute(int $tenantId, AccVendor $vendor, AccVendorTransaction $transaction, array $item): AccVendorTransactionItem
+    public function execute(int $tenantId, AccVendor $vendor, AccVendorTransaction $transaction, AccVendorTransactionItemData $item): AccVendorTransactionItem
     {
         return DB::transaction(function () use ($tenantId, $vendor, $transaction, $item) {
-            /** @var Product $product */
-            $product = Product::where('tenant_id', $tenantId)
-                ->where('ulid', $item['product_ulid'])
-                ->lockForUpdate()
-                ->firstOrFail();
+            $product = $this->products->lockByUlid($tenantId, $item->productUlid);
 
-            $quantity = (int) $item['quantity'];
-            $rate     = (int) $item['rate'];
-            $amount   = $quantity * $rate;
-            $discount = (int) ($item['discount'] ?? 0);
-            $total    = max(0, $amount - $discount);
-
-            $transactionItem = $transaction->items()->create([
-                'tenant_id'  => $tenantId,
-                'vendor_id'  => $vendor->id,
-                'product_id' => $product->id,
-                'quantity'   => $quantity,
-                'rate'       => $rate,
-                'amount'     => $amount,
-                'discount'   => $discount,
-                'total'      => $total,
-            ]);
+            $transactionItem = $this->transactions->createItem($tenantId, $vendor, $transaction, $product, $item);
 
             // Weighted average cost: blend the new purchase into existing stock instead of
             // overwriting it with the latest purchase rate. Stored separately from cost_price,
             // which stays a manually-entered reference cost on the product form.
             $currentStock = $product->stock;
-            $currentCost  = $product->wacc ?? $rate;
-            $newStock     = $currentStock + $quantity;
+            $currentCost  = $product->wacc ?? $item->rate;
+            $newStock     = $currentStock + $item->quantity;
 
             $newWacc = $newStock > 0
-                ? (int) round((($currentStock * $currentCost) + ($quantity * $rate)) / $newStock)
-                : $rate;
+                ? (int) round((($currentStock * $currentCost) + ($item->quantity * $item->rate)) / $newStock)
+                : $item->rate;
 
-            $product->update([
-                'stock' => $newStock,
-                'wacc'  => $newWacc,
-            ]);
+            $this->products->updateStockAndCost($product, $newStock, $newWacc);
 
-            $this->recalculateTotals->execute($transaction);
+            $this->recalculateTotals->execute($vendor, $transaction);
 
             return $transactionItem;
         });

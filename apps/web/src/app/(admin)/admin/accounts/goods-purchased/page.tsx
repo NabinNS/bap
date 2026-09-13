@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -55,6 +55,33 @@ type BillTotals = {
   grandTotal: number;
 };
 
+type SavedItem = {
+  ulid: string;
+  product_ulid: string;
+  product_name: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  discount: number;
+  total: number;
+};
+
+type SavedTransaction = {
+  ulid: string;
+  date: string;
+  particular: string;
+  voucher_no: string | null;
+  cheque_no: string | null;
+  debit: number | null;
+  credit: number | null;
+  discount_percent: number | null;
+  discount_amount: number | null;
+  taxable_amount: number | null;
+  vat_amount: number | null;
+  grand_total: number | null;
+  items: SavedItem[];
+};
+
 let nextKey = 1;
 
 function emptyRow(): LineItem {
@@ -66,6 +93,7 @@ function GoodsPurchasedContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const vendorParam = searchParams.get("vendor");
+  const editTransactionParam = searchParams.get("transaction");
   const queryClient = useQueryClient();
 
   const [sideSearch, setSideSearch] = useState("");
@@ -80,6 +108,7 @@ function GoodsPurchasedContent() {
   const [createProductRowKey, setCreateProductRowKey] = useState<number | null>(null);
   const [createProductQuery, setCreateProductQuery] = useState("");
   const savingKeysRef = useRef<Set<number>>(new Set());
+  const loadedTransactionRef = useRef<string | null>(null);
 
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
     queryKey: ["acc-vendors"],
@@ -97,12 +126,19 @@ function GoodsPurchasedContent() {
   const filteredVendors = vendors.filter((v) => v.name.toLowerCase().includes(sideSearch.toLowerCase()));
   const selectedVendor = vendors.find((v) => v.ulid === selectedVendorUlid) ?? null;
 
+  const { data: transactionsData } = useQuery({
+    queryKey: ["acc-vendor-transactions", selectedVendor?.ulid],
+    queryFn: () => apiFetch<{ data: SavedTransaction[] }>(`/acc-vendors/${selectedVendor!.ulid}/transactions`),
+    enabled: !!selectedVendor && !!editTransactionParam,
+  });
+
   useEffect(() => {
     if (!selectedVendorUlid && vendors.length > 0) setSelectedVendorUlid(vendors[0].ulid);
   }, [vendors]);
 
   // Starting a fresh bill whenever the vendor changes — previous vendor's draft/transaction doesn't carry over.
   useEffect(() => {
+    if (editTransactionParam) return;
     setRows([emptyRow()]);
     setTransactionUlid(null);
     setBillDate(getTodayBs());
@@ -111,6 +147,35 @@ function GoodsPurchasedContent() {
     setDiscountAmountDraft(null);
     setBillTotals(null);
   }, [selectedVendorUlid]);
+
+  // Load the existing transaction into the form once, when editing via ?transaction=.
+  useEffect(() => {
+    if (!editTransactionParam || loadedTransactionRef.current === editTransactionParam) return;
+    const tx = transactionsData?.data.find((t) => t.ulid === editTransactionParam);
+    if (!tx) return;
+    loadedTransactionRef.current = editTransactionParam;
+    setTransactionUlid(tx.ulid);
+    setBillDate(tx.date);
+    setBillNo(tx.voucher_no ?? "");
+    setDiscountPercent(String(tx.discount_percent ?? 0));
+    setBillTotals({
+      discountAmount: tx.discount_amount ?? 0,
+      taxableAmount: tx.taxable_amount ?? 0,
+      vatAmount: tx.vat_amount ?? 0,
+      grandTotal: tx.grand_total ?? 0,
+    });
+    const savedRows: LineItem[] = tx.items.map((it) => ({
+      key: nextKey++,
+      productUlid: it.product_ulid,
+      particular: it.product_name,
+      quantity: String(it.quantity),
+      rate: String(it.rate),
+      discount: String(it.discount),
+      saved: true,
+      itemUlid: it.ulid,
+    }));
+    setRows([...savedRows, emptyRow()]);
+  }, [editTransactionParam, transactionsData]);
 
   function selectVendor(ulid: string) {
     setSelectedVendorUlid(ulid);
@@ -137,6 +202,17 @@ function GoodsPurchasedContent() {
   }
 
   function removeRow(key: number) {
+    const row = rows.find((r) => r.key === key);
+    if (!row) return;
+    if (row.saved && row.itemUlid) {
+      if (!selectedVendorUlid || !transactionUlid) return;
+      if (!confirm("Delete this line item?")) return;
+      deleteItemMutation.mutate(
+        { vendorUlid: selectedVendorUlid, txUlid: transactionUlid, itemUlid: row.itemUlid },
+        { onSuccess: () => setRows((prev) => prev.filter((r) => r.key !== key)) }
+      );
+      return;
+    }
     setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.key !== key) : prev));
   }
 
@@ -186,6 +262,47 @@ function GoodsPurchasedContent() {
         `/acc-vendors/${vendorUlid}/transactions/${txUlid}/totals`, { method: "PATCH", body: JSON.stringify(body) }
       ),
   });
+
+  const updateHeaderMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid, payload }: { vendorUlid: string; txUlid: string; payload: object }) =>
+      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    onError: (err: any) => toast.error("Failed to update bill details", err?.message ?? "Something went wrong."),
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid, itemUlid }: { vendorUlid: string; txUlid: string; itemUlid: string }) =>
+      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "DELETE" }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success("Item removed", "The line item has been deleted.");
+    },
+    onError: (err: any) => toast.error("Failed to delete item", err?.message ?? "Something went wrong."),
+  });
+
+  function saveHeader() {
+    if (!selectedVendorUlid || !transactionUlid || !isValidBsDate(billDate)) return;
+    updateHeaderMutation.mutate({
+      vendorUlid: selectedVendorUlid,
+      txUlid: transactionUlid,
+      payload: { date: billDate, particular: "purchase", voucher_no: billNo || null },
+    });
+  }
+
+  // Once a transaction is loaded for editing, keep totals synced with the server after item removals.
+  useEffect(() => {
+    if (!editTransactionParam || !transactionUlid) return;
+    const tx = transactionsData?.data.find((t) => t.ulid === transactionUlid);
+    if (!tx) return;
+    setDiscountPercent(String(tx.discount_percent ?? 0));
+    setBillTotals({
+      discountAmount: tx.discount_amount ?? 0,
+      taxableAmount: tx.taxable_amount ?? 0,
+      vatAmount: tx.vat_amount ?? 0,
+      grandTotal: tx.grand_total ?? 0,
+    });
+  }, [transactionsData, editTransactionParam, transactionUlid]);
 
   function applyTotalsResult(res: TotalsPayload) {
     setDiscountPercent(String(res.discount_percent ?? 0));
@@ -299,8 +416,8 @@ function GoodsPurchasedContent() {
 
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-h3 font-bold text-text-default">Goods Purchased</h2>
-            <p className="text-sm text-text-muted mt-0.5">Record items purchased from a vendor.</p>
+            <h2 className="text-h3 font-bold text-text-default">{editTransactionParam ? "Edit Goods Purchased" : "Goods Purchased"}</h2>
+            <p className="text-sm text-text-muted mt-0.5">{editTransactionParam ? "Update items purchased from a vendor." : "Record items purchased from a vendor."}</p>
           </div>
           <div className="flex items-center shrink-0">
             <Link
@@ -421,11 +538,11 @@ function GoodsPurchasedContent() {
                     type="text"
                     value={billNo}
                     onChange={(e) => setBillNo(e.target.value)}
-                    disabled={!!transactionUlid}
+                    onBlur={saveHeader}
                     placeholder="Bill no..."
                     className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
                   />
-                  <BsDateInput value={billDate} onChange={setBillDate} disabled={!!transactionUlid} />
+                  <BsDateInput value={billDate} onChange={setBillDate} onBlur={saveHeader} />
                 </div>
               </div>
             </div>
@@ -484,7 +601,7 @@ function GoodsPurchasedContent() {
                           value={row.quantity}
                           onChange={(e) => updateRow(row.key, "quantity", e.target.value)}
                           placeholder="0"
-                          className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                          className={`${inputCls}`}
                         />
                       </div>
                       <div className="px-3 py-1.5">
@@ -496,7 +613,7 @@ function GoodsPurchasedContent() {
                           value={row.rate}
                           onChange={(e) => updateRow(row.key, "rate", e.target.value)}
                           placeholder="0.00"
-                          className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                          className={`${inputCls}`}
                         />
                       </div>
                     </>
@@ -514,7 +631,7 @@ function GoodsPurchasedContent() {
                         value={row.discount}
                         onChange={(e) => updateRow(row.key, "discount", e.target.value)}
                         placeholder="0"
-                        className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                        className={`${inputCls}`}
                       />
                     </div>
                   )}
@@ -525,8 +642,7 @@ function GoodsPurchasedContent() {
 
                   <button
                     onClick={() => removeRow(row.key)}
-                    disabled={rows.length === 1 || row.saved}
-                    title={row.saved ? "Already recorded" : undefined}
+                    disabled={rows.length === 1 && !row.saved}
                     className="flex items-center justify-center h-full py-2 text-text-muted hover:text-red-600 disabled:opacity-30 disabled:hover:text-text-muted transition-colors cursor-pointer disabled:cursor-not-allowed"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -576,7 +692,7 @@ function GoodsPurchasedContent() {
                             setDiscountAmountDraft(null);
                           }}
                           onBlur={saveDiscountPercent}
-                          className="w-12 h-7 px-1.5 text-sm font-medium text-black text-right border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-12 h-7 px-1.5 text-sm font-medium text-black text-right border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
                         />
                         <span className="text-sm-custom text-text-body shrink-0">%</span>
                       </div>
@@ -587,7 +703,7 @@ function GoodsPurchasedContent() {
                         onChange={(e) => handleDiscountAmountChange(e.target.value)}
                         onBlur={handleDiscountAmountBlur}
                         placeholder="Amount"
-                        className="w-20 h-7 px-1.5 text-sm font-medium text-black text-right border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-20 h-7 px-1.5 text-sm font-medium text-black text-right border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
                       />
                     </div>
                     <div className="flex items-center justify-between px-4 py-1.5 border-b border-slate-100">

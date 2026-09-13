@@ -3,17 +3,18 @@
 import { Suspense, useState, useEffect, useRef, useMemo, useReducer } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, ExternalLink, Download, Send, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
+import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { TRANSACTION_PARTICULARS, getParticularLabel } from "@/constants/accounting";
+import { TRANSACTION_PARTICULARS, getParticularLabel, getParticularDirection } from "./constants";
 import { toast } from "@/lib/toast";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, NumberField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
 import { BsDateInput, isValidBsDate } from "@/components/ui/form/BsDateInput";
+import { ProductCombobox } from "@/components/products/ProductCombobox";
 
 type VendorBalance = {
   fiscal_year_id: number;
@@ -40,14 +41,31 @@ type Meta = {
   to: number;
 };
 
+type TransactionItem = {
+  ulid: string;
+  product_ulid: string;
+  product_name: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  discount: number;
+  total: number;
+};
+
 type Transaction = {
   ulid: string;
   date: string;
   particular: string;
   voucher_no: string | null;
+  cheque_no?: string | null;
   type: string | null;
   debit: number | null;
   credit: number | null;
+  discount_percent?: number | null;
+  taxable_amount?: number | null;
+  vat_amount?: number | null;
+  grand_total?: number | null;
+  items?: TransactionItem[];
 };
 
 type FiscalYear = {
@@ -98,12 +116,13 @@ function ParticularCombobox({ vendorUlid, onChange, onBlur }: { vendorUlid: stri
 
 function AdminAccountsContent() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [sideSearch, setSideSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [selectedVendorUlid, setSelectedVendorUlid] = useState<string | null>(searchParams.get("vendor"));
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedTransactionUlid, setSelectedTransactionUlid] = useState<string | null>(null);
   const [openMenuUlid, setOpenMenuUlid] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -117,6 +136,13 @@ function AdminAccountsContent() {
   const [errors, setErrors] = useState<FormErrors>({});
   const draftRef = useRef({ particular: "", voucher_no: "", debit: "", credit: "", date: "" });
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+  const [txEdit, setTxEdit] = useState<{ date: string; particular: string; voucher_no: string; cheque_no: string; amount: string } | null>(null);
+  const [itemEdits, setItemEdits] = useState<Record<string, { product_ulid: string; product_name: string; quantity: string; rate: string; discount: string }>>({});
+  const EMPTY_NEW_ITEM = { product_ulid: "", product_name: "", quantity: "", rate: "", discount: "0" };
+  const [newItem, setNewItem] = useState(EMPTY_NEW_ITEM);
+  const [addingItem, setAddingItem] = useState(false);
+  const [editingOpeningBalance, setEditingOpeningBalance] = useState(false);
+  const [openingBalanceDraft, setOpeningBalanceDraft] = useState("");
 
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
     queryKey: ["acc-vendors"],
@@ -202,6 +228,63 @@ function AdminAccountsContent() {
       toast.success("Transaction saved", "Entry has been recorded.");
     },
     onError: () => toast.error("Failed to save", "Could not save the transaction."),
+  });
+
+  const deleteTransactionMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid }: { vendorUlid: string; txUlid: string }) =>
+      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}`, { method: "DELETE" }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      toast.success("Transaction deleted", "The transaction has been removed.");
+    },
+    onError: (err: any) => toast.error("Failed to delete transaction", err?.message ?? "Something went wrong."),
+  });
+
+  const updateTransactionMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid, payload }: { vendorUlid: string; txUlid: string; payload: object }) =>
+      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+    },
+    onError: (err: any) => toast.error("Failed to update transaction", err?.message ?? "Something went wrong."),
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid, itemUlid, payload }: { vendorUlid: string; txUlid: string; itemUlid: string; payload: object }) =>
+      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: (err: any) => toast.error("Failed to update item", err?.message ?? "Something went wrong."),
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid, itemUlid }: { vendorUlid: string; txUlid: string; itemUlid: string }) =>
+      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "DELETE" }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success("Item removed", "The line item has been deleted.");
+    },
+    onError: (err: any) => toast.error("Failed to delete item", err?.message ?? "Something went wrong."),
+  });
+
+  const addItemMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid, payload }: { vendorUlid: string; txUlid: string; payload: object }) =>
+      apiFetch<{ data: { ulid: string; product_ulid: string; quantity: number; rate: number; discount: number; total: number } }>(
+        `/acc-vendors/${vendorUlid}/transactions/${txUlid}/items`, { method: "POST", body: JSON.stringify(payload) }
+      ),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: (err: any) => toast.error("Failed to add item", err?.message ?? "Something went wrong."),
   });
 
   function tryAutoSaveTransaction() {
@@ -391,6 +474,117 @@ function AdminAccountsContent() {
     draftTransaction,
   ];
 
+  function removeTransaction(txUlid: string) {
+    if (!selectedVendorUlid) return;
+    if (!confirm("Delete this transaction? This cannot be undone.")) return;
+    deleteTransactionMutation.mutate({ vendorUlid: selectedVendorUlid, txUlid });
+    if (selectedTransactionUlid === txUlid) setSelectedTransactionUlid(null);
+  }
+
+  // Derived (not snapshotted) so the panel reflects the latest server data after any edit/delete.
+  const selectedTransaction = selectedTransactionUlid
+    ? rawTransactions.find((t) => t.ulid === selectedTransactionUlid) ?? null
+    : null;
+
+  useEffect(() => {
+    setNewItem(EMPTY_NEW_ITEM);
+    setAddingItem(false);
+    if (!selectedTransaction) { setTxEdit(null); setItemEdits({}); return; }
+    setTxEdit({
+      date: selectedTransaction.date,
+      particular: selectedTransaction.particular,
+      voucher_no: selectedTransaction.voucher_no ?? "",
+      cheque_no: selectedTransaction.cheque_no ?? "",
+      amount: String(selectedTransaction.debit ?? selectedTransaction.credit ?? ""),
+    });
+    setItemEdits(Object.fromEntries((selectedTransaction.items ?? []).map((it) => [it.ulid, {
+      product_ulid: it.product_ulid,
+      product_name: it.product_name,
+      quantity: String(it.quantity),
+      rate: String(it.rate),
+      discount: String(it.discount),
+    }])));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTransactionUlid]);
+
+  const hasItems = !!(selectedTransaction?.items && selectedTransaction.items.length > 0);
+
+  function saveTransactionHeader() {
+    if (!selectedVendorUlid || !selectedTransactionUlid || !txEdit) return;
+    if (!isValidBsDate(txEdit.date) || !txEdit.particular.trim()) return;
+    const direction = getParticularDirection(txEdit.particular);
+    updateTransactionMutation.mutate({
+      vendorUlid: selectedVendorUlid,
+      txUlid: selectedTransactionUlid,
+      payload: {
+        date: txEdit.date,
+        particular: txEdit.particular,
+        voucher_no: txEdit.voucher_no || null,
+        cheque_no: txEdit.particular === "cheque" ? txEdit.cheque_no || null : null,
+        debit: direction === "debit" ? Number(txEdit.amount) || null : null,
+        credit: direction === "credit" ? Number(txEdit.amount) || null : null,
+      },
+    });
+  }
+
+  function saveItem(itemUlid: string) {
+    const edit = itemEdits[itemUlid];
+    if (!selectedVendorUlid || !selectedTransactionUlid || !edit) return;
+    if (!edit.product_ulid || !edit.quantity || Number(edit.quantity) <= 0 || edit.rate === "") return;
+    updateItemMutation.mutate({
+      vendorUlid: selectedVendorUlid,
+      txUlid: selectedTransactionUlid,
+      itemUlid,
+      payload: {
+        product_ulid: edit.product_ulid,
+        quantity: Number(edit.quantity),
+        rate: Number(edit.rate),
+        discount: Number(edit.discount) || 0,
+      },
+    });
+  }
+
+  function saveNewItem() {
+    if (!selectedVendorUlid || !selectedTransactionUlid) return;
+    if (!newItem.product_ulid || !newItem.quantity || Number(newItem.quantity) <= 0 || newItem.rate === "") return;
+    addItemMutation.mutate(
+      {
+        vendorUlid: selectedVendorUlid,
+        txUlid: selectedTransactionUlid,
+        payload: {
+          product_ulid: newItem.product_ulid,
+          quantity: Number(newItem.quantity),
+          rate: Number(newItem.rate),
+          discount: Number(newItem.discount) || 0,
+        },
+      },
+      {
+        onSuccess: (res) => {
+          const it = res.data;
+          setItemEdits((prev) => ({
+            ...prev,
+            [it.ulid]: {
+              product_ulid: it.product_ulid,
+              product_name: newItem.product_name,
+              quantity: String(it.quantity),
+              rate: String(it.rate),
+              discount: String(it.discount),
+            },
+          }));
+          setNewItem(EMPTY_NEW_ITEM);
+          setAddingItem(false);
+        },
+      }
+    );
+  }
+
+  function removeItem(itemUlid: string) {
+    if (!selectedVendorUlid || !selectedTransactionUlid) return;
+    if (!confirm("Delete this line item? If it's the last item, the whole transaction will be removed.")) return;
+    deleteItemMutation.mutate({ vendorUlid: selectedVendorUlid, txUlid: selectedTransactionUlid, itemUlid });
+    if (selectedTransaction?.items?.length === 1) setSelectedTransactionUlid(null);
+  }
+
   // compute running balance per row: credit increases, debit decreases
   const runningBalances = transactions.reduce<number[]>((acc, tx) => {
     const prev = acc.length > 0 ? acc[acc.length - 1] : 0;
@@ -405,6 +599,24 @@ function AdminAccountsContent() {
   txMenuUlidRef.current = txMenuUlid;
 
   const inputCls = "w-full text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-600 bg-white px-2 py-1 rounded-none";
+
+  const ITEM_CAPABLE_PARTICULARS = ["purchase", "sales", "debit_note", "credit_note"];
+
+  // Routes to whichever full-page editor matches how this transaction actually exists —
+  // items page only if it already has items, otherwise the simple debit/credit editor.
+  function openTransactionPage(tx: Transaction) {
+    if (!selectedVendorUlid) return;
+    const hasItems = !!tx.items && tx.items.length > 0;
+    const page = hasItems ? "goods-purchased" : "amount-paid";
+    router.push(`/admin/accounts/${page}?vendor=${selectedVendorUlid}&transaction=${tx.ulid}`);
+  }
+
+  // Explicit "Add Items" action — always opens the items page, even for a zero-item
+  // Purchase/Sales/Debit Note/Credit Note entry, so it can be turned into an itemized one.
+  function openAddItemsPage(tx: Transaction) {
+    if (!selectedVendorUlid) return;
+    router.push(`/admin/accounts/goods-purchased?vendor=${selectedVendorUlid}&transaction=${tx.ulid}`);
+  }
 
   const columns: ColumnDef<Transaction, unknown>[] = useMemo(() => [
     {
@@ -475,7 +687,7 @@ function AdminAccountsContent() {
             onChange={(e) => { draftRef.current.debit = e.target.value; draftRef.current.credit = e.target.value ? "" : draftRef.current.credit; forceUpdate(); }}
             onBlur={tryAutoSaveTransaction}
             placeholder="0"
-            className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+            className={`${inputCls}`}
           />
         );
         return row.original.debit != null
@@ -497,7 +709,7 @@ function AdminAccountsContent() {
             onChange={(e) => { draftRef.current.credit = e.target.value; draftRef.current.debit = e.target.value ? "" : draftRef.current.debit; forceUpdate(); }}
             onBlur={tryAutoSaveTransaction}
             placeholder="0"
-            className={`${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+            className={`${inputCls}`}
           />
         );
         return row.original.credit != null
@@ -593,7 +805,7 @@ function AdminAccountsContent() {
                   filteredVendors.map((vendor) => (
                     <div
                       key={vendor.ulid}
-                      onClick={() => { setSelectedVendorUlid(vendor.ulid); setSelectedTransaction(null); setOpenMenuUlid(null); }}
+                      onClick={() => { setSelectedVendorUlid(vendor.ulid); setSelectedTransactionUlid(null); setEditingOpeningBalance(false); setOpenMenuUlid(null); }}
                       className={`flex items-center py-3.5 border-b border-slate-400 cursor-pointer transition-colors ${selectedVendor?.ulid === vendor.ulid ? "bg-slate-200 border-l-2 border-l-slate-700 pl-[14px] pr-1" : "pl-4 pr-1 hover:bg-slate-50"}`}
                     >
                       <span className={`text-sm truncate flex-1 min-w-0 ${selectedVendor?.ulid === vendor.ulid ? "font-semibold text-text-default" : "font-medium text-text-default"}`}>{vendor.name}</span>
@@ -748,106 +960,297 @@ function AdminAccountsContent() {
                   searchPlaceholder="Search transactions..."
                   meta={null}
                   tableClassName="table-fixed"
-                  onRowDoubleClick={(row) => { if (row.ulid !== "__new__") setSelectedTransaction(row); }}
+                  onRowClick={(row) => {
+                    if (row.ulid === "__new__") return;
+                    if (row.ulid === "__opening_balance__") {
+                      setSelectedTransactionUlid(null);
+                      setOpeningBalanceDraft(activeOpeningBalance ?? "");
+                      setEditingOpeningBalance(true);
+                      return;
+                    }
+                    setEditingOpeningBalance(false);
+                    setSelectedTransactionUlid(row.ulid);
+                  }}
+                  onRowDoubleClick={(row) => { if (row.ulid !== "__new__" && row.ulid !== "__opening_balance__") openTransactionPage(row); }}
                 />
               </div>
 
               {/* Transaction detail panel */}
-              {selectedTransaction && <div className="w-[350px] shrink-0 bg-white border border-slate-200 flex flex-col overflow-y-auto">
+              {selectedTransaction && txEdit && <div className="w-[280px] shrink-0 bg-white border border-slate-200 flex flex-col overflow-y-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                  <p className="text-sm-custom font-bold text-text-default">{selectedTransaction.voucher_no ?? selectedTransaction.particular}</p>
-                  <button onClick={() => setSelectedTransaction(null)} className="text-text-muted hover:text-text-default transition-colors cursor-pointer">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {/* Badges */}
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100">
-                  <span className="text-xs font-semibold px-2 py-0.5 bg-slate-100 text-slate-600">INV-1042</span>
-                  <span className="text-xs font-semibold px-2 py-0.5 bg-orange-50 text-orange-600">Unpaid</span>
-                </div>
-
-                {/* Invoice Details */}
-                <div className="px-4 py-3 border-b border-slate-100 space-y-2">
-                  <p className="text-xs font-semibold text-text-default flex items-center gap-1.5">
-                    <Receipt className="h-3.5 w-3.5" /> Invoice Details
-                  </p>
-                  <div className="space-y-1.5">
-                    {[
-                      { label: "Date", value: "Jan 10, 2026" },
-                      { label: "Due Date", value: "Jan 25, 2026" },
-                      { label: "Customer", value: "Alice Johnson" },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="flex items-center justify-between">
-                        <span className="text-sm-custom text-text-body">{label}</span>
-                        <span className="text-sm-custom text-text-default">{value}</span>
-                      </div>
-                    ))}
+                  <p className="text-sm-custom font-bold text-text-default">{getParticularLabel(selectedTransaction.particular)}</p>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {ITEM_CAPABLE_PARTICULARS.includes(selectedTransaction.particular) && (
+                      <button
+                        onClick={() => openAddItemsPage(selectedTransaction)}
+                        className="h-7 px-2 text-xs font-semibold text-text-default border border-slate-300 hover:bg-slate-50 cursor-pointer transition-colors"
+                      >
+                        Add Items
+                      </button>
+                    )}
+                    <button
+                      onClick={() => removeTransaction(selectedTransaction.ulid)}
+                      title="Delete transaction"
+                      className="h-7 w-7 flex items-center justify-center text-text-muted hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => setSelectedTransactionUlid(null)} className="h-7 w-7 flex items-center justify-center text-text-muted hover:text-text-default cursor-pointer transition-colors">
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
 
-                {/* Amount Details */}
+                {/* Header fields */}
                 <div className="px-4 py-3 border-b border-slate-100 space-y-2">
                   <p className="text-xs font-semibold text-text-default flex items-center gap-1.5">
-                    <CreditCard className="h-3.5 w-3.5" /> Amount Details
+                    <Receipt className="h-3.5 w-3.5" /> Details
                   </p>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm-custom text-text-body">Subtotal</span>
-                      <span className="text-sm-custom text-text-default">Rs. 13,392</span>
+                  <div className="space-y-2 [&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_select]:h-8 [&_select]:text-sm [&_select]:font-medium [&_select]:text-black [&_.mt-1]:mt-0">
+                    <div>
+                      <label className="block text-xs text-text-muted mb-1">Date</label>
+                      <BsDateInput value={txEdit.date} onChange={(v) => setTxEdit((s) => s && { ...s, date: v })} onBlur={saveTransactionHeader} />
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm-custom text-text-body">VAT (13%)</span>
-                      <span className="text-sm-custom text-text-default">Rs. 1,608</span>
+                    <div>
+                      <label className="block text-xs text-text-muted mb-1">Voucher No</label>
+                      <input
+                        type="text"
+                        value={txEdit.voucher_no}
+                        onChange={(e) => setTxEdit((s) => s && { ...s, voucher_no: e.target.value })}
+                        onBlur={saveTransactionHeader}
+                        className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                      />
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm-custom text-text-body">Total Amount</span>
-                      <span className="text-sm-custom font-bold text-red-600">Rs. 15,000</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm-custom text-text-body">Paid Amount</span>
-                      <span className="text-sm-custom text-text-default">Rs. 0</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm-custom text-text-body">Due Amount</span>
-                      <span className="text-sm-custom font-bold text-red-600">Rs. 15,000</span>
-                    </div>
+                    {!hasItems && (
+                      <>
+                        <div>
+                          <SelectField
+                            label="Particular"
+                            value={txEdit.particular}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setTxEdit((s) => s && { ...s, particular: value, cheque_no: value === "cheque" ? s.cheque_no : "" });
+                              saveTransactionHeader();
+                            }}
+                            options={TRANSACTION_PARTICULARS.map((p) => ({ label: p.label, value: p.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-text-muted mb-1">
+                            Amount <span className="normal-case">({getParticularDirection(txEdit.particular) === "debit" ? "Debit" : "Credit"})</span>
+                          </label>
+                          <input
+                            type="number" min="0"
+                            value={txEdit.amount}
+                            onChange={(e) => setTxEdit((s) => s && { ...s, amount: e.target.value })}
+                            onBlur={saveTransactionHeader}
+                            className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                          />
+                        </div>
+                        {txEdit.particular === "cheque" && (
+                          <div>
+                            <label className="block text-xs text-text-muted mb-1">Cheque No</label>
+                            <input
+                              type="text"
+                              value={txEdit.cheque_no}
+                              onChange={(e) => setTxEdit((s) => s && { ...s, cheque_no: e.target.value })}
+                              onBlur={saveTransactionHeader}
+                              className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
 
                 {/* Items */}
-                <div className="px-4 py-3 border-b border-slate-100 space-y-2">
-                  <p className="text-xs font-semibold text-text-default flex items-center gap-1.5">
-                    <Receipt className="h-3.5 w-3.5" /> Items (2)
-                  </p>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm-custom text-text-body">Exide Battery 60Ah</span>
-                      <span className="text-sm-custom text-text-default">2 × Rs. 6,000</span>
+                {hasItems && (
+                  <div className="px-4 py-3 border-b border-slate-100 space-y-2">
+                    <p className="text-xs font-semibold text-text-default flex items-center gap-1.5">
+                      <Receipt className="h-3.5 w-3.5" /> Items ({selectedTransaction.items!.length})
+                    </p>
+                    <div className="space-y-3">
+                      {selectedTransaction.items!.map((item) => {
+                        const edit = itemEdits[item.ulid];
+                        if (!edit) return null;
+                        return (
+                          <div key={item.ulid} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) saveItem(item.ulid); }} className="border border-slate-200 p-2 space-y-1.5">
+                            <div className="[&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
+                              <ProductCombobox
+                                value={edit.product_ulid}
+                                onChange={(val, product) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], product_ulid: val, product_name: product?.name ?? prev[item.ulid].product_name } }))}
+                              />
+                            </div>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <div>
+                                <label className="block text-[10px] text-text-muted mb-0.5">Qty</label>
+                                <input
+                                  type="number" min="0"
+                                  value={edit.quantity}
+                                  onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], quantity: e.target.value } }))}
+                                  className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-text-muted mb-0.5">Rate</label>
+                                <input
+                                  type="number" min="0"
+                                  value={edit.rate}
+                                  onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], rate: e.target.value } }))}
+                                  className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-text-muted mb-0.5">Discount</label>
+                                <input
+                                  type="number" min="0"
+                                  value={edit.discount}
+                                  onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], discount: e.target.value } }))}
+                                  className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between pt-0.5">
+                              <span className="text-sm-custom text-text-body">Total <span className="font-semibold text-text-default">{item.total.toLocaleString()}</span></span>
+                              <button onClick={() => removeItem(item.ulid)} className="text-text-muted hover:text-red-600 transition-colors cursor-pointer">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm-custom text-text-body">Engine Oil 5W-30</span>
-                      <span className="text-sm-custom text-text-default">2 × Rs. 1,500</span>
+
+                    {addingItem ? (
+                      <div className="border border-dashed border-slate-300 p-2 space-y-1.5">
+                        <div className="[&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
+                          <ProductCombobox
+                            value={newItem.product_ulid}
+                            onChange={(val, product) => setNewItem((s) => ({ ...s, product_ulid: val, product_name: product?.name ?? s.product_name }))}
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div>
+                            <label className="block text-[10px] text-text-muted mb-0.5">Qty</label>
+                            <input
+                              type="number" min="0"
+                              value={newItem.quantity}
+                              onChange={(e) => setNewItem((s) => ({ ...s, quantity: e.target.value }))}
+                              className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-text-muted mb-0.5">Rate</label>
+                            <input
+                              type="number" min="0"
+                              value={newItem.rate}
+                              onChange={(e) => setNewItem((s) => ({ ...s, rate: e.target.value }))}
+                              className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-text-muted mb-0.5">Discount</label>
+                            <input
+                              type="number" min="0"
+                              value={newItem.discount}
+                              onChange={(e) => setNewItem((s) => ({ ...s, discount: e.target.value }))}
+                              className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 pt-0.5">
+                          <button onClick={() => { setNewItem(EMPTY_NEW_ITEM); setAddingItem(false); }} className="text-xs text-text-muted hover:text-text-default cursor-pointer">Cancel</button>
+                          <button onClick={saveNewItem} className="text-xs font-semibold text-white bg-black px-2 py-1 cursor-pointer hover:bg-black/80">Add</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setAddingItem(true)}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-text-default hover:text-black transition-colors cursor-pointer"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add Item
+                      </button>
+                    )}
+
+                    <div className="pt-2 space-y-1 border-t border-slate-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm-custom text-text-body">Discount</span>
+                        <span className="text-sm-custom text-text-default">{selectedTransaction.discount_percent ?? 0}%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm-custom text-text-body">Taxable Amount</span>
+                        <span className="text-sm-custom text-text-default">{(selectedTransaction.taxable_amount ?? 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm-custom text-text-body">VAT (13%)</span>
+                        <span className="text-sm-custom text-text-default">{(selectedTransaction.vat_amount ?? 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm-custom font-bold text-text-default">Grand Total</span>
+                        <span className="text-sm-custom font-bold text-text-default">{(selectedTransaction.grand_total ?? 0).toLocaleString()}</span>
+                      </div>
                     </div>
                   </div>
-                  <button className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer">View all items</button>
-                </div>
+                )}
 
-                {/* Actions */}
+                {/* Footer */}
+                <div className="flex items-center mt-auto border-t border-slate-100">
+                  <button
+                    onClick={() => setSelectedTransactionUlid(null)}
+                    className="flex-1 h-10 text-sm font-semibold text-text-default hover:bg-slate-50 cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => { saveTransactionHeader(); setSelectedTransactionUlid(null); }}
+                    className="flex-1 h-10 bg-black text-sm font-semibold text-white hover:bg-black/80 cursor-pointer transition-colors"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>}
+
+              {/* Opening balance edit panel */}
+              {editingOpeningBalance && selectedVendor && <div className="w-[280px] shrink-0 bg-white border border-slate-200 flex flex-col overflow-y-auto">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                  <p className="text-sm-custom font-bold text-text-default">Opening Balance</p>
+                  <button onClick={() => setEditingOpeningBalance(false)} className="text-text-muted hover:text-text-default transition-colors cursor-pointer">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
                 <div className="px-4 py-3 space-y-2">
-                  <p className="text-xs font-semibold text-text-default">Actions</p>
-                  <button className="flex w-full items-center justify-center gap-2 border border-slate-200 px-3 py-2 text-sm-custom font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer">
-                    <ExternalLink className="h-3.5 w-3.5" /> View Invoice
+                  <div>
+                    <label className="block text-xs text-text-muted mb-1">Fiscal Year</label>
+                    <p className="text-sm font-medium text-text-default">{activeFiscalYear?.name ?? "No fiscal year"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-muted mb-1">Amount</label>
+                    <input
+                      type="number" min="0"
+                      value={openingBalanceDraft}
+                      onChange={(e) => setOpeningBalanceDraft(e.target.value)}
+                      className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center mt-auto border-t border-slate-100">
+                  <button
+                    onClick={() => setEditingOpeningBalance(false)}
+                    className="flex-1 h-10 text-sm font-semibold text-text-default hover:bg-slate-50 cursor-pointer transition-colors"
+                  >
+                    Cancel
                   </button>
-                  <button className="flex w-full items-center justify-center gap-2 bg-green-600 px-3 py-2 text-sm-custom font-semibold text-white hover:bg-green-700 transition-colors cursor-pointer">
-                    <CreditCard className="h-3.5 w-3.5" /> Receive Payment
-                  </button>
-                  <button className="flex w-full items-center justify-center gap-2 border border-slate-200 px-3 py-2 text-sm-custom font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer">
-                    <Download className="h-3.5 w-3.5" /> Download PDF
-                  </button>
-                  <button className="flex w-full items-center justify-center gap-2 border border-slate-200 px-3 py-2 text-sm-custom font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer">
-                    <Send className="h-3.5 w-3.5" /> Send Invoice
+                  <button
+                    onClick={() => {
+                      if (!activeFiscalYearId) { toast.warning("No fiscal year", "Set an active fiscal year in Settings first."); return; }
+                      saveBalanceMutation.mutate({ ulid: selectedVendor.ulid, opening_balance: openingBalanceDraft, fiscal_year_id: String(activeFiscalYearId) });
+                      setEditingOpeningBalance(false);
+                    }}
+                    className="flex-1 h-10 bg-black text-sm font-semibold text-white hover:bg-black/80 cursor-pointer transition-colors"
+                  >
+                    Save
                   </button>
                 </div>
               </div>}
@@ -920,13 +1323,17 @@ function AdminAccountsContent() {
           className="w-36 bg-white border border-slate-200 shadow-md"
         >
           <button
-            onClick={() => { setTxMenuUlid(null); setTxMenuPos(null); }}
+            onClick={() => {
+              const tx = rawTransactions.find((t) => t.ulid === txMenuUlid);
+              if (tx) openTransactionPage(tx);
+              setTxMenuUlid(null); setTxMenuPos(null);
+            }}
             className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
           >
-            <Eye className="h-3.5 w-3.5" /> View
+            <Pencil className="h-3.5 w-3.5" /> Edit
           </button>
           <button
-            onClick={() => { setTxMenuUlid(null); setTxMenuPos(null); }}
+            onClick={() => { if (txMenuUlid) removeTransaction(txMenuUlid); setTxMenuUlid(null); setTxMenuPos(null); }}
             className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
           >
             <Trash2 className="h-3.5 w-3.5" /> Delete

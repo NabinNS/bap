@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,13 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { BsDateInput, getTodayBs, isValidBsDate } from "@/components/ui/form/BsDateInput";
 import { SelectField } from "@/components/ui/form/FormField";
-
-const PAYMENT_METHODS = [
-  { value: "cash", label: "Cash" },
-  { value: "cheque", label: "Cheque" },
-] as const;
-
-type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
+import { TRANSACTION_PARTICULARS, getParticularDirection } from "../constants";
 
 type VendorBalance = {
   fiscal_year_id: number;
@@ -42,10 +36,21 @@ type Meta = {
   to: number;
 };
 
+type SavedTransaction = {
+  ulid: string;
+  date: string;
+  particular: string;
+  voucher_no: string | null;
+  cheque_no: string | null;
+  debit: number | null;
+  credit: number | null;
+};
+
 function AmountPaidContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const vendorParam = searchParams.get("vendor");
+  const editTransactionParam = searchParams.get("transaction");
   const queryClient = useQueryClient();
 
   const [sideSearch, setSideSearch] = useState("");
@@ -53,8 +58,10 @@ function AmountPaidContent() {
   const [billDate, setBillDate] = useState(getTodayBs);
   const [billNo, setBillNo] = useState("");
   const [amount, setAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [particular, setParticular] = useState<string>("cash");
   const [chequeNo, setChequeNo] = useState("");
+  const [editingTransactionUlid, setEditingTransactionUlid] = useState<string | null>(null);
+  const loadedTransactionRef = useRef<string | null>(null);
 
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
     queryKey: ["acc-vendors"],
@@ -72,14 +79,35 @@ function AmountPaidContent() {
   const filteredVendors = vendors.filter((v) => v.name.toLowerCase().includes(sideSearch.toLowerCase()));
   const selectedVendor = vendors.find((v) => v.ulid === selectedVendorUlid) ?? null;
 
+  const { data: transactionsData } = useQuery({
+    queryKey: ["acc-vendor-transactions", selectedVendor?.ulid],
+    queryFn: () => apiFetch<{ data: SavedTransaction[] }>(`/acc-vendors/${selectedVendor!.ulid}/transactions`),
+    enabled: !!selectedVendor && !!editTransactionParam,
+  });
+
   useEffect(() => {
     if (!selectedVendorUlid && vendors.length > 0) setSelectedVendorUlid(vendors[0].ulid);
   }, [vendors]);
 
   // Starting a fresh payment whenever the vendor changes — previous vendor's draft doesn't carry over.
   useEffect(() => {
+    if (editTransactionParam) return;
     resetForm();
   }, [selectedVendorUlid]);
+
+  // Load the existing transaction into the form once, when editing via ?transaction=.
+  useEffect(() => {
+    if (!editTransactionParam || loadedTransactionRef.current === editTransactionParam) return;
+    const tx = transactionsData?.data.find((t) => t.ulid === editTransactionParam);
+    if (!tx) return;
+    loadedTransactionRef.current = editTransactionParam;
+    setEditingTransactionUlid(tx.ulid);
+    setBillDate(tx.date);
+    setBillNo(tx.voucher_no ?? "");
+    setAmount(String(tx.debit ?? tx.credit ?? ""));
+    setParticular(tx.particular);
+    setChequeNo(tx.cheque_no ?? "");
+  }, [editTransactionParam, transactionsData]);
 
   function selectVendor(ulid: string) {
     setSelectedVendorUlid(ulid);
@@ -87,15 +115,15 @@ function AmountPaidContent() {
   }
 
   // Set once the current draft has been persisted (by auto-save or Save) — since there's no
-  // endpoint to update a plain ledger entry, further field edits are locked to avoid either
-  // silently losing them or creating duplicate transactions on every blur.
+  // endpoint to update a plain ledger entry, further blurs won't re-save (see tryAutoSave), so
+  // this only exists to avoid firing a duplicate create. Fields stay editable either way.
   const [paymentSaved, setPaymentSaved] = useState(false);
 
   function resetForm() {
     setBillDate(getTodayBs());
     setBillNo("");
     setAmount("");
-    setPaymentMethod("cash");
+    setParticular("cash");
     setChequeNo("");
     setPaymentSaved(false);
   }
@@ -110,29 +138,63 @@ function AmountPaidContent() {
     onError: (err: any) => toast.error("Failed to save payment", err?.message ?? "Something went wrong."),
   });
 
+  const updatePaymentMutation = useMutation({
+    mutationFn: (payload: object) =>
+      apiFetch(`/acc-vendors/${selectedVendorUlid}/transactions/${editingTransactionUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", selectedVendorUlid] });
+    },
+    onError: (err: any) => toast.error("Failed to update payment", err?.message ?? "Something went wrong."),
+  });
+
   function isFormReady(): boolean {
     if (!selectedVendorUlid) return false;
     if (!isValidBsDate(billDate)) return false;
+    if (!particular) return false;
     if (!amount || Number(amount) <= 0) return false;
     return true;
   }
 
-  async function savePayment() {
-    if (!selectedVendorUlid) return;
-    await savePaymentMutation.mutateAsync({
+  // Clicking Save also blurs whichever field had focus, firing tryAutoSave at nearly the same
+  // moment handleSave runs — both would otherwise start their own independent POST. Routing both
+  // through this shared in-flight promise means the second caller awaits the first save instead
+  // of firing a duplicate request.
+  const saveInFlightRef = useRef<Promise<void> | null>(null);
+
+  function savePayment(): Promise<void> {
+    if (saveInFlightRef.current) return saveInFlightRef.current;
+    if (!selectedVendorUlid) return Promise.resolve();
+
+    const direction = getParticularDirection(particular);
+    const payload = {
       date: billDate,
-      particular: paymentMethod,
+      particular,
       voucher_no: billNo || null,
-      cheque_no: paymentMethod === "cheque" ? chequeNo : null,
-      debit: Number(amount),
-    });
-    setPaymentSaved(true);
+      cheque_no: particular === "cheque" ? chequeNo : null,
+      debit: direction === "debit" ? Number(amount) : null,
+      credit: direction === "credit" ? Number(amount) : null,
+    };
+
+    const promise = (editingTransactionUlid
+      ? updatePaymentMutation.mutateAsync(payload)
+      : savePaymentMutation.mutateAsync(payload)
+    )
+      .then(() => {
+        setPaymentSaved(true);
+      })
+      .finally(() => {
+        saveInFlightRef.current = null;
+      });
+
+    saveInFlightRef.current = promise;
+    return promise;
   }
 
-  // Fires on blur of any field — silently no-ops until Date and Amount are filled in, and only
-  // saves once per draft (no success toast, form stays as-is — see `paymentSaved`).
+  // Fires on blur of any field — silently no-ops until Date and Amount are filled in. When
+  // editing an existing payment every blur re-saves; a fresh draft only saves once (see `paymentSaved`).
   function tryAutoSave() {
-    if (paymentSaved || savePaymentMutation.isPending) return;
+    if (paymentSaved && !editingTransactionUlid) return;
     if (!isFormReady()) return;
     savePayment().catch(() => {});
   }
@@ -174,13 +236,13 @@ function AmountPaidContent() {
           <span>/</span>
           <Link href="/admin/accounts" className="hover:text-text-default transition-colors">Accounts</Link>
           <span>/</span>
-          <span className="text-text-default font-medium">Amount Paid</span>
+          <span className="text-text-default font-medium">{editTransactionParam ? "Edit Transaction" : "Amount Paid"}</span>
         </nav>
 
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-h3 font-bold text-text-default">Amount Paid</h2>
-            <p className="text-sm text-text-muted mt-0.5">Record a payment made to a vendor.</p>
+            <h2 className="text-h3 font-bold text-text-default">{editTransactionParam ? "Edit Transaction" : "Amount Paid"}</h2>
+            <p className="text-sm text-text-muted mt-0.5">{editTransactionParam ? "Update this ledger entry." : "Record a payment made to a vendor."}</p>
           </div>
           <div className="flex items-center shrink-0">
             <Link
@@ -298,12 +360,12 @@ function AmountPaidContent() {
               </div>
             </div>
 
-            {/* Payment form */}
+            {/* Transaction form */}
             <div className="border border-slate-300 bg-white p-6">
-              <div className="grid grid-cols-5 gap-4">
+              <div className={`grid ${particular === "cheque" ? "grid-cols-5" : "grid-cols-4"} gap-4`}>
                 <div>
                   <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">Date</label>
-                  <BsDateInput value={billDate} onChange={setBillDate} onBlur={tryAutoSave} disabled={paymentSaved} />
+                  <BsDateInput value={billDate} onChange={setBillDate} onBlur={tryAutoSave} />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">Bill No</label>
@@ -312,50 +374,50 @@ function AmountPaidContent() {
                     value={billNo}
                     onChange={(e) => setBillNo(e.target.value)}
                     onBlur={tryAutoSave}
-                    disabled={paymentSaved}
                     placeholder="Bill no..."
                     className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
                   />
                 </div>
                 <div className="[&_select]:h-8 [&_select]:text-sm [&_select]:font-medium [&_select]:text-black [&_.mt-1]:mt-0">
                   <SelectField
-                    label="Method"
-                    value={paymentMethod}
-                    disabled={paymentSaved}
+                    label="Particular"
+                    value={particular}
                     onChange={(e) => {
-                      const method = e.target.value as PaymentMethod;
-                      setPaymentMethod(method);
-                      if (method === "cash") setChequeNo("");
+                      const value = e.target.value;
+                      setParticular(value);
+                      if (value !== "cheque") setChequeNo("");
                       tryAutoSave();
                     }}
-                    options={PAYMENT_METHODS.map((m) => ({ label: m.label, value: m.value }))}
+                    options={TRANSACTION_PARTICULARS.map((p) => ({ label: p.label, value: p.value }))}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">Amount</label>
+                  <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">
+                    Amount <span className="normal-case text-text-muted">({getParticularDirection(particular) === "debit" ? "Debit" : "Credit"})</span>
+                  </label>
                   <input
                     type="number"
                     min="0"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     onBlur={tryAutoSave}
-                    disabled={paymentSaved}
                     placeholder="0.00"
-                    className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">Cheque No</label>
-                  <input
-                    type="text"
-                    value={chequeNo}
-                    onChange={(e) => setChequeNo(e.target.value)}
-                    onBlur={tryAutoSave}
-                    disabled={paymentSaved}
-                    placeholder="Cheque no..."
                     className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
                   />
                 </div>
+                {particular === "cheque" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">Cheque No</label>
+                    <input
+                      type="text"
+                      value={chequeNo}
+                      onChange={(e) => setChequeNo(e.target.value)}
+                      onBlur={tryAutoSave}
+                      placeholder="Cheque no..."
+                      className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-end mt-6 pt-4 border-t border-slate-100">

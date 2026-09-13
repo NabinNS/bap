@@ -2,6 +2,8 @@
 
 namespace App\Application\AccVendors\Actions;
 
+use App\Domain\AccVendors\DTOs\AccVendorTransactionData;
+use App\Domain\AccVendors\Repositories\AccVendorTransactionRepositoryInterface;
 use App\Domain\Settings\Repositories\TenantSettingRepositoryInterface;
 use App\Models\AccVendor;
 use App\Models\AccVendorTransaction;
@@ -11,12 +13,13 @@ use Illuminate\Validation\ValidationException;
 class StoreAccVendorTransactionAction
 {
     public function __construct(
+        private AccVendorTransactionRepositoryInterface $transactions,
         private TenantSettingRepositoryInterface $settings,
         private RecordAccVendorTransactionItemAction $recordItem,
         private RecalculateVendorBalanceAction $recalculateBalance,
     ) {}
 
-    public function execute(int $tenantId, AccVendor $vendor, array $data): AccVendorTransaction
+    public function execute(int $tenantId, AccVendor $vendor, AccVendorTransactionData $data): AccVendorTransaction
     {
         $settings = $this->settings->getOrCreate($tenantId);
 
@@ -26,31 +29,15 @@ class StoreAccVendorTransactionAction
             ]);
         }
 
-        $items = $data['items'] ?? [];
+        return DB::transaction(function () use ($tenantId, $vendor, $settings, $data) {
+            $transaction = $this->transactions->create($tenantId, $vendor, $settings->fiscal_year_id, $data);
 
-        return DB::transaction(function () use ($tenantId, $vendor, $settings, $data, $items) {
-            $transaction = $vendor->transactions()->create([
-                'tenant_id'      => $tenantId,
-                'fiscal_year_id' => $settings->fiscal_year_id,
-                'date'           => $data['date'],
-                'particular'     => $data['particular'],
-                'voucher_no'     => $data['voucher_no'] ?? null,
-                'cheque_no'      => $data['cheque_no'] ?? null,
-                // When items are supplied, credit is derived from their amounts (see below) since a
-                // purchase increases what's owed to the vendor; otherwise use the manually entered
-                // debit/credit (plain ledger entry, e.g. a payment).
-                'debit'  => $data['debit'] ?? null,
-                'credit' => $items ? 0 : ($data['credit'] ?? null),
-                // Applied to the very first item's totals recalculation below, if given.
-                'bill_details' => isset($data['discount_percent']) ? ['discount_percent' => $data['discount_percent']] : null,
-            ]);
-
-            foreach ($items as $item) {
+            foreach ($data->items as $item) {
                 // Each call already recalculates the vendor balance via RecalculateAccVendorTransactionTotalsAction.
                 $this->recordItem->execute($tenantId, $vendor, $transaction, $item);
             }
 
-            if (!$items) {
+            if (!$data->items) {
                 $this->recalculateBalance->execute($vendor, $settings->fiscal_year_id);
             }
 

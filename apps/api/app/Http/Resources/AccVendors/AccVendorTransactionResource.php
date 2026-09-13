@@ -23,6 +23,16 @@ class AccVendorTransactionResource extends JsonResource
             'taxable_amount'   => $this->taxable_amount,
             'vat_amount'       => $this->vat_amount,
             'grand_total'      => $this->grand_total,
+            'items'            => $this->whenLoaded('items', fn() => $this->items->map(fn($item) => [
+                'ulid'         => $item->ulid,
+                'product_ulid' => $item->product->ulid,
+                'product_name' => $item->product->name,
+                'quantity'     => $item->quantity,
+                'rate'         => $item->rate,
+                'amount'       => $item->amount,
+                'discount'     => $item->discount,
+                'total'        => $item->total,
+            ])),
         ];
     }
 }

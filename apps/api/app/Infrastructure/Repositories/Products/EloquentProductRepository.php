@@ -54,6 +54,32 @@ class EloquentProductRepository implements ProductRepositoryInterface
             ->firstOrFail();
     }
 
+    public function lockByUlid(int $tenantId, string $ulid): Product
+    {
+        return Product::where('tenant_id', $tenantId)
+            ->where('ulid', $ulid)
+            ->lockForUpdate()
+            ->firstOrFail();
+    }
+
+    public function lockById(int $tenantId, int $id): Product
+    {
+        return Product::where('tenant_id', $tenantId)
+            ->where('id', $id)
+            ->lockForUpdate()
+            ->firstOrFail();
+    }
+
+    public function updateStockAndCost(Product $product, int $stock, int $wacc): Product
+    {
+        $product->update([
+            'stock' => $stock,
+            'wacc'  => $wacc,
+        ]);
+
+        return $product;
+    }
+
     public function create(int $tenantId, ProductData $data): Product
     {
         return Product::create([

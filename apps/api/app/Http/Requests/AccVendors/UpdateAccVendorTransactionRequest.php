@@ -3,12 +3,11 @@
 namespace App\Http\Requests\AccVendors;
 
 use App\Domain\AccVendors\DTOs\AccVendorTransactionData;
-use App\Domain\AccVendors\DTOs\AccVendorTransactionItemData;
 use App\Enums\TransactionParticular;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class StoreAccVendorTransactionRequest extends FormRequest
+class UpdateAccVendorTransactionRequest extends FormRequest
 {
     public function rules(): array
     {
@@ -19,13 +18,6 @@ class StoreAccVendorTransactionRequest extends FormRequest
             'cheque_no'  => ['nullable', 'string', 'max:100'],
             'debit'      => ['nullable', 'numeric', 'min:0'],
             'credit'     => ['nullable', 'numeric', 'min:0'],
-            'discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
-
-            'items'                    => ['nullable', 'array'],
-            'items.*.product_ulid'     => ['required_with:items', 'string', 'exists:products,ulid'],
-            'items.*.quantity'         => ['required_with:items', 'integer', 'min:1'],
-            'items.*.rate'             => ['required_with:items', 'integer', 'min:0'],
-            'items.*.discount'         => ['nullable', 'integer', 'min:0'],
         ];
     }
 
@@ -40,16 +32,8 @@ class StoreAccVendorTransactionRequest extends FormRequest
             chequeNo:        $v['cheque_no'] ?? null,
             debit:           isset($v['debit']) ? (float) $v['debit'] : null,
             credit:          isset($v['credit']) ? (float) $v['credit'] : null,
-            discountPercent: $v['discount_percent'] ?? null,
-            items:           array_map(
-                fn(array $item) => new AccVendorTransactionItemData(
-                    productUlid: $item['product_ulid'],
-                    quantity:    (int) $item['quantity'],
-                    rate:        (int) $item['rate'],
-                    discount:    (int) ($item['discount'] ?? 0),
-                ),
-                $v['items'] ?? [],
-            ),
+            discountPercent: null,
+            items:           [],
         );
     }
 }

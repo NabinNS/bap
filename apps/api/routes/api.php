@@ -53,6 +53,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('acc-vendors/{accVendor}/transactions', [AccVendorTransactionController::class, 'store']);
     Route::post('acc-vendors/{accVendor}/transactions/{transaction}/items', [AccVendorTransactionController::class, 'storeItem']);
     Route::patch('acc-vendors/{accVendor}/transactions/{transaction}/totals', [AccVendorTransactionController::class, 'updateTotals']);
+    Route::patch('acc-vendors/{accVendor}/transactions/{transaction}', [AccVendorTransactionController::class, 'update']);
+    Route::delete('acc-vendors/{accVendor}/transactions/{transaction}', [AccVendorTransactionController::class, 'destroy']);
+    Route::patch('acc-vendors/{accVendor}/transactions/{transaction}/items/{item}', [AccVendorTransactionController::class, 'updateItem']);
+    Route::delete('acc-vendors/{accVendor}/transactions/{transaction}/items/{item}', [AccVendorTransactionController::class, 'destroyItem']);
     Route::get('settings/bootstrap', [TenantSettingController::class, 'bootstrap']);
     Route::get('tenant', [TenantController::class, 'show']);
     Route::put('tenant', [TenantController::class, 'update']);

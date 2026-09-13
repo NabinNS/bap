@@ -17,6 +17,14 @@ interface ProductRepositoryInterface
 
     public function findByUlid(int $tenantId, string $ulid): Product;
 
+    /** Locks the row for update — use inside a DB transaction when the caller will adjust stock/cost. */
+    public function lockByUlid(int $tenantId, string $ulid): Product;
+
+    /** Same as lockByUlid, but by primary key — for reversing a transaction item's stock effect, which only stores product_id. */
+    public function lockById(int $tenantId, int $id): Product;
+
+    public function updateStockAndCost(Product $product, int $stock, int $wacc): Product;
+
     public function create(int $tenantId, ProductData $data): Product;
 
     public function update(Product $product, ProductData $data): Product;
