@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
+import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { TRANSACTION_PARTICULARS, getParticularLabel, getParticularDirection, ITEM_CAPABLE_PARTICULARS } from "./constants";
 import { toast } from "@/lib/toast";
@@ -15,6 +15,10 @@ import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, NumberField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
 import { BsDateInput, isValidBsDate } from "@/components/ui/form/BsDateInput";
 import { ProductCombobox, ProductOption } from "@/components/products/ProductCombobox";
+import { ConfirmDialog } from "@/components/ui/dialog/ConfirmDialog";
+import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
+import { useImageGroup } from "@/hooks/useImageGroup";
+import { Modal } from "@/components/ui/Modal";
 
 type VendorBalance = {
   fiscal_year_id: number;
@@ -130,11 +134,31 @@ function AdminAccountsContent() {
   const [cardMenuPos, setCardMenuPos] = useState<{ top: number; left: number } | null>(null);
   const cardMenuRef = useRef<HTMLDivElement>(null);
   const [txMenuUlid, setTxMenuUlid] = useState<string | null>(null);
+  const [showFullDetails, setShowFullDetails] = useState(false);
+  const [fiscalYearModalOpen, setFiscalYearModalOpen] = useState(false);
+  const [trashModalOpen, setTrashModalOpen] = useState(false);
+  // null = "follow the tenant's active fiscal year" (activeFiscalYearId); set once the user
+  // explicitly picks one from the modal, to browse a different year's ledger.
+  const [viewFiscalYearId, setViewFiscalYearId] = useState<number | null>(null);
+  const [fiscalYearDraft, setFiscalYearDraft] = useState<string>("");
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [dateFromDraft, setDateFromDraft] = useState("");
+  const [dateToDraft, setDateToDraft] = useState("");
+  // BsDateInput only reads `value` on mount — bump this to force it to remount and pick up
+  // an externally-cleared value (its own typed text otherwise never re-syncs from props).
+  const [dateFilterResetKey, setDateFilterResetKey] = useState(0);
+  const [confirmDeleteTxUlid, setConfirmDeleteTxUlid] = useState<string | null>(null);
+  const [confirmDeleteItemUlid, setConfirmDeleteItemUlid] = useState<string | null>(null);
+  const loadedReceiptForRef = useRef<string | null>(null);
+  const receiptImage = useImageGroup("acc_vendor_transaction", "acc-vendor-transactions", "receipt");
   const [txMenuPos, setTxMenuPos] = useState<{ top: number; left: number } | null>(null);
   const txMenuRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const draftRef = useRef({ particular: "", voucher_no: "", debit: "", credit: "", date: "" });
+  const [pendingVendorUlid, setPendingVendorUlid] = useState<string | null>(null);
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
   const [txEdit, setTxEdit] = useState<{ date: string; particular: string; voucher_no: string; cheque_no: string; amount: string } | null>(null);
   const [itemEdits, setItemEdits] = useState<Record<string, { product_ulid: string; product_name: string; quantity: string; rate: string; discount: string }>>({});
@@ -164,6 +188,11 @@ function AdminAccountsContent() {
   const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
   const fiscalYears = fiscalYearsData?.data ?? [];
 
+  const viewedFiscalYearId = viewFiscalYearId ?? activeFiscalYearId;
+  const viewedFiscalYear = viewFiscalYearId
+    ? fiscalYears.find((fy) => fy.id === viewFiscalYearId) ?? null
+    : activeFiscalYear;
+
   const vendors = vendorsData?.data ?? [];
 
   const filteredVendors = vendors.filter((v) =>
@@ -178,11 +207,19 @@ function AdminAccountsContent() {
     : null;
 
   const activeOpeningBalance = activeBalance?.opening_balance ?? null;
-  const activeRemainingBalance = activeBalance?.remaining_balance ?? null;
+
+  // Stats shown against the vendor's ledger follow whichever fiscal year is being viewed,
+  // not necessarily the tenant's active one — same shape as activeBalance above.
+  const viewedBalance = viewedFiscalYearId && selectedVendor
+    ? selectedVendor.balances?.find((b) => b.fiscal_year_id === viewedFiscalYearId) ?? null
+    : null;
+  const viewedRemainingBalance = viewedBalance?.remaining_balance ?? null;
 
   const { data: transactionsData, isLoading: transactionsLoading } = useQuery({
-    queryKey: ["acc-vendor-transactions", selectedVendor?.ulid],
-    queryFn: () => apiFetch<{ data: Transaction[] }>(`/acc-vendors/${selectedVendor!.ulid}/transactions`),
+    queryKey: ["acc-vendor-transactions", selectedVendor?.ulid, viewedFiscalYearId],
+    queryFn: () => apiFetch<{ data: Transaction[] }>(
+      `/acc-vendors/${selectedVendor!.ulid}/transactions?per_page=1000${viewedFiscalYearId ? `&fiscal_year_id=${viewedFiscalYearId}` : ""}`
+    ),
     enabled: !!selectedVendor,
   });
 
@@ -192,6 +229,9 @@ function AdminAccountsContent() {
 
   useEffect(() => {
     draftRef.current = { particular: "", voucher_no: "", debit: "", credit: "", date: "" };
+    setViewFiscalYearId(null); // back to the tenant's active fiscal year for the newly selected vendor
+    setDateFrom("");
+    setDateTo("");
   }, [selectedVendorUlid]);
 
   useEffect(() => {
@@ -239,6 +279,25 @@ function AdminAccountsContent() {
       toast.success("Transaction deleted", "The transaction has been removed.");
     },
     onError: (err: any) => toast.error("Failed to delete transaction", err?.message ?? "Something went wrong."),
+  });
+
+  const { data: trashedData, isLoading: trashedLoading } = useQuery({
+    queryKey: ["acc-vendor-transactions-trashed", selectedVendor?.ulid],
+    queryFn: () => apiFetch<{ data: Transaction[] }>(`/acc-vendors/${selectedVendor!.ulid}/transactions/trashed`),
+    enabled: !!selectedVendor && trashModalOpen,
+  });
+  const trashedTransactions = trashedData?.data ?? [];
+
+  const restoreTransactionMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid }: { vendorUlid: string; txUlid: string }) =>
+      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}/restore`, { method: "POST" }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions-trashed", variables.vendorUlid] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      toast.success("Transaction restored", "The transaction is back in the ledger.");
+    },
+    onError: (err: any) => toast.error("Failed to restore transaction", err?.message ?? "Something went wrong."),
   });
 
   const updateTransactionMutation = useMutation({
@@ -437,25 +496,23 @@ function AdminAccountsContent() {
 
   const rawTransactions = transactionsData?.data ?? [];
 
+  // BS dates are zero-padded "YYYY-MM-DD" strings, so lexicographic comparison sorts correctly.
+  const dateFilteredTransactions = (dateFrom || dateTo)
+    ? rawTransactions.filter((t) => (!dateFrom || t.date >= dateFrom) && (!dateTo || t.date <= dateTo))
+    : rawTransactions;
+
   const PURCHASE_PARTICULARS = ["purchase", "purchase_non_vat"];
   const PAYMENT_PARTICULARS = ["cash", "cheque"];
 
-  const totalPurchase = rawTransactions
+  const totalPurchase = dateFilteredTransactions
     .filter((t) => PURCHASE_PARTICULARS.includes(t.particular))
     .reduce((sum, t) => sum + Number(t.credit ?? 0), 0);
-  const invoiceCount = rawTransactions.filter((t) => PURCHASE_PARTICULARS.includes(t.particular)).length;
 
-  const totalPaid = rawTransactions
+  const totalPaid = dateFilteredTransactions
     .filter((t) => PAYMENT_PARTICULARS.includes(t.particular))
     .reduce((sum, t) => sum + Number(t.debit ?? 0), 0);
-  const paymentCount = rawTransactions.filter((t) => PAYMENT_PARTICULARS.includes(t.particular)).length;
 
-  const totalCreditNotes = rawTransactions
-    .filter((t) => t.particular === "credit_note")
-    .reduce((sum, t) => sum + Number(t.credit ?? 0), 0);
-  const creditNoteCount = rawTransactions.filter((t) => t.particular === "credit_note").length;
-
-  const lastTransactionDate = rawTransactions.reduce<string | null>(
+  const lastTransactionDate = dateFilteredTransactions.reduce<string | null>(
     (latest, t) => (!latest || t.date > latest ? t.date : latest),
     null
   );
@@ -468,16 +525,16 @@ function AdminAccountsContent() {
     return `${year}-4-1`;
   }
 
-  const openingBalanceRow: Transaction | null = activeOpeningBalance != null
+  const openingBalanceRow: Transaction | null = viewedBalance?.opening_balance != null
     ? {
-        ulid: "__opening_balance__",
-        date: activeFiscalYear ? fiscalYearStartDate(activeFiscalYear.name) : "Opening",
-        particular: "Opening Balance",
-        voucher_no: null,
-        type: "Opening",
-        debit: null,
-        credit: Number(activeOpeningBalance),
-      }
+      ulid: "__opening_balance__",
+      date: viewedFiscalYear ? fiscalYearStartDate(viewedFiscalYear.name) : "Opening",
+      particular: "Opening Balance",
+      voucher_no: null,
+      type: "Opening",
+      debit: null,
+      credit: Number(viewedBalance.opening_balance),
+    }
     : null;
 
   const draftBsDate = draftRef.current.date;
@@ -493,15 +550,44 @@ function AdminAccountsContent() {
   };
 
   const transactions = [
-    ...(openingBalanceRow ? [openingBalanceRow, ...rawTransactions] : rawTransactions),
+    ...(openingBalanceRow ? [openingBalanceRow, ...dateFilteredTransactions] : dateFilteredTransactions),
     draftTransaction,
   ];
 
+  function draftHasContent(): boolean {
+    const d = draftRef.current;
+    return !!(d.particular || d.voucher_no || d.debit || d.credit);
+  }
+
+  function selectVendorNow(ulid: string) {
+    setSelectedVendorUlid(ulid);
+    setSelectedTransactionUlid(null);
+    setEditingOpeningBalance(false);
+    setOpenMenuUlid(null);
+  }
+
+  // Switching vendors resets the quick-add draft row (see the effect keyed on
+  // selectedVendorUlid) — confirm first if the user has actually typed something into it.
+  function trySwitchVendor(ulid: string) {
+    if (ulid === selectedVendorUlid) { setOpenMenuUlid(null); return; }
+    if (draftHasContent()) {
+      setPendingVendorUlid(ulid);
+      return;
+    }
+    selectVendorNow(ulid);
+  }
+
   function removeTransaction(txUlid: string) {
     if (!selectedVendorUlid) return;
-    if (!confirm("Delete this transaction? This cannot be undone.")) return;
+    setConfirmDeleteTxUlid(txUlid);
+  }
+
+  function confirmRemoveTransaction() {
+    if (!selectedVendorUlid || !confirmDeleteTxUlid) return;
+    const txUlid = confirmDeleteTxUlid;
     deleteTransactionMutation.mutate({ vendorUlid: selectedVendorUlid, txUlid });
     if (selectedTransactionUlid === txUlid) setSelectedTransactionUlid(null);
+    setConfirmDeleteTxUlid(null);
   }
 
   // Derived (not snapshotted) so the panel reflects the latest server data after any edit/delete.
@@ -527,6 +613,11 @@ function AdminAccountsContent() {
       rate: String(it.rate),
       discount: String(it.discount),
     }])));
+    if (!selectedTransaction) { receiptImage.reset(); loadedReceiptForRef.current = null; }
+    else if (loadedReceiptForRef.current !== selectedTransaction.ulid) {
+      loadedReceiptForRef.current = selectedTransaction.ulid;
+      receiptImage.load(selectedTransaction.ulid);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTransactionUlid]);
 
@@ -611,9 +702,15 @@ function AdminAccountsContent() {
 
   function removeItem(itemUlid: string) {
     if (!selectedVendorUlid || !selectedTransactionUlid) return;
-    if (!confirm("Delete this line item? If it's the last item, the whole transaction will be removed.")) return;
+    setConfirmDeleteItemUlid(itemUlid);
+  }
+
+  function confirmRemoveItem() {
+    if (!selectedVendorUlid || !selectedTransactionUlid || !confirmDeleteItemUlid) return;
+    const itemUlid = confirmDeleteItemUlid;
     deleteItemMutation.mutate({ vendorUlid: selectedVendorUlid, txUlid: selectedTransactionUlid, itemUlid });
     if (selectedTransaction?.items?.length === 1) setSelectedTransactionUlid(null);
+    setConfirmDeleteItemUlid(null);
   }
 
   // compute running balance per row: credit increases, debit decreases
@@ -630,6 +727,74 @@ function AdminAccountsContent() {
   txMenuUlidRef.current = txMenuUlid;
 
   const inputCls = "w-full text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-600 bg-white px-2 py-1 rounded-none";
+
+  function exportableRows(): { date: string; particular: string; voucher_no: string; debit: string; credit: string; balance: string }[] {
+    return transactions
+      .filter((t) => t.ulid !== "__new__")
+      .map((t, i) => ({
+        date: t.date,
+        particular: t.ulid === "__opening_balance__" ? "Opening Balance" : getParticularLabel(t.particular),
+        voucher_no: t.voucher_no ?? "",
+        debit: t.debit != null ? String(t.debit) : "",
+        credit: t.credit != null ? String(t.credit) : "",
+        balance: runningBalancesRef.current[i] != null ? String(runningBalancesRef.current[i]) : "",
+      }));
+  }
+
+  function escapeHtml(value: string): string {
+    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function handlePrintLedger() {
+    const rows = exportableRows();
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const title = `${selectedVendor?.name ?? "Ledger"} — Transactions`;
+    const rowsHtml = rows.map((r) => `
+      <tr>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.particular)}</td>
+        <td>${escapeHtml(r.voucher_no)}</td>
+        <td class="num">${r.debit ? Number(r.debit).toLocaleString() : ""}</td>
+        <td class="num">${r.credit ? Number(r.credit).toLocaleString() : ""}</td>
+        <td class="num">${r.balance ? Number(r.balance).toLocaleString() : ""}</td>
+      </tr>`).join("");
+    win.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title><style>
+      body { font-family: sans-serif; padding: 24px; }
+      h2 { margin: 0 0 4px; }
+      p { margin: 0 0 16px; color: #555; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+      th { background: #f2f2f2; }
+      td.num, th.num { text-align: right; }
+    </style></head><body>
+      <h2>${escapeHtml(selectedVendor?.name ?? "Ledger")}</h2>
+      <p>Transaction Ledger</p>
+      <table>
+        <thead><tr><th>Date</th><th>Particular</th><th>Voucher No</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
+  function handleExportLedgerCsv() {
+    const rows = exportableRows();
+    const header = ["Date", "Particular", "Voucher No", "Debit", "Credit", "Balance"];
+    const csvEscape = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const lines = [header, ...rows.map((r) => [r.date, r.particular, r.voucher_no, r.debit, r.credit, r.balance])]
+      .map((cols) => cols.map(csvEscape).join(","))
+      .join("\n");
+    const blob = new Blob([lines], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(selectedVendor?.name ?? "ledger").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-transactions.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // Routes to whichever full-page editor matches how this transaction actually exists —
   // items page only if it already has items, otherwise the simple debit/credit editor.
@@ -676,7 +841,32 @@ function AdminAccountsContent() {
             onChange={(v) => { draftRef.current.particular = v; forceUpdate(); }}
           />
         );
-        return <span className="text-sm font-medium text-black">{getParticularLabel(row.original.particular)}</span>;
+        const items = row.original.items;
+        return (
+          <div className="py-0.5">
+            <span className="block mb-1 text-sm font-medium text-black">{getParticularLabel(row.original.particular)}</span>
+            {showFullDetails && items && items.length > 0 && (
+              <div className="border-l-2 border-slate-200 pl-2">
+                <div className="grid grid-cols-[1fr_44px_64px_56px_64px] gap-x-2 text-[10px] font-semibold uppercase tracking-wide text-text-muted/70">
+                  <span>Item</span>
+                  <span className="text-right">Qty</span>
+                  <span className="text-right">Rate</span>
+                  <span className="text-right">Disc</span>
+                  <span className="text-right">Total</span>
+                </div>
+                {items.map((it) => (
+                  <div key={it.ulid} className="grid grid-cols-[1fr_44px_64px_56px_64px] gap-x-2 text-[11px] leading-tight text-text-muted">
+                    <span className="truncate text-text-default" title={it.product_name}>{it.product_name}</span>
+                    <span className="text-right">{it.quantity}</span>
+                    <span className="text-right">{it.rate.toLocaleString()}</span>
+                    <span className="text-right">{it.discount.toLocaleString()}</span>
+                    <span className="text-right font-semibold text-text-default">{it.total.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
       },
     },
     {
@@ -768,7 +958,7 @@ function AdminAccountsContent() {
         );
       },
     },
-  ], [selectedVendorUlid]);
+  ], [selectedVendorUlid, showFullDetails]);
 
   return (
     <div className="flex gap-0 transition-all duration-300 h-full">
@@ -823,7 +1013,7 @@ function AdminAccountsContent() {
                   filteredVendors.map((vendor) => (
                     <div
                       key={vendor.ulid}
-                      onClick={() => { setSelectedVendorUlid(vendor.ulid); setSelectedTransactionUlid(null); setEditingOpeningBalance(false); setOpenMenuUlid(null); }}
+                      onClick={() => trySwitchVendor(vendor.ulid)}
                       className={`flex items-center py-3.5 border-b border-slate-400 cursor-pointer transition-colors ${selectedVendor?.ulid === vendor.ulid ? "bg-slate-200 border-l-2 border-l-slate-700 pl-[14px] pr-1" : "pl-4 pr-1 hover:bg-slate-50"}`}
                     >
                       <span className={`text-sm truncate flex-1 min-w-0 ${selectedVendor?.ulid === vendor.ulid ? "font-semibold text-text-default" : "font-medium text-text-default"}`}>{vendor.name}</span>
@@ -852,7 +1042,7 @@ function AdminAccountsContent() {
           </div>
 
           {/* Table + detail card */}
-          <div className="flex-1 min-w-0 flex flex-col gap-4 self-start">
+          <div className="flex-1 min-w-0 flex flex-col gap-4 h-full min-h-0">
             {/* Account detail card */}
             <div className="bg-white px-5 py-4 space-y-3">
               {/* Top row: name + buttons */}
@@ -931,45 +1121,54 @@ function AdminAccountsContent() {
               </div>
 
               {selectedVendor && (
-                <div className="grid grid-cols-6 gap-4 pt-1 border-t border-slate-100">
+                <div className="grid grid-cols-5 gap-4 pt-1 border-t border-slate-300">
                   <div>
                     <p className="text-sm-custom text-text-body">Remaining Balance</p>
                     <p className="text-sm-custom font-bold text-text-default mt-0.5">
-                      {activeRemainingBalance != null ? Number(activeRemainingBalance).toLocaleString() : "—"}
+                      {viewedRemainingBalance != null ? Number(viewedRemainingBalance).toLocaleString() : "—"}
                     </p>
-                    <p className="text-sm-custom text-text-body mt-0.5">{activeFiscalYear?.name ?? "No fiscal year"}</p>
                   </div>
                   <div>
                     <p className="text-sm-custom text-text-body">Total Purchase</p>
                     <p className="text-sm-custom font-bold text-text-default mt-0.5">{totalPurchase.toLocaleString()}</p>
-                    <p className="text-sm-custom text-text-body mt-0.5">{invoiceCount} {invoiceCount === 1 ? "Invoice" : "Invoices"}</p>
                   </div>
                   <div>
                     <p className="text-sm-custom text-text-body">Total Paid</p>
-                    <p className="text-sm-custom font-bold text-green-600 mt-0.5">{totalPaid.toLocaleString()}</p>
-                    <p className="text-sm-custom text-text-body mt-0.5">{paymentCount} {paymentCount === 1 ? "Payment" : "Payments"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm-custom text-text-body">Total Credit</p>
-                    <p className="text-sm-custom font-bold text-green-600 mt-0.5">{totalCreditNotes.toLocaleString()}</p>
-                    <p className="text-sm-custom text-text-body mt-0.5">{creditNoteCount} Credit Notes</p>
-                  </div>
-                  <div>
-                    <p className="text-sm-custom text-text-body">Transactions</p>
-                    <p className="text-sm-custom font-bold text-text-default mt-0.5">{rawTransactions.length}</p>
-                    <p className="text-sm-custom text-text-body mt-0.5">All Time</p>
+                    <p className="text-sm-custom font-bold text-text-default mt-0.5">{totalPaid.toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-sm-custom text-text-body">Last Transaction</p>
                     <p className="text-sm-custom font-bold text-text-default mt-0.5">{lastTransactionDate ?? "—"}</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => { setFiscalYearDraft(String(viewedFiscalYearId ?? "")); setFiscalYearModalOpen(true); }}
+                    className="text-left cursor-pointer"
+                  >
+                    <p className="text-sm-custom text-text-body">Fiscal Year</p>
+                    <p className="text-sm-custom font-bold text-text-default mt-0.5 hover:underline">{viewedFiscalYear?.name ?? "—"}</p>
+                  </button>
                 </div>
               )}
             </div>
 
             {/* Table + invoice detail panel */}
-            <div className="flex gap-4">
-              <div className="flex-1 min-w-0">
+            <div className="flex gap-4 flex-1 min-h-0">
+              <div className="flex-1 min-w-0 flex flex-col min-h-0">
+                {(dateFrom || dateTo) && (
+                  <div className="flex items-center gap-2 mb-2 shrink-0">
+                    <span className="inline-flex items-center gap-1.5 border border-slate-300 bg-slate-50 pl-2.5 pr-1.5 py-1 text-xs font-medium text-text-default">
+                      Filtered: {dateFrom || "…"} → {dateTo || "…"}
+                      <button
+                        type="button"
+                        onClick={() => { setDateFrom(""); setDateTo(""); }}
+                        className="flex h-4 w-4 items-center justify-center text-text-muted hover:text-text-default cursor-pointer"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  </div>
+                )}
                 <DataTable
                   columns={columns}
                   data={transactions}
@@ -977,6 +1176,18 @@ function AdminAccountsContent() {
                   searchColumn="particular"
                   searchPlaceholder="Search transactions..."
                   meta={null}
+                  hidePagination
+                  fillHeight
+                  scrollToBottomOnLoad
+                  scrollToBottomKey={`${selectedVendorUlid ?? ""}:${rawTransactions.length}`}
+                  onPrint={selectedVendor ? handlePrintLedger : undefined}
+                  onExportCsv={selectedVendor ? handleExportLedgerCsv : undefined}
+                  moreActions={[
+                    { label: showFullDetails ? "Hide Full" : "Show Full", icon: Maximize2, onClick: () => setShowFullDetails((v) => !v) },
+                    { label: "Fiscal Year", icon: Calendar, onClick: () => { setFiscalYearDraft(String(viewedFiscalYearId ?? "")); setFiscalYearModalOpen(true); } },
+                    { label: dateFrom || dateTo ? "Filter (active)" : "Filter", icon: FilterIcon, onClick: () => { setDateFromDraft(dateFrom); setDateToDraft(dateTo); setFilterModalOpen(true); } },
+                    { label: "Recently Deleted", icon: Trash2, onClick: () => setTrashModalOpen(true) },
+                  ]}
                   tableClassName="table-fixed"
                   onRowClick={(row) => {
                     if (row.ulid === "__new__") return;
@@ -1085,6 +1296,24 @@ function AdminAccountsContent() {
                       </>
                     )}
                   </div>
+                </div>
+
+                {/* Receipt photo */}
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <MultiImageUpload
+                    label="Receipt Photo"
+                    value={receiptImage.images}
+                    onChange={receiptImage.setImages}
+                    savedImages={receiptImage.savedImages}
+                    groupName={receiptImage.groupName}
+                    onGroupNameChange={receiptImage.setGroupName}
+                    onGroupNameBlur={receiptImage.updateGroupName}
+                    onSave={() => receiptImage.save(selectedTransaction.ulid)}
+                    onRemoveSaved={receiptImage.removeSaved}
+                    saving={receiptImage.saving}
+                    uploadStates={receiptImage.uploadStates}
+                    max={1}
+                  />
                 </div>
 
                 {/* Items */}
@@ -1310,7 +1539,7 @@ function AdminAccountsContent() {
           {filteredVendors.filter(v => v.ulid === openMenuUlid).map(vendor => (
             <div key={vendor.ulid}>
               <button
-                onClick={(e) => { e.stopPropagation(); setSelectedVendorUlid(vendor.ulid); setOpenMenuUlid(null); }}
+                onClick={(e) => { e.stopPropagation(); trySwitchVendor(vendor.ulid); }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
               >
                 <Eye className="h-3.5 w-3.5" /> View
@@ -1355,6 +1584,140 @@ function AdminAccountsContent() {
         </div>,
         document.body
       )}
+
+      <Modal
+        open={fiscalYearModalOpen}
+        onClose={() => setFiscalYearModalOpen(false)}
+        title="Fiscal Year"
+        description="Choose which fiscal year's ledger to view for this vendor."
+        initialWidth={460}
+        initialHeight={320}
+        onSubmit={() => {
+          setViewFiscalYearId(fiscalYearDraft ? Number(fiscalYearDraft) : null);
+          setFiscalYearModalOpen(false);
+        }}
+        submitLabel="Apply"
+      >
+        {fiscalYears.length === 0 ? (
+          <p className="text-sm text-text-muted">No fiscal years configured yet.</p>
+        ) : (
+          <SelectField
+            label="Fiscal Year"
+            value={fiscalYearDraft}
+            onChange={(e) => setFiscalYearDraft(e.target.value)}
+            options={fiscalYears.map((fy) => ({
+              label: fy.name,
+              value: String(fy.id),
+            }))}
+          />
+        )}
+      </Modal>
+
+      <Modal
+        open={filterModalOpen}
+        onClose={() => setFilterModalOpen(false)}
+        title="Filter"
+        description="Show only transactions within a date range."
+        initialWidth={420}
+        initialHeight={320}
+        onSubmit={() => {
+          setDateFrom(dateFromDraft);
+          setDateTo(dateToDraft);
+        }}
+        submitLabel="Apply"
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">From Date</label>
+            <BsDateInput key={`from-${dateFilterResetKey}`} value={dateFromDraft} onChange={setDateFromDraft} placeholder="YYYY-MM-DD" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">To Date</label>
+            <BsDateInput key={`to-${dateFilterResetKey}`} value={dateToDraft} onChange={setDateToDraft} placeholder="YYYY-MM-DD" />
+          </div>
+        </div>
+        {(dateFrom || dateTo || dateFromDraft || dateToDraft) && (
+          <button
+            type="button"
+            onClick={() => {
+              setDateFromDraft("");
+              setDateToDraft("");
+              setDateFrom("");
+              setDateTo("");
+              setDateFilterResetKey((k) => k + 1);
+            }}
+            className="text-sm font-medium text-text-muted hover:text-text-default cursor-pointer"
+          >
+            Clear All Filters
+          </button>
+        )}
+      </Modal>
+
+      <Modal
+        open={trashModalOpen}
+        onClose={() => setTrashModalOpen(false)}
+        title="Recently Deleted"
+        description="Deleted transactions for this vendor. Restoring recalculates the vendor's balance, but does not re-apply any stock/cost changes the transaction originally made."
+        initialWidth={520}
+        initialHeight={420}
+      >
+        {trashedLoading && <p className="text-sm text-text-muted">Loading…</p>}
+        {!trashedLoading && trashedTransactions.length === 0 && (
+          <p className="text-sm text-text-muted">Nothing deleted for this vendor.</p>
+        )}
+        {!trashedLoading && trashedTransactions.length > 0 && (
+          <div className="space-y-2">
+            {trashedTransactions.map((tx) => (
+              <div key={tx.ulid} className="flex items-center justify-between border border-slate-200 px-3 py-2">
+                <div>
+                  <p className="text-sm font-semibold text-text-default">{getParticularLabel(tx.particular)}</p>
+                  <p className="text-xs text-text-muted">
+                    {tx.date} {tx.voucher_no ? `· Voucher ${tx.voucher_no}` : ""} {tx.debit != null ? `· Debit ${Number(tx.debit).toLocaleString()}` : ""} {tx.credit != null ? `· Credit ${Number(tx.credit).toLocaleString()}` : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={restoreTransactionMutation.isPending}
+                  onClick={() => { if (selectedVendorUlid) restoreTransactionMutation.mutate({ vendorUlid: selectedVendorUlid, txUlid: tx.ulid }); }}
+                  className="shrink-0 px-3 py-1.5 text-xs font-semibold text-text-default border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  Restore
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={pendingVendorUlid !== null}
+        title="Discard unsaved transaction?"
+        description="You have an unsaved draft row in the ledger. Switching vendors will discard it."
+        confirmLabel="Discard & Switch"
+        onCancel={() => setPendingVendorUlid(null)}
+        onConfirm={() => {
+          if (pendingVendorUlid) selectVendorNow(pendingVendorUlid);
+          setPendingVendorUlid(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteTxUlid !== null}
+        title="Delete transaction?"
+        description="This transaction will be permanently removed. This cannot be undone."
+        confirmLabel="Delete"
+        onCancel={() => setConfirmDeleteTxUlid(null)}
+        onConfirm={confirmRemoveTransaction}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteItemUlid !== null}
+        title="Delete line item?"
+        description="If this is the last item, the whole transaction will be removed too. This cannot be undone."
+        confirmLabel="Delete"
+        onCancel={() => setConfirmDeleteItemUlid(null)}
+        onConfirm={confirmRemoveItem}
+      />
 
       {/* Transaction row three-dot menu portal */}
       {txMenuUlid && txMenuPos && createPortal(

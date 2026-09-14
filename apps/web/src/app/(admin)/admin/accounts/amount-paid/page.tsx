@@ -10,6 +10,8 @@ import { toast } from "@/lib/toast";
 import { BsDateInput, getTodayBs, isValidBsDate } from "@/components/ui/form/BsDateInput";
 import { SelectField } from "@/components/ui/form/FormField";
 import { TRANSACTION_PARTICULARS, getParticularDirection } from "../constants";
+import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
+import { useImageGroup } from "@/hooks/useImageGroup";
 
 type VendorBalance = {
   fiscal_year_id: number;
@@ -38,12 +40,19 @@ type Meta = {
 
 type SavedTransaction = {
   ulid: string;
+  fiscal_year_id: number | null;
   date: string;
   particular: string;
   voucher_no: string | null;
   cheque_no: string | null;
   debit: number | null;
   credit: number | null;
+};
+
+type FiscalYear = {
+  id: number;
+  ulid: string;
+  name: string;
 };
 
 function AmountPaidContent() {
@@ -61,7 +70,16 @@ function AmountPaidContent() {
   const [particular, setParticular] = useState<string>("cash");
   const [chequeNo, setChequeNo] = useState("");
   const [editingTransactionUlid, setEditingTransactionUlid] = useState<string | null>(null);
+  // Which fiscal year this payment is recorded against — defaults to the tenant's active
+  // one once it loads, but the user can pick a different year via the dropdown before saving.
+  const [selectedFiscalYearId, setSelectedFiscalYearId] = useState<number | null>(null);
   const loadedTransactionRef = useRef<string | null>(null);
+  const loadedReceiptForRef = useRef<string | null>(null);
+  // Mirrors editingTransactionUlid but updates synchronously (state updates don't apply until
+  // the next render) — ensureTransactionUlid needs the fresh id right after an awaited save.
+  const editingTransactionUlidRef = useRef<string | null>(null);
+
+  const receiptImage = useImageGroup("acc_vendor_transaction", "acc-vendor-transactions", "receipt");
 
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
     queryKey: ["acc-vendors"],
@@ -74,6 +92,13 @@ function AmountPaidContent() {
   });
 
   const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
+
+  const { data: fiscalYearsData } = useQuery({
+    queryKey: ["fiscal-years"],
+    queryFn: () => apiFetch<{ data: FiscalYear[] }>("/fiscal-years"),
+    staleTime: Infinity,
+  });
+  const fiscalYears = fiscalYearsData?.data ?? [];
 
   const vendors = vendorsData?.data ?? [];
   const filteredVendors = vendors.filter((v) => v.name.toLowerCase().includes(sideSearch.toLowerCase()));
@@ -101,13 +126,33 @@ function AmountPaidContent() {
     const tx = transactionsData?.data.find((t) => t.ulid === editTransactionParam);
     if (!tx) return;
     loadedTransactionRef.current = editTransactionParam;
+    editingTransactionUlidRef.current = tx.ulid;
     setEditingTransactionUlid(tx.ulid);
+    setSelectedFiscalYearId(tx.fiscal_year_id);
     setBillDate(tx.date);
     setBillNo(tx.voucher_no ?? "");
     setAmount(String(tx.debit ?? tx.credit ?? ""));
     setParticular(tx.particular);
     setChequeNo(tx.cheque_no ?? "");
   }, [editTransactionParam, transactionsData]);
+
+  // Settings load asynchronously — default to the active fiscal year once it arrives,
+  // as long as the user hasn't already picked something (or started editing a payment).
+  useEffect(() => {
+    if (selectedFiscalYearId === null && activeFiscalYearId !== null && !editingTransactionUlid) {
+      setSelectedFiscalYearId(activeFiscalYearId);
+    }
+  }, [activeFiscalYearId, selectedFiscalYearId, editingTransactionUlid]);
+
+  // Load whatever receipt photo is already attached once the transaction has an id
+  // (either loaded for edit above, or just created by the first save below).
+  useEffect(() => {
+    if (!editingTransactionUlid) { receiptImage.reset(); loadedReceiptForRef.current = null; return; }
+    if (loadedReceiptForRef.current === editingTransactionUlid) return;
+    loadedReceiptForRef.current = editingTransactionUlid;
+    receiptImage.load(editingTransactionUlid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- receiptImage is a stable-shaped hook result, not a dep
+  }, [editingTransactionUlid]);
 
   function selectVendor(ulid: string) {
     setSelectedVendorUlid(ulid);
@@ -126,12 +171,19 @@ function AmountPaidContent() {
     setParticular("cash");
     setChequeNo("");
     setPaymentSaved(false);
+    editingTransactionUlidRef.current = null;
+    setEditingTransactionUlid(null);
+    setSelectedFiscalYearId(activeFiscalYearId);
   }
 
   const savePaymentMutation = useMutation({
     mutationFn: (payload: object) =>
-      apiFetch(`/acc-vendors/${selectedVendorUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }),
-    onSuccess: () => {
+      apiFetch<{ data: { ulid: string } }>(`/acc-vendors/${selectedVendorUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }),
+    onSuccess: (res) => {
+      // Capture the created ulid so a receipt photo can be attached right after — further
+      // blurs of this draft still only PATCH once `editingTransactionUlid` is set, same as edit mode.
+      editingTransactionUlidRef.current = res.data.ulid;
+      setEditingTransactionUlid(res.data.ulid);
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
       queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", selectedVendorUlid] });
     },
@@ -174,6 +226,7 @@ function AmountPaidContent() {
       cheque_no: particular === "cheque" ? chequeNo : null,
       debit: direction === "debit" ? Number(amount) : null,
       credit: direction === "credit" ? Number(amount) : null,
+      fiscal_year_id: selectedFiscalYearId ?? undefined,
     };
 
     const promise = (editingTransactionUlid
@@ -197,6 +250,18 @@ function AmountPaidContent() {
     if (paymentSaved && !editingTransactionUlid) return;
     if (!isFormReady()) return;
     savePayment().catch(() => {});
+  }
+
+  // Lets the receipt upload work even before the payment itself has been saved — fills in
+  // the required fields first if needed, then returns the (possibly just-created) ulid.
+  async function ensureTransactionUlid(): Promise<string | null> {
+    if (editingTransactionUlidRef.current) return editingTransactionUlidRef.current;
+    if (!isFormReady()) {
+      toast.error("Fill in the payment first", "Date, particular and amount are required before attaching a receipt.");
+      return null;
+    }
+    await savePayment();
+    return editingTransactionUlidRef.current;
   }
 
   async function handleSave() {
@@ -357,6 +422,24 @@ function AmountPaidContent() {
                     </div>
                   )}
                 </div>
+
+                {fiscalYears.length > 0 && (
+                  <div className="flex flex-col gap-2 shrink-0 w-48">
+                    <select
+                      value={selectedFiscalYearId ?? ""}
+                      onChange={(e) => setSelectedFiscalYearId(Number(e.target.value))}
+                      disabled={!!editingTransactionUlid}
+                      title={editingTransactionUlid ? "Fiscal year is locked once the payment is saved" : "Fiscal year this payment is recorded against"}
+                      className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
+                    >
+                      {fiscalYears.map((fy) => (
+                        <option key={fy.id} value={fy.id}>
+                          {fy.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -418,6 +501,26 @@ function AmountPaidContent() {
                     />
                   </div>
                 )}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-slate-100 max-w-xs">
+                <MultiImageUpload
+                  label="Receipt Photo"
+                  value={receiptImage.images}
+                  onChange={receiptImage.setImages}
+                  savedImages={receiptImage.savedImages}
+                  groupName={receiptImage.groupName}
+                  onGroupNameChange={receiptImage.setGroupName}
+                  onGroupNameBlur={receiptImage.updateGroupName}
+                  onSave={async () => {
+                    const ulid = await ensureTransactionUlid();
+                    if (ulid) await receiptImage.save(ulid);
+                  }}
+                  onRemoveSaved={receiptImage.removeSaved}
+                  saving={receiptImage.saving}
+                  uploadStates={receiptImage.uploadStates}
+                  max={1}
+                />
               </div>
 
               <div className="flex items-center justify-end mt-6 pt-4 border-t border-slate-100">

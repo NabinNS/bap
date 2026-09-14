@@ -11,6 +11,8 @@ import { BsDateInput, getTodayBs, isValidBsDate } from "@/components/ui/form/BsD
 import { numberToWords } from "@/lib/numberToWords";
 import { ProductCombobox, ProductOption } from "@/components/products/ProductCombobox";
 import { CreateProductPanel } from "@/components/products/CreateProductPanel";
+import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
+import { useImageGroup } from "@/hooks/useImageGroup";
 
 type VendorBalance = {
   fiscal_year_id: number;
@@ -35,6 +37,12 @@ type Meta = {
   last_page: number;
   from: number;
   to: number;
+};
+
+type FiscalYear = {
+  id: number;
+  ulid: string;
+  name: string;
 };
 
 type LineItem = {
@@ -68,6 +76,7 @@ type SavedItem = {
 
 type SavedTransaction = {
   ulid: string;
+  fiscal_year_id: number | null;
   date: string;
   particular: string;
   voucher_no: string | null;
@@ -102,6 +111,12 @@ function GoodsPurchasedContent() {
   const [billDate, setBillDate] = useState(getTodayBs);
   const [billNo, setBillNo] = useState("");
   const [transactionUlid, setTransactionUlid] = useState<string | null>(null);
+  // Which fiscal year this bill is recorded against — defaults to the tenant's active one
+  // once it loads, but the user can pick a different year via the dropdown before saving.
+  const [selectedFiscalYearId, setSelectedFiscalYearId] = useState<number | null>(null);
+  // Mirrors transactionUlid but updates synchronously — ensureTransactionUlid needs the
+  // fresh id right after awaiting the row save that creates the transaction.
+  const transactionUlidRef = useRef<string | null>(null);
   const [discountPercent, setDiscountPercent] = useState("0");
   const [discountAmountDraft, setDiscountAmountDraft] = useState<string | null>(null);
   const [billTotals, setBillTotals] = useState<BillTotals | null>(null);
@@ -109,6 +124,9 @@ function GoodsPurchasedContent() {
   const [createProductQuery, setCreateProductQuery] = useState("");
   const savingKeysRef = useRef<Set<number>>(new Set());
   const loadedTransactionRef = useRef<string | null>(null);
+  const loadedReceiptForRef = useRef<string | null>(null);
+
+  const receiptImage = useImageGroup("acc_vendor_transaction", "acc-vendor-transactions", "receipt");
 
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
     queryKey: ["acc-vendors"],
@@ -121,6 +139,13 @@ function GoodsPurchasedContent() {
   });
 
   const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
+
+  const { data: fiscalYearsData } = useQuery({
+    queryKey: ["fiscal-years"],
+    queryFn: () => apiFetch<{ data: FiscalYear[] }>("/fiscal-years"),
+    staleTime: Infinity,
+  });
+  const fiscalYears = fiscalYearsData?.data ?? [];
 
   const vendors = vendorsData?.data ?? [];
   const filteredVendors = vendors.filter((v) => v.name.toLowerCase().includes(sideSearch.toLowerCase()));
@@ -140,13 +165,23 @@ function GoodsPurchasedContent() {
   useEffect(() => {
     if (editTransactionParam) return;
     setRows([emptyRow()]);
+    transactionUlidRef.current = null;
     setTransactionUlid(null);
     setBillDate(getTodayBs());
     setBillNo("");
     setDiscountPercent("0");
     setDiscountAmountDraft(null);
     setBillTotals(null);
+    setSelectedFiscalYearId(activeFiscalYearId);
   }, [selectedVendorUlid]);
+
+  // Settings load asynchronously — default to the active fiscal year once it arrives,
+  // as long as the user hasn't already picked something (or started editing a bill).
+  useEffect(() => {
+    if (selectedFiscalYearId === null && activeFiscalYearId !== null && !transactionUlid) {
+      setSelectedFiscalYearId(activeFiscalYearId);
+    }
+  }, [activeFiscalYearId, selectedFiscalYearId, transactionUlid]);
 
   // Load the existing transaction into the form once, when editing via ?transaction=.
   useEffect(() => {
@@ -154,7 +189,9 @@ function GoodsPurchasedContent() {
     const tx = transactionsData?.data.find((t) => t.ulid === editTransactionParam);
     if (!tx) return;
     loadedTransactionRef.current = editTransactionParam;
+    transactionUlidRef.current = tx.ulid;
     setTransactionUlid(tx.ulid);
+    setSelectedFiscalYearId(tx.fiscal_year_id);
     setBillDate(tx.date);
     setBillNo(tx.voucher_no ?? "");
     setDiscountPercent(String(tx.discount_percent ?? 0));
@@ -176,6 +213,16 @@ function GoodsPurchasedContent() {
     }));
     setRows([...savedRows, emptyRow()]);
   }, [editTransactionParam, transactionsData]);
+
+  // Load whatever receipt photo is already attached once the transaction actually exists
+  // (it's created lazily on the first item add — see addRow/save flow below).
+  useEffect(() => {
+    if (!transactionUlid) { receiptImage.reset(); loadedReceiptForRef.current = null; return; }
+    if (loadedReceiptForRef.current === transactionUlid) return;
+    loadedReceiptForRef.current = transactionUlid;
+    receiptImage.load(transactionUlid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- receiptImage is a stable-shaped hook result, not a dep
+  }, [transactionUlid]);
 
   function selectVendor(ulid: string) {
     setSelectedVendorUlid(ulid);
@@ -376,8 +423,10 @@ function GoodsPurchasedContent() {
             voucher_no: billNo || null,
             discount_percent: Math.max(0, Math.min(100, Number(discountPercent) || 0)),
             items: [itemPayload],
+            fiscal_year_id: selectedFiscalYearId ?? undefined,
           },
         });
+        transactionUlidRef.current = res.data.ulid;
         setTransactionUlid(res.data.ulid);
         applyTotalsResult(res.data);
       } else {
@@ -399,6 +448,19 @@ function GoodsPurchasedContent() {
     } finally {
       savingKeysRef.current.delete(key);
     }
+  }
+
+  // Lets the receipt upload work even before the bill itself has any saved item — the
+  // transaction only exists once a line item does, so this saves the first valid row first.
+  async function ensureTransactionUlid(): Promise<string | null> {
+    if (transactionUlidRef.current) return transactionUlidRef.current;
+    const firstValidRow = rows.find((r) => !r.saved && r.productUlid && r.quantity && Number(r.quantity) > 0 && r.rate !== "");
+    if (!firstValidRow) {
+      toast.error("Add an item first", "Fill in at least one line item before attaching a receipt.");
+      return null;
+    }
+    await trySaveRow(firstValidRow.key);
+    return transactionUlidRef.current;
   }
 
   const inputCls = "w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white";
@@ -534,6 +596,21 @@ function GoodsPurchasedContent() {
                 </div>
 
                 <div className="flex flex-col gap-2 shrink-0 w-48">
+                  {fiscalYears.length > 0 && (
+                    <select
+                      value={selectedFiscalYearId ?? ""}
+                      onChange={(e) => setSelectedFiscalYearId(Number(e.target.value))}
+                      disabled={!!transactionUlid}
+                      title={transactionUlid ? "Fiscal year is locked once the bill has an item" : "Fiscal year this bill is recorded against"}
+                      className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
+                    >
+                      {fiscalYears.map((fy) => (
+                        <option key={fy.id} value={fy.id}>
+                          {fy.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <input
                     type="text"
                     value={billNo}
@@ -720,6 +797,26 @@ function GoodsPurchasedContent() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="px-4 py-3 border-t border-slate-100 max-w-xs">
+                <MultiImageUpload
+                  label="Receipt Photo"
+                  value={receiptImage.images}
+                  onChange={receiptImage.setImages}
+                  savedImages={receiptImage.savedImages}
+                  groupName={receiptImage.groupName}
+                  onGroupNameChange={receiptImage.setGroupName}
+                  onGroupNameBlur={receiptImage.updateGroupName}
+                  onSave={async () => {
+                    const ulid = await ensureTransactionUlid();
+                    if (ulid) await receiptImage.save(ulid);
+                  }}
+                  onRemoveSaved={receiptImage.removeSaved}
+                  saving={receiptImage.saving}
+                  uploadStates={receiptImage.uploadStates}
+                  max={1}
+                />
               </div>
 
               <div className="flex items-center justify-end px-4 py-3 border-t border-slate-100">
