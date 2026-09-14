@@ -42,6 +42,9 @@ interface DataTableProps<TData> {
   loading?: boolean;
   onRowClick?: (row: TData) => void;
   onRowDoubleClick?: (row: TData) => void;
+  // Fired when focus leaves the row entirely (relatedTarget not inside it) —
+  // lets a row with inline inputs commit once as a unit instead of per-field.
+  onRowBlur?: (row: TData, e: React.FocusEvent<HTMLTableRowElement>) => void;
   tableClassName?: string;
   // server-side pagination
   meta?: Meta | null;
@@ -56,6 +59,7 @@ export function DataTable<TData>({
   loading = false,
   onRowClick,
   onRowDoubleClick,
+  onRowBlur,
   tableClassName,
   meta,
   onPageChange,
@@ -183,7 +187,15 @@ export function DataTable<TData>({
               ))
             ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} onClick={() => onRowClick?.(row.original)} onDoubleClick={() => onRowDoubleClick?.(row.original)} className={`border-b border-slate-300 hover:bg-slate-100 transition-colors ${onRowClick || onRowDoubleClick ? "cursor-pointer" : ""}`}>
+                <TableRow
+                  key={row.id}
+                  onClick={() => onRowClick?.(row.original)}
+                  onDoubleClick={() => onRowDoubleClick?.(row.original)}
+                  onBlur={onRowBlur ? (e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) onRowBlur(row.original, e);
+                  } : undefined}
+                  className={`border-b border-slate-300 hover:bg-slate-100 transition-colors ${onRowClick || onRowDoubleClick ? "cursor-pointer" : ""}`}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} style={{ width: cell.column.columnDef.size ? `${cell.column.columnDef.size}px` : undefined }} className="text-table-data py-3">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

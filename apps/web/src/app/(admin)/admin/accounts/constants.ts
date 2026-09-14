@@ -21,3 +21,9 @@ const DEBIT_PARTICULARS = new Set<string>(["cash", "cheque", "debit_note", "sale
 export function getParticularDirection(value: string): "debit" | "credit" {
   return DEBIT_PARTICULARS.has(value) ? "debit" : "credit";
 }
+
+// These particulars represent an itemized document (a purchase/sales invoice or a note
+// against one) and must be created with line items via the Goods Purchased page — never
+// as a bare debit/credit entry from the quick-add ledger row, which would produce a
+// same-looking "Purchase" row with no stock movement, VAT, or items behind it.
+export const ITEM_CAPABLE_PARTICULARS = ["purchase", "sales", "debit_note", "credit_note"];

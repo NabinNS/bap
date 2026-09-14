@@ -9,12 +9,12 @@ import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { TRANSACTION_PARTICULARS, getParticularLabel, getParticularDirection } from "./constants";
+import { TRANSACTION_PARTICULARS, getParticularLabel, getParticularDirection, ITEM_CAPABLE_PARTICULARS } from "./constants";
 import { toast } from "@/lib/toast";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { InputField, NumberField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
 import { BsDateInput, isValidBsDate } from "@/components/ui/form/BsDateInput";
-import { ProductCombobox } from "@/components/products/ProductCombobox";
+import { ProductCombobox, ProductOption } from "@/components/products/ProductCombobox";
 
 type VendorBalance = {
   fiscal_year_id: number;
@@ -99,10 +99,10 @@ const INITIAL_FORM: FormState = {
 
 const PARTICULAR_OPTIONS = TRANSACTION_PARTICULARS.map((p) => ({ value: p.value, label: p.label }));
 
-function ParticularCombobox({ vendorUlid, onChange, onBlur }: { vendorUlid: string; onChange: (val: string) => void; onBlur: () => void }) {
+function ParticularCombobox({ vendorUlid, onChange }: { vendorUlid: string; onChange: (val: string) => void }) {
   const [value, setValue] = useState("");
   return (
-    <div onBlur={onBlur} className="[&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
+    <div className="[&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
       <ComboboxField
         key={vendorUlid}
         label=""
@@ -437,6 +437,29 @@ function AdminAccountsContent() {
 
   const rawTransactions = transactionsData?.data ?? [];
 
+  const PURCHASE_PARTICULARS = ["purchase", "purchase_non_vat"];
+  const PAYMENT_PARTICULARS = ["cash", "cheque"];
+
+  const totalPurchase = rawTransactions
+    .filter((t) => PURCHASE_PARTICULARS.includes(t.particular))
+    .reduce((sum, t) => sum + Number(t.credit ?? 0), 0);
+  const invoiceCount = rawTransactions.filter((t) => PURCHASE_PARTICULARS.includes(t.particular)).length;
+
+  const totalPaid = rawTransactions
+    .filter((t) => PAYMENT_PARTICULARS.includes(t.particular))
+    .reduce((sum, t) => sum + Number(t.debit ?? 0), 0);
+  const paymentCount = rawTransactions.filter((t) => PAYMENT_PARTICULARS.includes(t.particular)).length;
+
+  const totalCreditNotes = rawTransactions
+    .filter((t) => t.particular === "credit_note")
+    .reduce((sum, t) => sum + Number(t.credit ?? 0), 0);
+  const creditNoteCount = rawTransactions.filter((t) => t.particular === "credit_note").length;
+
+  const lastTransactionDate = rawTransactions.reduce<string | null>(
+    (latest, t) => (!latest || t.date > latest ? t.date : latest),
+    null
+  );
+
   function fiscalYearStartDate(name: string): string {
     // name like "2080/081" or "080/081" — start year is the first part
     const match = name.match(/(\d+)/);
@@ -527,19 +550,27 @@ function AdminAccountsContent() {
     });
   }
 
-  function saveItem(itemUlid: string) {
+  function suggestedRate(product: ProductOption | null): number | null {
+    return product?.wacc ?? product?.cost_price ?? null;
+  }
+
+  // `overrides` lets a caller (e.g. the product combobox's onChange) save with values it
+  // just computed, instead of relying on `itemEdits` state that a same-tick blur event
+  // would still read as stale (React hasn't applied the update yet).
+  function saveItem(itemUlid: string, overrides?: Partial<{ product_ulid: string; product_name: string; quantity: string; rate: string; discount: string }>) {
     const edit = itemEdits[itemUlid];
     if (!selectedVendorUlid || !selectedTransactionUlid || !edit) return;
-    if (!edit.product_ulid || !edit.quantity || Number(edit.quantity) <= 0 || edit.rate === "") return;
+    const merged = overrides ? { ...edit, ...overrides } : edit;
+    if (!merged.product_ulid || !merged.quantity || Number(merged.quantity) <= 0 || merged.rate === "") return;
     updateItemMutation.mutate({
       vendorUlid: selectedVendorUlid,
       txUlid: selectedTransactionUlid,
       itemUlid,
       payload: {
-        product_ulid: edit.product_ulid,
-        quantity: Number(edit.quantity),
-        rate: Number(edit.rate),
-        discount: Number(edit.discount) || 0,
+        product_ulid: merged.product_ulid,
+        quantity: Number(merged.quantity),
+        rate: Number(merged.rate),
+        discount: Number(merged.discount) || 0,
       },
     });
   }
@@ -600,8 +631,6 @@ function AdminAccountsContent() {
 
   const inputCls = "w-full text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-600 bg-white px-2 py-1 rounded-none";
 
-  const ITEM_CAPABLE_PARTICULARS = ["purchase", "sales", "debit_note", "credit_note"];
-
   // Routes to whichever full-page editor matches how this transaction actually exists —
   // items page only if it already has items, otherwise the simple debit/credit editor.
   function openTransactionPage(tx: Transaction) {
@@ -630,7 +659,6 @@ function AdminAccountsContent() {
             resetKey={selectedVendorUlid ?? ""}
             value=""
             onChange={(val) => { draftRef.current.date = val; }}
-            onBlur={tryAutoSaveTransaction}
           />
         );
         return <span className="text-sm font-medium text-black">{row.original.date}</span>;
@@ -646,7 +674,6 @@ function AdminAccountsContent() {
             key={`particular-${selectedVendorUlid}`}
             vendorUlid={selectedVendorUlid ?? ""}
             onChange={(v) => { draftRef.current.particular = v; forceUpdate(); }}
-            onBlur={tryAutoSaveTransaction}
           />
         );
         return <span className="text-sm font-medium text-black">{getParticularLabel(row.original.particular)}</span>;
@@ -663,7 +690,6 @@ function AdminAccountsContent() {
             type="text"
             defaultValue=""
             onChange={(e) => { draftRef.current.voucher_no = e.target.value; }}
-            onBlur={tryAutoSaveTransaction}
             placeholder="Voucher no..."
             className={inputCls}
           />
@@ -685,7 +711,6 @@ function AdminAccountsContent() {
             min="0"
             defaultValue=""
             onChange={(e) => { draftRef.current.debit = e.target.value; draftRef.current.credit = e.target.value ? "" : draftRef.current.credit; forceUpdate(); }}
-            onBlur={tryAutoSaveTransaction}
             placeholder="0"
             className={`${inputCls}`}
           />
@@ -707,7 +732,6 @@ function AdminAccountsContent() {
             min="0"
             defaultValue=""
             onChange={(e) => { draftRef.current.credit = e.target.value; draftRef.current.debit = e.target.value ? "" : draftRef.current.debit; forceUpdate(); }}
-            onBlur={tryAutoSaveTransaction}
             placeholder="0"
             className={`${inputCls}`}
           />
@@ -749,12 +773,6 @@ function AdminAccountsContent() {
   return (
     <div className="flex gap-0 transition-all duration-300 h-full">
       <div className="flex-1 min-w-0 flex flex-col p-6 gap-6 h-full">
-        <nav className="flex items-center gap-1.5 text-sm text-text-muted">
-          <Link href="/admin" className="hover:text-text-default transition-colors">Dashboard</Link>
-          <span>/</span>
-          <span className="text-text-default font-medium">Accounts</span>
-        </nav>
-
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-h3 font-bold text-text-default">Accounts</h2>
@@ -923,27 +941,27 @@ function AdminAccountsContent() {
                   </div>
                   <div>
                     <p className="text-sm-custom text-text-body">Total Purchase</p>
-                    <p className="text-sm-custom font-bold text-text-default mt-0.5">—</p>
-                    <p className="text-sm-custom text-text-body mt-0.5">Invoices</p>
+                    <p className="text-sm-custom font-bold text-text-default mt-0.5">{totalPurchase.toLocaleString()}</p>
+                    <p className="text-sm-custom text-text-body mt-0.5">{invoiceCount} {invoiceCount === 1 ? "Invoice" : "Invoices"}</p>
                   </div>
                   <div>
                     <p className="text-sm-custom text-text-body">Total Paid</p>
-                    <p className="text-sm-custom font-bold text-green-600 mt-0.5">—</p>
-                    <p className="text-sm-custom text-text-body mt-0.5">Payments</p>
+                    <p className="text-sm-custom font-bold text-green-600 mt-0.5">{totalPaid.toLocaleString()}</p>
+                    <p className="text-sm-custom text-text-body mt-0.5">{paymentCount} {paymentCount === 1 ? "Payment" : "Payments"}</p>
                   </div>
                   <div>
                     <p className="text-sm-custom text-text-body">Total Credit</p>
-                    <p className="text-sm-custom font-bold text-green-600 mt-0.5">—</p>
-                    <p className="text-sm-custom text-text-body mt-0.5">Credit Notes</p>
+                    <p className="text-sm-custom font-bold text-green-600 mt-0.5">{totalCreditNotes.toLocaleString()}</p>
+                    <p className="text-sm-custom text-text-body mt-0.5">{creditNoteCount} Credit Notes</p>
                   </div>
                   <div>
                     <p className="text-sm-custom text-text-body">Transactions</p>
-                    <p className="text-sm-custom font-bold text-text-default mt-0.5">—</p>
-                    <p className="text-sm-custom text-text-body mt-0.5">This Period</p>
+                    <p className="text-sm-custom font-bold text-text-default mt-0.5">{rawTransactions.length}</p>
+                    <p className="text-sm-custom text-text-body mt-0.5">All Time</p>
                   </div>
                   <div>
                     <p className="text-sm-custom text-text-body">Last Transaction</p>
-                    <p className="text-sm-custom font-bold text-text-default mt-0.5">—</p>
+                    <p className="text-sm-custom font-bold text-text-default mt-0.5">{lastTransactionDate ?? "—"}</p>
                   </div>
                 </div>
               )}
@@ -972,6 +990,7 @@ function AdminAccountsContent() {
                     setSelectedTransactionUlid(row.ulid);
                   }}
                   onRowDoubleClick={(row) => { if (row.ulid !== "__new__" && row.ulid !== "__opening_balance__") openTransactionPage(row); }}
+                  onRowBlur={(row) => { if (row.ulid === "__new__") tryAutoSaveTransaction(); }}
                 />
               </div>
 
@@ -1004,8 +1023,11 @@ function AdminAccountsContent() {
 
                 {/* Header fields */}
                 <div className="px-4 py-3 border-b border-slate-100 space-y-2">
-                  <p className="text-xs font-semibold text-text-default flex items-center gap-1.5">
-                    <Receipt className="h-3.5 w-3.5" /> Details
+                  <p className="text-xs font-semibold text-text-default flex items-center justify-between gap-1.5">
+                    <span className="flex items-center gap-1.5"><Receipt className="h-3.5 w-3.5" /> Details</span>
+                    {(updateTransactionMutation.isPending || updateItemMutation.isPending || addItemMutation.isPending || deleteItemMutation.isPending) && (
+                      <span className="text-[10px] font-normal text-text-muted">Saving...</span>
+                    )}
                   </p>
                   <div className="space-y-2 [&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_select]:h-8 [&_select]:text-sm [&_select]:font-medium [&_select]:text-black [&_.mt-1]:mt-0">
                     <div>
@@ -1076,11 +1098,24 @@ function AdminAccountsContent() {
                         const edit = itemEdits[item.ulid];
                         if (!edit) return null;
                         return (
-                          <div key={item.ulid} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) saveItem(item.ulid); }} className="border border-slate-200 p-2 space-y-1.5">
+                          <div key={item.ulid} className="border border-slate-200 p-2 space-y-1.5">
                             <div className="[&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
                               <ProductCombobox
                                 value={edit.product_ulid}
-                                onChange={(val, product) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], product_ulid: val, product_name: product?.name ?? prev[item.ulid].product_name } }))}
+                                onChange={(val, product) => {
+                                  const rate = suggestedRate(product);
+                                  const rateStr = rate != null ? String(rate) : edit.rate;
+                                  setItemEdits((prev) => ({
+                                    ...prev,
+                                    [item.ulid]: {
+                                      ...prev[item.ulid],
+                                      product_ulid: val,
+                                      product_name: product?.name ?? prev[item.ulid].product_name,
+                                      rate: rateStr,
+                                    },
+                                  }));
+                                  saveItem(item.ulid, { product_ulid: val, rate: rateStr });
+                                }}
                               />
                             </div>
                             <div className="grid grid-cols-3 gap-1.5">
@@ -1090,6 +1125,7 @@ function AdminAccountsContent() {
                                   type="number" min="0"
                                   value={edit.quantity}
                                   onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], quantity: e.target.value } }))}
+                                  onBlur={() => saveItem(item.ulid)}
                                   className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
                                 />
                               </div>
@@ -1099,6 +1135,7 @@ function AdminAccountsContent() {
                                   type="number" min="0"
                                   value={edit.rate}
                                   onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], rate: e.target.value } }))}
+                                  onBlur={() => saveItem(item.ulid)}
                                   className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
                                 />
                               </div>
@@ -1108,6 +1145,7 @@ function AdminAccountsContent() {
                                   type="number" min="0"
                                   value={edit.discount}
                                   onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], discount: e.target.value } }))}
+                                  onBlur={() => saveItem(item.ulid)}
                                   className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
                                 />
                               </div>
@@ -1128,7 +1166,10 @@ function AdminAccountsContent() {
                         <div className="[&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
                           <ProductCombobox
                             value={newItem.product_ulid}
-                            onChange={(val, product) => setNewItem((s) => ({ ...s, product_ulid: val, product_name: product?.name ?? s.product_name }))}
+                            onChange={(val, product) => {
+                              const rate = suggestedRate(product);
+                              setNewItem((s) => ({ ...s, product_ulid: val, product_name: product?.name ?? s.product_name, rate: rate != null ? String(rate) : s.rate }));
+                            }}
                           />
                         </div>
                         <div className="grid grid-cols-3 gap-1.5">
@@ -1207,7 +1248,7 @@ function AdminAccountsContent() {
                     onClick={() => { saveTransactionHeader(); setSelectedTransactionUlid(null); }}
                     className="flex-1 h-10 bg-black text-sm font-semibold text-white hover:bg-black/80 cursor-pointer transition-colors"
                   >
-                    Save
+                    {updateTransactionMutation.isPending ? "Saving..." : "Save"}
                   </button>
                 </div>
               </div>}
