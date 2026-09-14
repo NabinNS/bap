@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AccVendorTransaction extends Model
 {
-    use HasPublicUlid;
+    use HasPublicUlid, SoftDeletes;
 
     protected $table = 'acc_vendor_transactions';
 

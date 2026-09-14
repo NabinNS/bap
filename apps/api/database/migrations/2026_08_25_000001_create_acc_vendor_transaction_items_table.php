@@ -21,6 +21,7 @@ return new class extends Migration
             $table->unsignedInteger('discount')->default(0);
             $table->unsignedInteger('total');             // amount - discount, feeds the bill subtotal
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

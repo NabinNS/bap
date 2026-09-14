@@ -25,6 +25,7 @@ return new class extends Migration
             // only meaningful for item-based (purchase) transactions.
             $table->jsonb('bill_details')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
