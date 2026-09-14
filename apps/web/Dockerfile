@@ -7,6 +7,12 @@ COPY package.json pnpm-lock.yaml* ./
 RUN pnpm config set dangerously-allow-all-builds true --global \
     && pnpm install --frozen-lockfile
 
+FROM base AS dev
+WORKDIR /var/www/web
+COPY --from=deps /var/www/web/node_modules ./node_modules
+EXPOSE 3000
+CMD ["pnpm", "run", "dev"]
+
 FROM base AS builder
 WORKDIR /var/www/web
 COPY --from=deps /var/www/web/node_modules ./node_modules

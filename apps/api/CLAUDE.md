@@ -120,7 +120,11 @@ routes/api.php
 
 - `apps/api` runs in Docker (`bap_api`) with the repo **volume-mounted** — PHP changes are live
   immediately, no rebuild needed.
-- `apps/web` runs in Docker (`bap_web`) as a **baked standalone Next.js build** — frontend
-  changes need `docker compose build web && docker compose up -d web` before they're visible.
+- `apps/web` runs in Docker (`bap_web`) via `docker-compose.override.yml`, which targets the
+  Dockerfile's `dev` stage and bind-mounts the source — `next dev --turbopack` runs inside the
+  container with hot reload, no rebuild needed for frontend changes either. The override is
+  auto-merged by plain `docker compose ...` commands; a real production build (the `runner`
+  stage, no source mount) only happens when the override is excluded, e.g.
+  `docker compose -f docker-compose.yml build web`.
 - Sanity-check a change with `docker exec bap_api php -l <file>` (syntax) and
   `docker exec bap_api php artisan route:list` (routes/DI still resolve).

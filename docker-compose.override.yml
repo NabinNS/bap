@@ -1,0 +1,10 @@
+services:
+  web:
+    build:
+      target: dev
+    volumes:
+      - ./apps/web:/var/www/web
+      - /var/www/web/node_modules
+      - /var/www/web/.next
+    environment:
+      - WATCHPACK_POLLING=true
