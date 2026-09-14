@@ -50,6 +50,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('acc-vendors', AccVendorController::class);
     Route::post('acc-vendors/{accVendor}/balance', [AccVendorBalanceController::class, 'upsert']);
     Route::get('acc-vendors/{accVendor}/transactions', [AccVendorTransactionController::class, 'index']);
+    Route::get('acc-vendors/{accVendor}/transactions/trashed', [AccVendorTransactionController::class, 'trashed']);
+    Route::post('acc-vendors/{accVendor}/transactions/{transactionUlid}/restore', [AccVendorTransactionController::class, 'restore']);
     Route::post('acc-vendors/{accVendor}/transactions', [AccVendorTransactionController::class, 'store']);
     Route::post('acc-vendors/{accVendor}/transactions/{transaction}/items', [AccVendorTransactionController::class, 'storeItem']);
     Route::patch('acc-vendors/{accVendor}/transactions/{transaction}/totals', [AccVendorTransactionController::class, 'updateTotals']);

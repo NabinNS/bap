@@ -8,6 +8,7 @@ return [
         'profiles',
         'sliders',
         'offers',
+        'acc-vendor-transactions',
     ],
 
     'max_size' => 5120,

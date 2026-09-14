@@ -23,14 +23,19 @@ class StoreAccVendorTransactionAction
     {
         $settings = $this->settings->getOrCreate($tenantId);
 
-        if (!$settings->fiscal_year_id) {
+        // Defaults to the tenant's active fiscal year; the caller may target a different
+        // (e.g. past) one explicitly, since the fiscal year picker on the entry forms lets
+        // the user pick which year's ledger this transaction should belong to.
+        $fiscalYearId = $data->fiscalYearId ?? $settings->fiscal_year_id;
+
+        if (!$fiscalYearId) {
             throw ValidationException::withMessages([
                 'fiscal_year_id' => ['No active fiscal year set. Please configure it in Settings.'],
             ]);
         }
 
-        return DB::transaction(function () use ($tenantId, $vendor, $settings, $data) {
-            $transaction = $this->transactions->create($tenantId, $vendor, $settings->fiscal_year_id, $data);
+        return DB::transaction(function () use ($tenantId, $vendor, $fiscalYearId, $data) {
+            $transaction = $this->transactions->create($tenantId, $vendor, $fiscalYearId, $data);
 
             foreach ($data->items as $item) {
                 // Each call already recalculates the vendor balance via RecalculateAccVendorTransactionTotalsAction.
@@ -38,7 +43,7 @@ class StoreAccVendorTransactionAction
             }
 
             if (!$data->items) {
-                $this->recalculateBalance->execute($vendor, $settings->fiscal_year_id);
+                $this->recalculateBalance->execute($vendor, $fiscalYearId);
             }
 
             return $transaction->fresh();

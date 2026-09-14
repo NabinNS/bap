@@ -15,12 +15,35 @@ use Illuminate\Support\Collection;
 
 class EloquentAccVendorTransactionRepository implements AccVendorTransactionRepositoryInterface
 {
-    public function paginate(AccVendor $vendor, int $perPage): LengthAwarePaginator
+    public function paginate(AccVendor $vendor, int $perPage, ?int $fiscalYearId = null): LengthAwarePaginator
     {
         return AccVendorTransaction::where('vendor_id', $vendor->id)
+            ->when($fiscalYearId, fn ($query) => $query->where('fiscal_year_id', $fiscalYearId))
             ->with(['items.product'])
             ->orderBy('date', 'asc')
             ->paginate($perPage);
+    }
+
+    public function trashed(AccVendor $vendor): Collection
+    {
+        return AccVendorTransaction::onlyTrashed()
+            ->where('vendor_id', $vendor->id)
+            ->with(['items.product'])
+            ->orderBy('deleted_at', 'desc')
+            ->get();
+    }
+
+    public function restore(int $tenantId, AccVendor $vendor, string $transactionUlid): AccVendorTransaction
+    {
+        $transaction = AccVendorTransaction::onlyTrashed()
+            ->where('ulid', $transactionUlid)
+            ->where('vendor_id', $vendor->id)
+            ->where('tenant_id', $tenantId)
+            ->firstOrFail();
+
+        $transaction->restore();
+
+        return $transaction->fresh();
     }
 
     public function netTotal(AccVendor $vendor, int $fiscalYearId): float

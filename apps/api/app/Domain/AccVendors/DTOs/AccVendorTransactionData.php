@@ -14,5 +14,7 @@ readonly class AccVendorTransactionData
         public ?float  $credit,
         public ?int    $discountPercent,
         public array   $items,
+        /** Falls back to the tenant's active fiscal year when omitted. */
+        public ?int    $fiscalYearId = null,
     ) {}
 }

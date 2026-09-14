@@ -116,6 +116,29 @@ routes/api.php
 - Repository interface + Eloquent impl pair: `app/Domain/AccVendors/Repositories/AccVendorBalanceRepositoryInterface.php` / `app/Infrastructure/Repositories/AccVendors/EloquentAccVendorBalanceRepository.php`
 - Resource: `app/Http/Resources/AccVendors/AccVendorBalanceResource.php`
 
+## Attaching images to a model (image groups)
+
+Any model can get an image/photo upload without its own migration or endpoints, via the
+existing generic, polymorphic image-group system (`image_groups` + `image_items`, already
+used for brand logos, category images, product galleries, sliders, offers). The frontend
+side is `MultiImageUpload` + `useImageGroup` (`apps/web/src/hooks/useImageGroup.ts`) —
+see `apps/web/src/app/(admin)/admin/accounts/*` for a full usage example (`acc_vendor_transaction`).
+
+To let a new model attach images, wire it into all three of these — missing any one fails
+silently or with a 422, not a clear error pointing at the gap:
+
+1. **`config/upload.php`** — add the folder name (passed to `POST /api/upload/{folder}`) to
+   `allowed_folders`, or every upload attempt 422s with "Invalid upload folder."
+2. **`AppServiceProvider::boot()`** — add the model to the `Relation::morphMap([...])` array
+   (short alias → FQCN), matching the `imageable_type` string the frontend sends.
+3. **`EloquentImageGroupRepository::resolveImageableId()`** — add a `match` arm resolving
+   `ulid` → numeric id for that type (tenant-scoped), or every attach attempt 422s with
+   "Unsupported imageable type." — this is the one most likely to be forgotten since the
+   morph map alone doesn't make attaching work.
+
+After any of these, run `docker exec bap_api php artisan config:clear` — `upload.php` and
+the morph map are both cached.
+
 ## Local dev notes
 
 - `apps/api` runs in Docker (`bap_api`) with the repo **volume-mounted** — PHP changes are live

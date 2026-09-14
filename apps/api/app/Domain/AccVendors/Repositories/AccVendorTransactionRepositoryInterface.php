@@ -13,7 +13,16 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface AccVendorTransactionRepositoryInterface
 {
-    public function paginate(AccVendor $vendor, int $perPage): LengthAwarePaginator;
+    public function paginate(AccVendor $vendor, int $perPage, ?int $fiscalYearId = null): LengthAwarePaginator;
+
+    /** @return \Illuminate\Support\Collection<int, AccVendorTransaction> */
+    public function trashed(AccVendor $vendor): \Illuminate\Support\Collection;
+
+    /**
+     * Restore a soft-deleted transaction by ulid (implicit route-model-binding can't resolve
+     * a trashed row, so this looks it up explicitly rather than taking a bound model).
+     */
+    public function restore(int $tenantId, AccVendor $vendor, string $transactionUlid): AccVendorTransaction;
 
     /**
      * Net total (credit - debit) across a vendor's transactions for a fiscal year.

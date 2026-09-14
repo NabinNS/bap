@@ -4,16 +4,16 @@ namespace App\Application\AccVendors\Actions;
 
 use App\Domain\AccVendors\Repositories\AccVendorTransactionRepositoryInterface;
 use App\Models\AccVendor;
-use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
-class ListAccVendorTransactionsAction
+class ListTrashedAccVendorTransactionsAction
 {
     public function __construct(
         private AccVendorTransactionRepositoryInterface $transactions,
     ) {}
 
-    public function execute(AccVendor $vendor, int $perPage = 50, ?int $fiscalYearId = null): LengthAwarePaginator
+    public function execute(AccVendor $vendor): Collection
     {
-        return $this->transactions->paginate($vendor, $perPage, $fiscalYearId);
+        return $this->transactions->trashed($vendor);
     }
 }

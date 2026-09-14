@@ -10,7 +10,8 @@ class AccVendorTransactionResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'ulid'       => $this->ulid,
+            'ulid'           => $this->ulid,
+            'fiscal_year_id' => $this->fiscal_year_id,
             'date'       => $this->date,
             'particular' => $this->particular,
             'voucher_no' => $this->voucher_no,

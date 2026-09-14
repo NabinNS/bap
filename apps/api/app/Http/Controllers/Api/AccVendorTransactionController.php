@@ -6,7 +6,9 @@ use App\Application\AccVendors\Actions\AddAccVendorTransactionItemAction;
 use App\Application\AccVendors\Actions\DeleteAccVendorTransactionAction;
 use App\Application\AccVendors\Actions\DeleteAccVendorTransactionItemAction;
 use App\Application\AccVendors\Actions\ListAccVendorTransactionsAction;
+use App\Application\AccVendors\Actions\ListTrashedAccVendorTransactionsAction;
 use App\Application\AccVendors\Actions\RecalculateAccVendorTransactionTotalsAction;
+use App\Application\AccVendors\Actions\RestoreAccVendorTransactionAction;
 use App\Application\AccVendors\Actions\StoreAccVendorTransactionAction;
 use App\Application\AccVendors\Actions\UpdateAccVendorTransactionAction;
 use App\Application\AccVendors\Actions\UpdateAccVendorTransactionItemAction;
@@ -31,10 +33,29 @@ class AccVendorTransactionController extends Controller
         $this->authorize('view', $accVendor);
 
         return ApiResponse::paginated(
-            $action->execute($accVendor, $request->integer('per_page', 50)),
+            $action->execute($accVendor, $request->integer('per_page', 50), $request->integer('fiscal_year_id') ?: null),
             AccVendorTransactionResource::class,
             'Transactions retrieved successfully'
         );
+    }
+
+    public function trashed(AccVendor $accVendor, ListTrashedAccVendorTransactionsAction $action): JsonResponse
+    {
+        $this->authorize('view', $accVendor);
+
+        return ApiResponse::success(
+            AccVendorTransactionResource::collection($action->execute($accVendor)),
+            'Trashed transactions retrieved successfully'
+        );
+    }
+
+    public function restore(AccVendor $accVendor, string $transactionUlid, RestoreAccVendorTransactionAction $action): JsonResponse
+    {
+        $this->authorize('update', $accVendor);
+
+        $transaction = $action->execute($this->tenantId(), $accVendor, $transactionUlid);
+
+        return ApiResponse::success(new AccVendorTransactionResource($transaction), 'Transaction restored successfully');
     }
 
     public function store(StoreAccVendorTransactionRequest $request, AccVendor $accVendor, StoreAccVendorTransactionAction $action): JsonResponse

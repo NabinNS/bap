@@ -33,6 +33,7 @@ use App\Models\Slider;
 use App\Models\Tenant;
 use App\Observers\ImageItemObserver;
 use App\Models\AccVendor;
+use App\Models\AccVendorTransaction;
 use App\Policies\AccVendorPolicy;
 use App\Policies\BrandPolicy;
 use App\Policies\CategoryPolicy;
@@ -74,6 +75,7 @@ class AppServiceProvider extends ServiceProvider
             'slider'   => Slider::class,
             'offer'    => Offer::class,
             'tenant'   => Tenant::class,
+            'acc_vendor_transaction' => AccVendorTransaction::class,
         ]);
 
         // Mitigation 3 — delete the R2 file whenever an ImageItem row is deleted.
