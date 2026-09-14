@@ -1,8 +1,12 @@
 "use client";
 
 import "@zener/nepali-datepicker-react/index.css";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import NepaliDatePicker, { NepaliDate, toBS } from "@zener/nepali-datepicker-react";
+
+// Approximate rendered height of the calendar popover, used to decide whether
+// it should flip upward when there isn't enough room below the input.
+const CALENDAR_HEIGHT_PX = 360;
 
 export function isValidBsDate(str: string): boolean {
   if (!str || str.length !== 10) return false;
@@ -48,6 +52,8 @@ type Props = {
 export function BsDateInput({ value, onChange, onBlur, placeholder = "YYYY-MM-DD", className, disabled, resetKey }: Props) {
   const [text, setText] = useState(value);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
@@ -61,18 +67,30 @@ export function BsDateInput({ value, onChange, onBlur, placeholder = "YYYY-MM-DD
   return (
     <div className="relative w-full">
       <input
+        ref={inputRef}
         key={resetKey}
         type="text"
         value={text}
         onChange={handleChange}
-        onFocus={() => !disabled && setCalendarOpen(true)}
+        onFocus={() => {
+          if (disabled) return;
+          const spaceBelow = window.innerHeight - (inputRef.current?.getBoundingClientRect().bottom ?? 0);
+          setOpenUpward(spaceBelow < CALENDAR_HEIGHT_PX);
+          setCalendarOpen(true);
+        }}
         onBlur={() => { setTimeout(() => { setCalendarOpen(false); onBlur?.(); }, 200); }}
         placeholder={placeholder}
         disabled={disabled}
         className={className ?? "w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"}
       />
       {calendarOpen && !disabled && (
-        <div className="absolute top-full left-0 z-50">
+        // The library positions its calendar portal at trigger.top + trigger.height (in
+        // viewport coords) — this element has zero rendered height, so a CSS bottom-full/
+        // top-full toggle has no effect on that math. Shift the trigger's own top instead.
+        <div
+          className="absolute left-0 z-50"
+          style={openUpward ? { top: -CALENDAR_HEIGHT_PX } : { top: "100%" }}
+        >
           <NepaliDatePicker
             open={true}
             showclear={false}

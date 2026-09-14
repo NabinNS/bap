@@ -1,8 +1,9 @@
 "use client";
 
 import { ChangeEvent, forwardRef, useRef, useState, useEffect, useId, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { Upload, Loader2 } from "lucide-react";
+import { FloatingPortal, useMergeRefs } from "@floating-ui/react";
+import { useFloatingPosition } from "@/hooks/useFloatingPosition";
 
 // BaseProps are shared across every field type
 type BaseProps = {
@@ -186,7 +187,6 @@ export function ComboboxField({
   onSearchChange,
 }: ComboboxFieldProps) {
   const listboxId = useId();
-  const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -194,6 +194,11 @@ export function ComboboxField({
   const [inputValue, setInputValue] = useState(selectedLabel);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+
+  const { refs, floatingStyles } = useFloatingPosition({ open, matchReferenceWidth: true });
+  const ownInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useMergeRefs([ownInputRef, refs.setReference]);
+  const floatingListRef = useMergeRefs([listRef, refs.setFloating]);
 
   const filtered = inputValue.trim()
     ? options.filter((o) => o.label.toLowerCase().includes(inputValue.toLowerCase()))
@@ -244,7 +249,7 @@ export function ComboboxField({
     setInputValue(opt.label);
     setOpen(false);
     setActiveIndex(-1);
-    inputRef.current?.blur();
+    ownInputRef.current?.blur();
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -278,7 +283,7 @@ export function ComboboxField({
 
       case "Escape":
         closeAndRevert();
-        inputRef.current?.blur();
+        ownInputRef.current?.blur();
         break;
 
       case "Tab":
@@ -322,19 +327,14 @@ export function ComboboxField({
           </div>
         )}
 
-        {open && typeof document !== "undefined" && createPortal(
+        {open && (
+          <FloatingPortal>
           <ul
-            ref={listRef}
+            ref={floatingListRef}
             id={listboxId}
             role="listbox"
             aria-label={label}
-            style={{
-              position: "fixed",
-              top: (inputRef.current?.getBoundingClientRect().bottom ?? 0) + 2,
-              left: inputRef.current?.getBoundingClientRect().left ?? 0,
-              width: inputRef.current?.getBoundingClientRect().width ?? "auto",
-              zIndex: 9999,
-            }}
+            style={{ ...floatingStyles, zIndex: 9999 }}
             className="bg-white border border-slate-200 shadow-lg max-h-48 overflow-y-auto"
           >
             {filtered.length === 0 && (
@@ -376,8 +376,8 @@ export function ComboboxField({
                 + Add "{inputValue.trim()}"
               </li>
             )}
-          </ul>,
-          document.body
+          </ul>
+          </FloatingPortal>
         )}
       </div>
     </FieldWrapper>
