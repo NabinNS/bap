@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin, Phone, Receipt, Search, ArrowLeft, ListOrdered } from "lucide-react";
+import { ArrowLeft, ListOrdered } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { BsDateInput, getTodayBs, isValidBsDate } from "@/components/ui/form/BsDateInput";
@@ -12,22 +12,9 @@ import { SelectField } from "@/components/ui/form/FormField";
 import { TRANSACTION_PARTICULARS, getParticularDirection } from "../constants";
 import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
 import { useImageGroup } from "@/hooks/useImageGroup";
-
-type VendorBalance = {
-  fiscal_year_id: number;
-  opening_balance: string;
-  remaining_balance: string;
-};
-
-type Vendor = {
-  ulid: string;
-  name: string;
-  address: string | null;
-  phone: string | null;
-  telephone: string | null;
-  vat_no: string | null;
-  balances: VendorBalance[];
-};
+import { VendorSidebar } from "../_components/VendorSidebar";
+import { VendorInfoBlock } from "../_components/VendorInfoBlock";
+import { Vendor } from "../_components/types";
 
 type Meta = {
   total: number;
@@ -101,7 +88,6 @@ function AmountPaidContent() {
   const fiscalYears = fiscalYearsData?.data ?? [];
 
   const vendors = vendorsData?.data ?? [];
-  const filteredVendors = vendors.filter((v) => v.name.toLowerCase().includes(sideSearch.toLowerCase()));
   const selectedVendor = vendors.find((v) => v.ulid === selectedVendorUlid) ?? null;
 
   const { data: transactionsData } = useQuery({
@@ -330,98 +316,22 @@ function AmountPaidContent() {
         {/* Two-column body */}
         <div className="flex gap-6 flex-1 min-h-0">
           {/* Side card: vendor list */}
-          <div className="w-80 shrink-0 flex flex-col h-full">
-            <div className="flex items-center pb-3 shrink-0">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 inset-y-0 my-auto h-3.5 w-3.5 text-text-muted pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={sideSearch}
-                  onChange={(e) => setSideSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-sm border border-slate-400 focus:outline-none focus:border-slate-600"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col flex-1 min-h-0 border border-slate-400 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2.5 bg-black shrink-0">
-                <span className="text-xs font-semibold text-white uppercase tracking-wide">Name</span>
-                <span className="text-xs font-semibold text-white uppercase tracking-wide">Balance</span>
-              </div>
-
-              <div className="flex-1 overflow-y-auto">
-                {vendorsLoading ? (
-                  <p className="p-4 text-sm text-text-muted text-center">Loading...</p>
-                ) : filteredVendors.length === 0 ? (
-                  <p className="p-4 text-sm text-text-muted text-center">No vendors found.</p>
-                ) : (
-                  filteredVendors.map((vendor) => (
-                    <div
-                      key={vendor.ulid}
-                      onClick={() => selectVendor(vendor.ulid)}
-                      className={`flex items-center py-3.5 border-b border-slate-400 cursor-pointer transition-colors ${selectedVendor?.ulid === vendor.ulid ? "bg-slate-200 border-l-2 border-l-slate-700 pl-[14px] pr-1" : "pl-4 pr-1 hover:bg-slate-50"}`}
-                    >
-                      <span className={`text-sm truncate flex-1 min-w-0 ${selectedVendor?.ulid === vendor.ulid ? "font-semibold text-text-default" : "font-medium text-text-default"}`}>{vendor.name}</span>
-                      <span className="text-sm font-semibold text-text-default text-right shrink-0">
-                        {activeFiscalYearId && vendor.balances?.find((b) => b.fiscal_year_id === activeFiscalYearId)
-                          ? Number(vendor.balances.find((b) => b.fiscal_year_id === activeFiscalYearId)!.remaining_balance).toLocaleString()
-                          : "—"}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
+          <VendorSidebar
+            vendors={vendors}
+            vendorsLoading={vendorsLoading}
+            activeFiscalYearId={activeFiscalYearId}
+            selectedVendorUlid={selectedVendor?.ulid}
+            search={sideSearch}
+            onSearchChange={setSideSearch}
+            onSelect={(vendor) => selectVendor(vendor.ulid)}
+          />
 
           {/* Right side: detail card + payment content */}
           <div className="flex-1 min-w-0 flex flex-col gap-4 self-start">
             {/* Account detail card */}
             <div className="bg-white px-5 py-4 space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-lg font-bold text-text-default leading-tight flex items-center gap-1.5">
-                    {selectedVendor ? (
-                      <>
-                        <span className="text-base font-medium text-text-muted">Name:</span>
-                        {selectedVendor.name}
-                      </>
-                    ) : (
-                      <span className="text-text-muted font-normal text-sm">Select a vendor</span>
-                    )}
-                  </p>
-                  {selectedVendor && (
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      {selectedVendor.address && (
-                        <div className="flex items-center gap-1 text-text-body text-sm-custom">
-                          <MapPin className="h-3.5 w-3.5 shrink-0" />
-                          <span className="font-medium text-text-muted">Address:</span>
-                          <span>{selectedVendor.address}</span>
-                        </div>
-                      )}
-                      {(selectedVendor.phone || selectedVendor.telephone) && (
-                        <>
-                          <span className="text-slate-300">|</span>
-                          <div className="flex items-center gap-1 text-text-body text-sm-custom">
-                            <Phone className="h-3.5 w-3.5 shrink-0" />
-                            <span className="font-medium text-text-muted">Phone:</span>
-                            <span>{[selectedVendor.phone, selectedVendor.telephone].filter(Boolean).join(" / ")}</span>
-                          </div>
-                        </>
-                      )}
-                      {selectedVendor.vat_no && (
-                        <>
-                          <span className="text-slate-300">|</span>
-                          <div className="flex items-center gap-1 text-text-body text-sm-custom">
-                            <Receipt className="h-3.5 w-3.5 shrink-0" />
-                            <span>VAT No: {selectedVendor.vat_no}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <VendorInfoBlock vendor={selectedVendor} />
 
                 {fiscalYears.length > 0 && (
                   <div className="flex flex-col gap-2 shrink-0 w-48">

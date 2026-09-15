@@ -7,34 +7,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { Plus, Search, MapPin, Phone, Receipt, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon } from "lucide-react";
+import { Plus, Receipt, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { TRANSACTION_PARTICULARS, getParticularLabel, getParticularDirection, ITEM_CAPABLE_PARTICULARS } from "./constants";
 import { toast } from "@/lib/toast";
-import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
-import { InputField, NumberField, SelectField, ComboboxField } from "@/components/ui/form/FormField";
+import { SelectField, ComboboxField } from "@/components/ui/form/FormField";
 import { BsDateInput, isValidBsDate } from "@/components/ui/form/BsDateInput";
 import { ProductCombobox, ProductOption } from "@/components/products/ProductCombobox";
 import { ConfirmDialog } from "@/components/ui/dialog/ConfirmDialog";
 import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
 import { useImageGroup } from "@/hooks/useImageGroup";
-import { Modal } from "@/components/ui/Modal";
-
-type VendorBalance = {
-  fiscal_year_id: number;
-  opening_balance: string;
-  remaining_balance: string;
-};
-
-type Vendor = {
-  ulid: string;
-  name: string;
-  address: string | null;
-  phone: string | null;
-  telephone: string | null;
-  vat_no: string | null;
-  balances: VendorBalance[];
-};
+import { VendorSidebar } from "./_components/VendorSidebar";
+import { VendorInfoBlock } from "./_components/VendorInfoBlock";
+import { FiscalYearModal } from "./_components/FiscalYearModal";
+import { FilterModal } from "./_components/FilterModal";
+import { TrashModal } from "./_components/TrashModal";
+import { VendorFormPanel, VendorFormState, VendorFormErrors } from "./_components/VendorFormPanel";
+import { Vendor, FiscalYear } from "./_components/types";
 
 type Meta = {
   total: number;
@@ -72,23 +61,8 @@ type Transaction = {
   items?: TransactionItem[];
 };
 
-type FiscalYear = {
-  id: number;
-  ulid: string;
-  name: string;
-};
-
-type FormState = {
-  name: string;
-  address: string;
-  phone: string;
-  telephone: string;
-  vat_no: string;
-  fiscal_year_id: string;
-  opening_balance: string;
-};
-
-type FormErrors = Partial<Record<keyof FormState, string>>;
+type FormState = VendorFormState;
+type FormErrors = VendorFormErrors;
 
 const INITIAL_FORM: FormState = {
   name: "",
@@ -195,10 +169,6 @@ function AdminAccountsContent() {
 
   const vendors = vendorsData?.data ?? [];
 
-  const filteredVendors = vendors.filter((v) =>
-    v.name.toLowerCase().includes(sideSearch.toLowerCase())
-  );
-
   // Always derived from live query data so it updates automatically after mutations
   const selectedVendor = vendors.find((v) => v.ulid === selectedVendorUlid) ?? null;
 
@@ -282,8 +252,10 @@ function AdminAccountsContent() {
   });
 
   const { data: trashedData, isLoading: trashedLoading } = useQuery({
-    queryKey: ["acc-vendor-transactions-trashed", selectedVendor?.ulid],
-    queryFn: () => apiFetch<{ data: Transaction[] }>(`/acc-vendors/${selectedVendor!.ulid}/transactions/trashed`),
+    queryKey: ["acc-vendor-transactions-trashed", selectedVendor?.ulid, viewedFiscalYearId],
+    queryFn: () => apiFetch<{ data: Transaction[] }>(
+      `/acc-vendors/${selectedVendor!.ulid}/transactions/trashed${viewedFiscalYearId ? `?fiscal_year_id=${viewedFiscalYearId}` : ""}`
+    ),
     enabled: !!selectedVendor && trashModalOpen,
   });
   const trashedTransactions = trashedData?.data ?? [];
@@ -973,19 +945,15 @@ function AdminAccountsContent() {
         {/* Two-column body */}
         <div className="flex gap-6 flex-1 min-h-0">
           {/* Side card */}
-          <div className="w-80 shrink-0 flex flex-col h-full">
-            {/* Search + button row */}
-            <div className="flex items-center pb-3 shrink-0">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 inset-y-0 my-auto h-3.5 w-3.5 text-text-muted pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={sideSearch}
-                  onChange={(e) => setSideSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-sm border border-slate-400 focus:outline-none focus:border-slate-600"
-                />
-              </div>
+          <VendorSidebar
+            vendors={vendors}
+            vendorsLoading={vendorsLoading}
+            activeFiscalYearId={activeFiscalYearId}
+            selectedVendorUlid={selectedVendor?.ulid}
+            search={sideSearch}
+            onSearchChange={setSideSearch}
+            onSelect={(vendor) => trySwitchVendor(vendor.ulid)}
+            headerRight={
               <button
                 onClick={openCreate}
                 className="flex items-center gap-1.5 bg-black px-3 py-2 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
@@ -993,53 +961,22 @@ function AdminAccountsContent() {
                 <Plus className="h-4 w-4" />
                 Add
               </button>
-            </div>
-
-            {/* Bordered section */}
-            <div className="flex flex-col flex-1 min-h-0 border border-slate-400 overflow-hidden">
-              {/* Table header */}
-              <div className="flex items-center justify-between px-4 py-2.5 bg-black shrink-0">
-                <span className="text-xs font-semibold text-white uppercase tracking-wide">Name</span>
-                <span className="text-xs font-semibold text-white uppercase tracking-wide">Balance</span>
-              </div>
-
-              {/* Vendor list */}
-              <div className="flex-1 overflow-y-auto">
-                {vendorsLoading ? (
-                  <p className="p-4 text-sm text-text-muted text-center">Loading...</p>
-                ) : filteredVendors.length === 0 ? (
-                  <p className="p-4 text-sm text-text-muted text-center">No vendors found.</p>
-                ) : (
-                  filteredVendors.map((vendor) => (
-                    <div
-                      key={vendor.ulid}
-                      onClick={() => trySwitchVendor(vendor.ulid)}
-                      className={`flex items-center py-3.5 border-b border-slate-400 cursor-pointer transition-colors ${selectedVendor?.ulid === vendor.ulid ? "bg-slate-200 border-l-2 border-l-slate-700 pl-[14px] pr-1" : "pl-4 pr-1 hover:bg-slate-50"}`}
-                    >
-                      <span className={`text-sm truncate flex-1 min-w-0 ${selectedVendor?.ulid === vendor.ulid ? "font-semibold text-text-default" : "font-medium text-text-default"}`}>{vendor.name}</span>
-                      <span className="text-sm font-semibold text-text-default text-right shrink-0">
-                        {activeFiscalYearId && vendor.balances?.find((b) => b.fiscal_year_id === activeFiscalYearId)
-                          ? Number(vendor.balances.find((b) => b.fiscal_year_id === activeFiscalYearId)!.remaining_balance).toLocaleString()
-                          : "—"}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (openMenuUlid === vendor.ulid) { setOpenMenuUlid(null); setMenuPos(null); return; }
-                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          setMenuPos({ top: rect.bottom + 4, left: rect.right - 144 });
-                          setOpenMenuUlid(vendor.ulid);
-                        }}
-                        className="ml-1 shrink-0 p-1 rounded hover:bg-slate-300 transition-colors text-text-muted hover:text-text-default cursor-pointer"
-                      >
-                        <MoreVertical className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
+            }
+            renderRowAction={(vendor) => (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (openMenuUlid === vendor.ulid) { setOpenMenuUlid(null); setMenuPos(null); return; }
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setMenuPos({ top: rect.bottom + 4, left: rect.right - 144 });
+                  setOpenMenuUlid(vendor.ulid);
+                }}
+                className="ml-1 shrink-0 p-1 rounded hover:bg-slate-300 transition-colors text-text-muted hover:text-text-default cursor-pointer"
+              >
+                <MoreVertical className="h-3.5 w-3.5" />
+              </button>
+            )}
+          />
 
           {/* Table + detail card */}
           <div className="flex-1 min-w-0 flex flex-col gap-4 h-full min-h-0">
@@ -1047,50 +984,7 @@ function AdminAccountsContent() {
             <div className="bg-white px-5 py-4 space-y-3">
               {/* Top row: name + buttons */}
               <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-lg font-bold text-text-default leading-tight flex items-center gap-1.5">
-                    {selectedVendor ? (
-                      <>
-                        <span className="text-base font-medium text-text-muted">Name:</span>
-                        {selectedVendor.name}
-                      </>
-                    ) : (
-                      <span className="text-text-muted font-normal text-sm">Select a vendor</span>
-                    )}
-                  </p>
-                  {selectedVendor && (
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      {selectedVendor.address && (
-                        <div className="flex items-center gap-1 text-text-body text-sm-custom">
-                          <MapPin className="h-3.5 w-3.5 shrink-0" />
-                          <span className="font-medium text-text-muted">Address:</span>
-                          <span>{selectedVendor.address}</span>
-                        </div>
-                      )}
-                      {(selectedVendor.phone || selectedVendor.telephone) && (
-                        <>
-                          <span className="text-slate-300">|</span>
-                          <div className="flex items-center gap-1 text-text-body text-sm-custom">
-                            <Phone className="h-3.5 w-3.5 shrink-0" />
-                            <span className="font-medium text-text-muted">Phone:</span>
-                            <span>
-                              {[selectedVendor.phone, selectedVendor.telephone].filter(Boolean).join(" / ")}
-                            </span>
-                          </div>
-                        </>
-                      )}
-                      {selectedVendor.vat_no && (
-                        <>
-                          <span className="text-slate-300">|</span>
-                          <div className="flex items-center gap-1 text-text-body text-sm-custom">
-                            <Receipt className="h-3.5 w-3.5 shrink-0" />
-                            <span>VAT No: {selectedVendor.vat_no}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <VendorInfoBlock vendor={selectedVendor} />
                 <div className="flex items-center shrink-0">
                   <Link
                     href={selectedVendor ? `/admin/accounts/goods-purchased?vendor=${selectedVendor.ulid}` : "/admin/accounts/goods-purchased"}
@@ -1536,7 +1430,7 @@ function AdminAccountsContent() {
           style={{ position: "fixed", top: menuPos.top, left: menuPos.left, zIndex: 9999 }}
           className="w-36 bg-white border border-slate-200 shadow-md"
         >
-          {filteredVendors.filter(v => v.ulid === openMenuUlid).map(vendor => (
+          {vendors.filter(v => v.ulid === openMenuUlid).map(vendor => (
             <div key={vendor.ulid}>
               <button
                 onClick={(e) => { e.stopPropagation(); trySwitchVendor(vendor.ulid); }}
@@ -1585,109 +1479,49 @@ function AdminAccountsContent() {
         document.body
       )}
 
-      <Modal
+      <FiscalYearModal
         open={fiscalYearModalOpen}
         onClose={() => setFiscalYearModalOpen(false)}
-        title="Fiscal Year"
-        description="Choose which fiscal year's ledger to view for this vendor."
-        initialWidth={460}
-        initialHeight={320}
-        onSubmit={() => {
+        fiscalYears={fiscalYears}
+        draft={fiscalYearDraft}
+        onDraftChange={setFiscalYearDraft}
+        onApply={() => {
           setViewFiscalYearId(fiscalYearDraft ? Number(fiscalYearDraft) : null);
           setFiscalYearModalOpen(false);
         }}
-        submitLabel="Apply"
-      >
-        {fiscalYears.length === 0 ? (
-          <p className="text-sm text-text-muted">No fiscal years configured yet.</p>
-        ) : (
-          <SelectField
-            label="Fiscal Year"
-            value={fiscalYearDraft}
-            onChange={(e) => setFiscalYearDraft(e.target.value)}
-            options={fiscalYears.map((fy) => ({
-              label: fy.name,
-              value: String(fy.id),
-            }))}
-          />
-        )}
-      </Modal>
+      />
 
-      <Modal
+      <FilterModal
         open={filterModalOpen}
         onClose={() => setFilterModalOpen(false)}
-        title="Filter"
-        description="Show only transactions within a date range."
-        initialWidth={420}
-        initialHeight={320}
-        onSubmit={() => {
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        dateFromDraft={dateFromDraft}
+        dateToDraft={dateToDraft}
+        resetKey={dateFilterResetKey}
+        onDateFromDraftChange={setDateFromDraft}
+        onDateToDraftChange={setDateToDraft}
+        onApply={() => {
           setDateFrom(dateFromDraft);
           setDateTo(dateToDraft);
         }}
-        submitLabel="Apply"
-      >
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">From Date</label>
-            <BsDateInput key={`from-${dateFilterResetKey}`} value={dateFromDraft} onChange={setDateFromDraft} placeholder="YYYY-MM-DD" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-text-default uppercase tracking-wide mb-1.5">To Date</label>
-            <BsDateInput key={`to-${dateFilterResetKey}`} value={dateToDraft} onChange={setDateToDraft} placeholder="YYYY-MM-DD" />
-          </div>
-        </div>
-        {(dateFrom || dateTo || dateFromDraft || dateToDraft) && (
-          <button
-            type="button"
-            onClick={() => {
-              setDateFromDraft("");
-              setDateToDraft("");
-              setDateFrom("");
-              setDateTo("");
-              setDateFilterResetKey((k) => k + 1);
-            }}
-            className="text-sm font-medium text-text-muted hover:text-text-default cursor-pointer"
-          >
-            Clear All Filters
-          </button>
-        )}
-      </Modal>
+        onClearAll={() => {
+          setDateFromDraft("");
+          setDateToDraft("");
+          setDateFrom("");
+          setDateTo("");
+          setDateFilterResetKey((k) => k + 1);
+        }}
+      />
 
-      <Modal
+      <TrashModal
         open={trashModalOpen}
         onClose={() => setTrashModalOpen(false)}
-        title="Recently Deleted"
-        description="Deleted transactions for this vendor. Restoring recalculates the vendor's balance, but does not re-apply any stock/cost changes the transaction originally made."
-        initialWidth={520}
-        initialHeight={420}
-      >
-        {trashedLoading && <p className="text-sm text-text-muted">Loading…</p>}
-        {!trashedLoading && trashedTransactions.length === 0 && (
-          <p className="text-sm text-text-muted">Nothing deleted for this vendor.</p>
-        )}
-        {!trashedLoading && trashedTransactions.length > 0 && (
-          <div className="space-y-2">
-            {trashedTransactions.map((tx) => (
-              <div key={tx.ulid} className="flex items-center justify-between border border-slate-200 px-3 py-2">
-                <div>
-                  <p className="text-sm font-semibold text-text-default">{getParticularLabel(tx.particular)}</p>
-                  <p className="text-xs text-text-muted">
-                    {tx.date} {tx.voucher_no ? `· Voucher ${tx.voucher_no}` : ""} {tx.debit != null ? `· Debit ${Number(tx.debit).toLocaleString()}` : ""} {tx.credit != null ? `· Credit ${Number(tx.credit).toLocaleString()}` : ""}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={restoreTransactionMutation.isPending}
-                  onClick={() => { if (selectedVendorUlid) restoreTransactionMutation.mutate({ vendorUlid: selectedVendorUlid, txUlid: tx.ulid }); }}
-                  className="shrink-0 px-3 py-1.5 text-xs font-semibold text-text-default border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  Restore
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </Modal>
+        loading={trashedLoading}
+        transactions={trashedTransactions}
+        restoring={restoreTransactionMutation.isPending}
+        onRestore={(txUlid) => { if (selectedVendorUlid) restoreTransactionMutation.mutate({ vendorUlid: selectedVendorUlid, txUlid }); }}
+      />
 
       <ConfirmDialog
         open={pendingVendorUlid !== null}
@@ -1747,77 +1581,26 @@ function AdminAccountsContent() {
       )}
 
       {/* Add Vendor slide panel */}
-      <SlidePanel
+      <VendorFormPanel
         open={drawerOpen}
         onClose={closeDrawer}
-        title={editingVendor ? "Edit Vendor" : "Add Vendor"}
-        description={editingVendor ? "Update the vendor details." : "Fill in the details to create a new vendor."}
-        submitLabel={saveMutation.isPending ? "Saving..." : editingVendor ? "Update Vendor" : "Save Vendor"}
+        isEditing={!!editingVendor}
+        saving={saveMutation.isPending}
+        form={form}
+        errors={errors}
+        fiscalYears={fiscalYears}
+        onFieldChange={(field, value) => {
+          setForm((f) => ({ ...f, [field]: value }));
+          if (field === "name") setErrors((prev) => ({ ...prev, name: undefined }));
+        }}
+        onFieldBlur={() => autoSave()}
+        onOpeningBalanceBlur={() => {
+          if (editingVendor?.ulid && form.opening_balance) {
+            saveBalanceMutation.mutate({ ulid: editingVendor.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });
+          }
+        }}
         onSubmit={handleSubmit}
-      >
-        <InputField
-          label="Name"
-          required
-          placeholder="e.g. Nepal Traders Pvt. Ltd."
-          value={form.name}
-          onChange={(e) => {
-            setForm((f) => ({ ...f, name: e.target.value }));
-            setErrors((prev) => ({ ...prev, name: undefined }));
-          }}
-          onBlur={() => autoSave()}
-          error={errors.name}
-        />
-        <InputField
-          label="Address"
-          placeholder="e.g. Kathmandu, Nepal"
-          value={form.address}
-          onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-          onBlur={() => autoSave()}
-        />
-        <InputField
-          label="Phone"
-          placeholder="e.g. 9801234567"
-          value={form.phone}
-          onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-          onBlur={() => autoSave()}
-        />
-        <InputField
-          label="Telephone"
-          placeholder="e.g. 01-4123456"
-          value={form.telephone}
-          onChange={(e) => setForm((f) => ({ ...f, telephone: e.target.value }))}
-          onBlur={() => autoSave()}
-        />
-        <InputField
-          label="VAT No"
-          placeholder="e.g. 123456789"
-          value={form.vat_no}
-          onChange={(e) => setForm((f) => ({ ...f, vat_no: e.target.value }))}
-          onBlur={() => autoSave()}
-        />
-        <SelectField
-          label="Fiscal Year"
-          value={form.fiscal_year_id}
-          onChange={(e) => setForm((f) => ({ ...f, fiscal_year_id: e.target.value }))}
-          options={[
-            { label: "— Select fiscal year —", value: "" },
-            ...fiscalYears.map((fy) => ({ label: fy.name, value: String(fy.id) })),
-          ]}
-        />
-
-        <NumberField
-          label="Opening Balance"
-          placeholder="0.00"
-          allowDecimal
-          value={form.opening_balance}
-          onChange={(e) => setForm((f) => ({ ...f, opening_balance: e.target.value }))}
-          onBlur={() => {
-            if (editingVendor?.ulid && form.opening_balance) {
-              saveBalanceMutation.mutate({ ulid: editingVendor.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });
-            }
-          }}
-        />
-      </SlidePanel>
+      />
     </div>
   );
 }
