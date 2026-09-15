@@ -39,12 +39,12 @@ class AccVendorTransactionController extends Controller
         );
     }
 
-    public function trashed(AccVendor $accVendor, ListTrashedAccVendorTransactionsAction $action): JsonResponse
+    public function trashed(Request $request, AccVendor $accVendor, ListTrashedAccVendorTransactionsAction $action): JsonResponse
     {
         $this->authorize('view', $accVendor);
 
         return ApiResponse::success(
-            AccVendorTransactionResource::collection($action->execute($accVendor)),
+            AccVendorTransactionResource::collection($action->execute($accVendor, $request->integer('fiscal_year_id') ?: null)),
             'Trashed transactions retrieved successfully'
         );
     }

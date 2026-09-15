@@ -24,10 +24,11 @@ class EloquentAccVendorTransactionRepository implements AccVendorTransactionRepo
             ->paginate($perPage);
     }
 
-    public function trashed(AccVendor $vendor): Collection
+    public function trashed(AccVendor $vendor, ?int $fiscalYearId = null): Collection
     {
         return AccVendorTransaction::onlyTrashed()
             ->where('vendor_id', $vendor->id)
+            ->when($fiscalYearId, fn ($query) => $query->where('fiscal_year_id', $fiscalYearId))
             ->with(['items.product'])
             ->orderBy('deleted_at', 'desc')
             ->get();

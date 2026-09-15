@@ -16,7 +16,7 @@ interface AccVendorTransactionRepositoryInterface
     public function paginate(AccVendor $vendor, int $perPage, ?int $fiscalYearId = null): LengthAwarePaginator;
 
     /** @return \Illuminate\Support\Collection<int, AccVendorTransaction> */
-    public function trashed(AccVendor $vendor): \Illuminate\Support\Collection;
+    public function trashed(AccVendor $vendor, ?int $fiscalYearId = null): \Illuminate\Support\Collection;
 
     /**
      * Restore a soft-deleted transaction by ulid (implicit route-model-binding can't resolve

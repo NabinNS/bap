@@ -12,8 +12,8 @@ class ListTrashedAccVendorTransactionsAction
         private AccVendorTransactionRepositoryInterface $transactions,
     ) {}
 
-    public function execute(AccVendor $vendor): Collection
+    public function execute(AccVendor $vendor, ?int $fiscalYearId = null): Collection
     {
-        return $this->transactions->trashed($vendor);
+        return $this->transactions->trashed($vendor, $fiscalYearId);
     }
 }
