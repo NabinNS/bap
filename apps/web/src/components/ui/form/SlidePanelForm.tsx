@@ -11,6 +11,9 @@ type SlidePanelProps = {
   onSubmit?: () => void;
   submitLabel?: string;
   editHref?: string;
+  /** Renders a text danger button in the footer, between Cancel and Save. */
+  onDelete?: () => void;
+  deleteLabel?: string;
   children: React.ReactNode;
 };
 
@@ -22,6 +25,8 @@ export function SlidePanel({
   onSubmit,
   submitLabel = "Save",
   editHref,
+  onDelete,
+  deleteLabel = "Delete entry",
   children,
 }: SlidePanelProps) {
   return (
@@ -73,6 +78,14 @@ export function SlidePanel({
           >
             Cancel
           </button>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="flex-1 h-12 bg-[#a30808] text-white text-sm font-semibold hover:bg-[#780606] cursor-pointer transition-colors"
+            >
+              {deleteLabel}
+            </button>
+          )}
           <button
             onClick={onSubmit}
             className="flex-1 h-12 bg-black text-white text-sm font-semibold hover:bg-black/80 cursor-pointer transition-colors"

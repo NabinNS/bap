@@ -7,11 +7,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { Plus, Receipt, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon } from "lucide-react";
+import { Plus, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { TRANSACTION_PARTICULARS, getParticularLabel, getParticularDirection, ITEM_CAPABLE_PARTICULARS } from "./constants";
 import { toast } from "@/lib/toast";
 import { SelectField, ComboboxField } from "@/components/ui/form/FormField";
+import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { BsDateInput, isValidBsDate } from "@/components/ui/form/BsDateInput";
 import { ProductCombobox, ProductOption } from "@/components/products/ProductCombobox";
 import { ConfirmDialog } from "@/components/ui/dialog/ConfirmDialog";
@@ -141,6 +142,7 @@ function AdminAccountsContent() {
   const [addingItem, setAddingItem] = useState(false);
   const [editingOpeningBalance, setEditingOpeningBalance] = useState(false);
   const [openingBalanceDraft, setOpeningBalanceDraft] = useState("");
+  const [openingBalanceFiscalYearId, setOpeningBalanceFiscalYearId] = useState("");
 
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
     queryKey: ["acc-vendors"],
@@ -1088,6 +1090,7 @@ function AdminAccountsContent() {
                     if (row.ulid === "__opening_balance__") {
                       setSelectedTransactionUlid(null);
                       setOpeningBalanceDraft(activeOpeningBalance ?? "");
+                      setOpeningBalanceFiscalYearId(activeFiscalYearId ? String(activeFiscalYearId) : "");
                       setEditingOpeningBalance(true);
                       return;
                     }
@@ -1099,329 +1102,309 @@ function AdminAccountsContent() {
                 />
               </div>
 
-              {/* Transaction detail panel */}
-              {selectedTransaction && txEdit && <div className="w-[280px] shrink-0 bg-white border border-slate-200 flex flex-col overflow-y-auto">
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                  <p className="text-sm-custom font-bold text-text-default">{getParticularLabel(selectedTransaction.particular)}</p>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {ITEM_CAPABLE_PARTICULARS.includes(selectedTransaction.particular) && (
-                      <button
-                        onClick={() => openAddItemsPage(selectedTransaction)}
-                        className="h-7 px-2 text-xs font-semibold text-text-default border border-slate-300 hover:bg-slate-50 cursor-pointer transition-colors"
-                      >
-                        Add Items
-                      </button>
-                    )}
-                    <button
-                      onClick={() => removeTransaction(selectedTransaction.ulid)}
-                      title="Delete transaction"
-                      className="h-7 w-7 flex items-center justify-center text-text-muted hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => setSelectedTransactionUlid(null)} className="h-7 w-7 flex items-center justify-center text-text-muted hover:text-text-default cursor-pointer transition-colors">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Header fields */}
-                <div className="px-4 py-3 border-b border-slate-100 space-y-2">
-                  <p className="text-xs font-semibold text-text-default flex items-center justify-between gap-1.5">
-                    <span className="flex items-center gap-1.5"><Receipt className="h-3.5 w-3.5" /> Details</span>
-                    {(updateTransactionMutation.isPending || updateItemMutation.isPending || addItemMutation.isPending || deleteItemMutation.isPending) && (
-                      <span className="text-[10px] font-normal text-text-muted">Saving...</span>
-                    )}
-                  </p>
-                  <div className="space-y-2 [&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_select]:h-8 [&_select]:text-sm [&_select]:font-medium [&_select]:text-black [&_.mt-1]:mt-0">
-                    <div>
-                      <label className="block text-xs text-text-muted mb-1">Date</label>
-                      <BsDateInput value={txEdit.date} onChange={(v) => setTxEdit((s) => s && { ...s, date: v })} onBlur={saveTransactionHeader} />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-text-muted mb-1">Voucher No</label>
-                      <input
-                        type="text"
-                        value={txEdit.voucher_no}
-                        onChange={(e) => setTxEdit((s) => s && { ...s, voucher_no: e.target.value })}
-                        onBlur={saveTransactionHeader}
-                        className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
-                      />
-                    </div>
-                    {!hasItems && (
-                      <>
-                        <div>
-                          <SelectField
-                            label="Particular"
-                            value={txEdit.particular}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setTxEdit((s) => s && { ...s, particular: value, cheque_no: value === "cheque" ? s.cheque_no : "" });
-                              saveTransactionHeader();
-                            }}
-                            options={TRANSACTION_PARTICULARS.map((p) => ({ label: p.label, value: p.value }))}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-text-muted mb-1">
-                            Amount <span className="normal-case">({getParticularDirection(txEdit.particular) === "debit" ? "Debit" : "Credit"})</span>
-                          </label>
-                          <input
-                            type="number" min="0"
-                            value={txEdit.amount}
-                            onChange={(e) => setTxEdit((s) => s && { ...s, amount: e.target.value })}
-                            onBlur={saveTransactionHeader}
-                            className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
-                          />
-                        </div>
-                        {txEdit.particular === "cheque" && (
-                          <div>
-                            <label className="block text-xs text-text-muted mb-1">Cheque No</label>
-                            <input
-                              type="text"
-                              value={txEdit.cheque_no}
-                              onChange={(e) => setTxEdit((s) => s && { ...s, cheque_no: e.target.value })}
-                              onBlur={saveTransactionHeader}
-                              className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
-                            />
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Receipt photo */}
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <MultiImageUpload
-                    label="Receipt Photo"
-                    value={receiptImage.images}
-                    onChange={receiptImage.setImages}
-                    savedImages={receiptImage.savedImages}
-                    groupName={receiptImage.groupName}
-                    onGroupNameChange={receiptImage.setGroupName}
-                    onGroupNameBlur={receiptImage.updateGroupName}
-                    onSave={() => receiptImage.save(selectedTransaction.ulid)}
-                    onRemoveSaved={receiptImage.removeSaved}
-                    saving={receiptImage.saving}
-                    uploadStates={receiptImage.uploadStates}
-                    max={1}
-                  />
-                </div>
-
-                {/* Items */}
-                {hasItems && (
-                  <div className="px-4 py-3 border-b border-slate-100 space-y-2">
-                    <p className="text-xs font-semibold text-text-default flex items-center gap-1.5">
-                      <Receipt className="h-3.5 w-3.5" /> Items ({selectedTransaction.items!.length})
-                    </p>
-                    <div className="space-y-3">
-                      {selectedTransaction.items!.map((item) => {
-                        const edit = itemEdits[item.ulid];
-                        if (!edit) return null;
-                        return (
-                          <div key={item.ulid} className="border border-slate-200 p-2 space-y-1.5">
-                            <div className="[&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
-                              <ProductCombobox
-                                value={edit.product_ulid}
-                                onChange={(val, product) => {
-                                  const rate = suggestedRate(product);
-                                  const rateStr = rate != null ? String(rate) : edit.rate;
-                                  setItemEdits((prev) => ({
-                                    ...prev,
-                                    [item.ulid]: {
-                                      ...prev[item.ulid],
-                                      product_ulid: val,
-                                      product_name: product?.name ?? prev[item.ulid].product_name,
-                                      rate: rateStr,
-                                    },
-                                  }));
-                                  saveItem(item.ulid, { product_ulid: val, rate: rateStr });
-                                }}
-                              />
-                            </div>
-                            <div className="grid grid-cols-3 gap-1.5">
-                              <div>
-                                <label className="block text-[10px] text-text-muted mb-0.5">Qty</label>
-                                <input
-                                  type="number" min="0"
-                                  value={edit.quantity}
-                                  onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], quantity: e.target.value } }))}
-                                  onBlur={() => saveItem(item.ulid)}
-                                  className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] text-text-muted mb-0.5">Rate</label>
-                                <input
-                                  type="number" min="0"
-                                  value={edit.rate}
-                                  onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], rate: e.target.value } }))}
-                                  onBlur={() => saveItem(item.ulid)}
-                                  className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] text-text-muted mb-0.5">Discount</label>
-                                <input
-                                  type="number" min="0"
-                                  value={edit.discount}
-                                  onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], discount: e.target.value } }))}
-                                  onBlur={() => saveItem(item.ulid)}
-                                  className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between pt-0.5">
-                              <span className="text-sm-custom text-text-body">Total <span className="font-semibold text-text-default">{item.total.toLocaleString()}</span></span>
-                              <button onClick={() => removeItem(item.ulid)} className="text-text-muted hover:text-red-600 transition-colors cursor-pointer">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {addingItem ? (
-                      <div className="border border-dashed border-slate-300 p-2 space-y-1.5">
-                        <div className="[&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
-                          <ProductCombobox
-                            value={newItem.product_ulid}
-                            onChange={(val, product) => {
-                              const rate = suggestedRate(product);
-                              setNewItem((s) => ({ ...s, product_ulid: val, product_name: product?.name ?? s.product_name, rate: rate != null ? String(rate) : s.rate }));
-                            }}
-                          />
-                        </div>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          <div>
-                            <label className="block text-[10px] text-text-muted mb-0.5">Qty</label>
-                            <input
-                              type="number" min="0"
-                              value={newItem.quantity}
-                              onChange={(e) => setNewItem((s) => ({ ...s, quantity: e.target.value }))}
-                              className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] text-text-muted mb-0.5">Rate</label>
-                            <input
-                              type="number" min="0"
-                              value={newItem.rate}
-                              onChange={(e) => setNewItem((s) => ({ ...s, rate: e.target.value }))}
-                              className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] text-text-muted mb-0.5">Discount</label>
-                            <input
-                              type="number" min="0"
-                              value={newItem.discount}
-                              onChange={(e) => setNewItem((s) => ({ ...s, discount: e.target.value }))}
-                              className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-end gap-2 pt-0.5">
-                          <button onClick={() => { setNewItem(EMPTY_NEW_ITEM); setAddingItem(false); }} className="text-xs text-text-muted hover:text-text-default cursor-pointer">Cancel</button>
-                          <button onClick={saveNewItem} className="text-xs font-semibold text-white bg-black px-2 py-1 cursor-pointer hover:bg-black/80">Add</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setAddingItem(true)}
-                        className="flex items-center gap-1.5 text-xs font-semibold text-text-default hover:text-black transition-colors cursor-pointer"
-                      >
-                        <Plus className="h-3.5 w-3.5" /> Add Item
-                      </button>
-                    )}
-
-                    <div className="pt-2 space-y-1 border-t border-slate-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm-custom text-text-body">Discount</span>
-                        <span className="text-sm-custom text-text-default">{selectedTransaction.discount_percent ?? 0}%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm-custom text-text-body">Taxable Amount</span>
-                        <span className="text-sm-custom text-text-default">{(selectedTransaction.taxable_amount ?? 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm-custom text-text-body">VAT (13%)</span>
-                        <span className="text-sm-custom text-text-default">{(selectedTransaction.vat_amount ?? 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm-custom font-bold text-text-default">Grand Total</span>
-                        <span className="text-sm-custom font-bold text-text-default">{(selectedTransaction.grand_total ?? 0).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Footer */}
-                <div className="flex items-center mt-auto border-t border-slate-100">
-                  <button
-                    onClick={() => setSelectedTransactionUlid(null)}
-                    className="flex-1 h-10 text-sm font-semibold text-text-default hover:bg-slate-50 cursor-pointer transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => { saveTransactionHeader(); setSelectedTransactionUlid(null); }}
-                    className="flex-1 h-10 bg-black text-sm font-semibold text-white hover:bg-black/80 cursor-pointer transition-colors"
-                  >
-                    {updateTransactionMutation.isPending ? "Saving..." : "Save"}
-                  </button>
-                </div>
-              </div>}
-
-              {/* Opening balance edit panel */}
-              {editingOpeningBalance && selectedVendor && <div className="w-[280px] shrink-0 bg-white border border-slate-200 flex flex-col overflow-y-auto">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                  <p className="text-sm-custom font-bold text-text-default">Opening Balance</p>
-                  <button onClick={() => setEditingOpeningBalance(false)} className="text-text-muted hover:text-text-default transition-colors cursor-pointer">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="px-4 py-3 space-y-2">
-                  <div>
-                    <label className="block text-xs text-text-muted mb-1">Fiscal Year</label>
-                    <p className="text-sm font-medium text-text-default">{activeFiscalYear?.name ?? "No fiscal year"}</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-text-muted mb-1">Amount</label>
-                    <input
-                      type="number" min="0"
-                      value={openingBalanceDraft}
-                      onChange={(e) => setOpeningBalanceDraft(e.target.value)}
-                      className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center mt-auto border-t border-slate-100">
-                  <button
-                    onClick={() => setEditingOpeningBalance(false)}
-                    className="flex-1 h-10 text-sm font-semibold text-text-default hover:bg-slate-50 cursor-pointer transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!activeFiscalYearId) { toast.warning("No fiscal year", "Set an active fiscal year in Settings first."); return; }
-                      saveBalanceMutation.mutate({ ulid: selectedVendor.ulid, opening_balance: openingBalanceDraft, fiscal_year_id: String(activeFiscalYearId) });
-                      setEditingOpeningBalance(false);
-                    }}
-                    className="flex-1 h-10 bg-black text-sm font-semibold text-white hover:bg-black/80 cursor-pointer transition-colors"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Opening balance edit panel */}
+      <SlidePanel
+        open={!!(editingOpeningBalance && selectedVendor)}
+        onClose={() => setEditingOpeningBalance(false)}
+        title="Opening Balance"
+        description="Set the starting balance for a fiscal year."
+        submitLabel="Save"
+        onSubmit={() => {
+          if (!selectedVendor) return;
+          if (!openingBalanceFiscalYearId) { toast.warning("No fiscal year", "Select a fiscal year first."); return; }
+          saveBalanceMutation.mutate({ ulid: selectedVendor.ulid, opening_balance: openingBalanceDraft, fiscal_year_id: openingBalanceFiscalYearId });
+          setEditingOpeningBalance(false);
+        }}
+      >
+        {selectedVendor && (
+          <>
+            <SelectField
+              label="Fiscal Year"
+              value={openingBalanceFiscalYearId}
+              onChange={(e) => {
+                const fyId = e.target.value;
+                setOpeningBalanceFiscalYearId(fyId);
+                const balance = selectedVendor.balances?.find((b) => b.fiscal_year_id === Number(fyId));
+                setOpeningBalanceDraft(balance ? String(balance.opening_balance) : "");
+              }}
+              options={[
+                { label: "— Select fiscal year —", value: "" },
+                ...fiscalYears.map((fy) => ({ label: fy.name, value: String(fy.id) })),
+              ]}
+            />
+            <div>
+              <label className="block text-sm font-semibold text-text-default">Amount</label>
+              <input
+                type="number" min="0"
+                value={openingBalanceDraft}
+                onChange={(e) => setOpeningBalanceDraft(e.target.value)}
+                className="mt-1 w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
+              />
+            </div>
+          </>
+        )}
+      </SlidePanel>
+
+      {/* Transaction detail panel */}
+      <SlidePanel
+        open={!!(selectedTransaction && txEdit)}
+        onClose={() => setSelectedTransactionUlid(null)}
+        title={selectedTransaction ? getParticularLabel(selectedTransaction.particular) : ""}
+        description="Auto-saves as you edit."
+        submitLabel={updateTransactionMutation.isPending ? "Saving..." : "Save"}
+        onSubmit={() => { saveTransactionHeader(); setSelectedTransactionUlid(null); }}
+        onDelete={selectedTransaction ? () => removeTransaction(selectedTransaction.ulid) : undefined}
+      >
+        {selectedTransaction && txEdit && <>
+          {ITEM_CAPABLE_PARTICULARS.includes(selectedTransaction.particular) && (
+            <button
+              type="button"
+              onClick={() => openAddItemsPage(selectedTransaction)}
+              className="block w-full text-right text-xs font-semibold text-blue-800 underline hover:text-blue-900 transition-colors -mt-2 -mb-2"
+            >
+              Need full details? Add items →
+            </button>
+          )}
+
+          {/* Header fields */}
+          <div className="space-y-5">
+            <div>
+              <label className="block text-sm font-semibold text-text-default">Date</label>
+              <BsDateInput
+                value={txEdit.date}
+                onChange={(v) => setTxEdit((s) => s && { ...s, date: v })}
+                onBlur={saveTransactionHeader}
+                className="mt-1 w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-text-default">Voucher No</label>
+              <input
+                type="text"
+                value={txEdit.voucher_no}
+                onChange={(e) => setTxEdit((s) => s && { ...s, voucher_no: e.target.value })}
+                onBlur={saveTransactionHeader}
+                className="mt-1 w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
+              />
+            </div>
+            {!hasItems && (
+              <>
+                <div>
+                  <SelectField
+                    label="Particular"
+                    value={txEdit.particular}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setTxEdit((s) => s && { ...s, particular: value, cheque_no: value === "cheque" ? s.cheque_no : "" });
+                      saveTransactionHeader();
+                    }}
+                    options={TRANSACTION_PARTICULARS.map((p) => ({ label: p.label, value: p.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-text-default">
+                    Amount <span className="normal-case">({getParticularDirection(txEdit.particular) === "debit" ? "Debit" : "Credit"})</span>
+                  </label>
+                  <input
+                    type="number" min="0"
+                    value={txEdit.amount}
+                    onChange={(e) => setTxEdit((s) => s && { ...s, amount: e.target.value })}
+                    onBlur={saveTransactionHeader}
+                    className="mt-1 w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
+                  />
+                </div>
+                {txEdit.particular === "cheque" && (
+                  <div>
+                    <label className="block text-sm font-semibold text-text-default">Cheque No</label>
+                    <input
+                      type="text"
+                      value={txEdit.cheque_no}
+                      onChange={(e) => setTxEdit((s) => s && { ...s, cheque_no: e.target.value })}
+                      onBlur={saveTransactionHeader}
+                      className="mt-1 w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Receipt photo */}
+          <div>
+            <MultiImageUpload
+              label="Receipt Photo"
+              value={receiptImage.images}
+              onChange={receiptImage.setImages}
+              savedImages={receiptImage.savedImages}
+              groupName={receiptImage.groupName}
+              onGroupNameChange={receiptImage.setGroupName}
+              onGroupNameBlur={receiptImage.updateGroupName}
+              onSave={() => receiptImage.save(selectedTransaction.ulid)}
+              onRemoveSaved={receiptImage.removeSaved}
+              saving={receiptImage.saving}
+              uploadStates={receiptImage.uploadStates}
+              max={1}
+            />
+          </div>
+
+          {/* Items */}
+          {hasItems && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-text-default flex items-center justify-between">
+                <span>Items ({selectedTransaction.items!.length})</span>
+                {(updateItemMutation.isPending || addItemMutation.isPending || deleteItemMutation.isPending) && (
+                  <span className="text-xs font-normal text-text-muted">Saving...</span>
+                )}
+              </p>
+              <div className="space-y-3">
+                {selectedTransaction.items!.map((item) => {
+                  const edit = itemEdits[item.ulid];
+                  if (!edit) return null;
+                  return (
+                    <div key={item.ulid} className="border border-slate-300 p-3 space-y-3">
+                      <div className="[&_input]:h-10 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
+                        <ProductCombobox
+                          value={edit.product_ulid}
+                          onChange={(val, product) => {
+                            const rate = suggestedRate(product);
+                            const rateStr = rate != null ? String(rate) : edit.rate;
+                            setItemEdits((prev) => ({
+                              ...prev,
+                              [item.ulid]: {
+                                ...prev[item.ulid],
+                                product_ulid: val,
+                                product_name: product?.name ?? prev[item.ulid].product_name,
+                                rate: rateStr,
+                              },
+                            }));
+                            saveItem(item.ulid, { product_ulid: val, rate: rateStr });
+                          }}
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-xs font-semibold text-text-default mb-1">Qty</label>
+                          <input
+                            type="number" min="0"
+                            value={edit.quantity}
+                            onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], quantity: e.target.value } }))}
+                            onBlur={() => saveItem(item.ulid)}
+                            className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-text-default mb-1">Rate</label>
+                          <input
+                            type="number" min="0"
+                            value={edit.rate}
+                            onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], rate: e.target.value } }))}
+                            onBlur={() => saveItem(item.ulid)}
+                            className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-text-default mb-1">Discount</label>
+                          <input
+                            type="number" min="0"
+                            value={edit.discount}
+                            onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], discount: e.target.value } }))}
+                            onBlur={() => saveItem(item.ulid)}
+                            className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-sm text-text-body">Total <span className="font-semibold text-text-default">{item.total.toLocaleString()}</span></span>
+                        <button onClick={() => removeItem(item.ulid)} className="text-text-muted hover:text-red-600 transition-colors cursor-pointer">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {addingItem ? (
+                <div className="border border-dashed border-slate-300 p-3 space-y-3">
+                  <div className="[&_input]:h-10 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
+                    <ProductCombobox
+                      value={newItem.product_ulid}
+                      onChange={(val, product) => {
+                        const rate = suggestedRate(product);
+                        setNewItem((s) => ({ ...s, product_ulid: val, product_name: product?.name ?? s.product_name, rate: rate != null ? String(rate) : s.rate }));
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-text-default mb-1">Qty</label>
+                      <input
+                        type="number" min="0"
+                        value={newItem.quantity}
+                        onChange={(e) => setNewItem((s) => ({ ...s, quantity: e.target.value }))}
+                        className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-text-default mb-1">Rate</label>
+                      <input
+                        type="number" min="0"
+                        value={newItem.rate}
+                        onChange={(e) => setNewItem((s) => ({ ...s, rate: e.target.value }))}
+                        className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-text-default mb-1">Discount</label>
+                      <input
+                        type="number" min="0"
+                        value={newItem.discount}
+                        onChange={(e) => setNewItem((s) => ({ ...s, discount: e.target.value }))}
+                        className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button onClick={() => { setNewItem(EMPTY_NEW_ITEM); setAddingItem(false); }} className="h-9 px-3 text-sm font-semibold text-text-default hover:bg-slate-50 border border-slate-300 cursor-pointer">Cancel</button>
+                    <button onClick={saveNewItem} className="h-9 px-3 text-sm font-semibold text-white bg-black hover:bg-black/80 cursor-pointer">Add</button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAddingItem(true)}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-text-default hover:text-black transition-colors cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" /> Add Item
+                </button>
+              )}
+
+              <div className="pt-3 space-y-1.5 border-t border-slate-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm-custom text-text-body">Discount</span>
+                  <span className="text-sm-custom text-text-default">{selectedTransaction.discount_percent ?? 0}%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm-custom text-text-body">Taxable Amount</span>
+                  <span className="text-sm-custom text-text-default">{(selectedTransaction.taxable_amount ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm-custom text-text-body">VAT (13%)</span>
+                  <span className="text-sm-custom text-text-default">{(selectedTransaction.vat_amount ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm-custom font-bold text-text-default">Grand Total</span>
+                  <span className="text-sm-custom font-bold text-text-default">{(selectedTransaction.grand_total ?? 0).toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </>}
+      </SlidePanel>
 
       {/* Vendor context menu portal */}
       {openMenuUlid && menuPos && createPortal(

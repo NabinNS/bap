@@ -139,6 +139,35 @@ silently or with a 422, not a clear error pointing at the gap:
 After any of these, run `docker exec bap_api php artisan config:clear` — `upload.php` and
 the morph map are both cached.
 
+## Migrations: fold into the table's create migration, don't stack new files
+
+This project is pre-production (no deployed/shared environment to protect), so schema
+changes to a table are made by editing that table's original `create_<table>_table`
+migration directly — not by adding a new `add_x_to_<table>_table` / `drop_x_from_<table>_table`
+/ `change_x_...` / `revert_...` file. One table, one migration file, always reflecting its
+current final shape.
+
+When asked to add/remove/change a column (or you're doing it as part of other work):
+
+1. Edit the column list directly inside the table's `Schema::create(...)` migration (find it
+   by table name, e.g. `create_products_table`). If two migrations for the same table
+   logically cancel out (e.g. a column type change followed later by a revert), just leave
+   the table in its net final state — don't keep either migration.
+2. Delete the file(s) — never leave a dangling `dropColumn`/`change` migration next to the
+   updated create migration.
+3. Update the DB's `migrations` tracking table to match: remove the row(s) for any deleted
+   migration file so `php artisan migrate:status` has no orphaned entries.
+   ```
+   docker exec bap_api php artisan tinker --execute="\DB::table('migrations')->where('migration', '<name-without-.php>')->delete();"
+   ```
+4. Sanity-check: `docker exec bap_api php -l <file>` and
+   `docker exec bap_api php artisan migrate:status` (grep the affected table) — status should
+   show it as `Ran` with no gaps, and no leftover rows for deleted files.
+
+Do NOT run `migrate:rollback`/`migrate:fresh` to achieve this — the table already has real
+data; editing the migration file and fixing the `migrations` table directly is the way to
+keep the file history clean without touching existing rows in the target table.
+
 ## Local dev notes
 
 - `apps/api` runs in Docker (`bap_api`) with the repo **volume-mounted** — PHP changes are live

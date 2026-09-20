@@ -44,6 +44,11 @@ class ProductResource extends JsonResource
             'active_discount' => $this->whenLoaded('activeDiscount', fn() => $this->activeDiscount ? [
                 'percentage' => $this->activeDiscount->percentage,
             ] : null),
+            'stock_balances' => $this->whenLoaded('stockBalances', fn() => $this->stockBalances->map(fn($b) => [
+                'fiscal_year_id'     => $b->fiscal_year_id,
+                'opening_quantity'   => $b->opening_quantity,
+                'remaining_quantity' => $b->remaining_quantity,
+            ])),
         ];
     }
 }

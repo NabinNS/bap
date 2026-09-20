@@ -142,7 +142,7 @@ export function DataTable<TData>({
   const scrollsInternally = !!maxBodyHeight || fillHeight;
 
   return (
-    <div className={cn("space-y-4", fillHeight && "flex-1 min-h-0 flex flex-col")}>
+    <div className={cn("space-y-4", fillHeight && "flex-1 min-h-0 min-w-0 flex flex-col")}>
       {/* Search */}
       <div className="flex items-stretch shrink-0">
         <div className="relative w-full h-10">
@@ -211,13 +211,13 @@ export function DataTable<TData>({
       </div>
 
       {/* Table */}
-      <div className={cn("border border-slate-300 bg-slate-50 overflow-hidden", fillHeight && "flex-1 min-h-0 flex flex-col")}>
+      <div className={cn("border border-slate-300 bg-slate-50 overflow-hidden min-w-0", fillHeight && "flex-1 min-h-0 flex flex-col")}>
         <div
           ref={scrollBodyRef}
-          className={cn(scrollsInternally && "overflow-y-auto", fillHeight && "flex-1 min-h-0")}
+          className={cn("overflow-x-auto", scrollsInternally && "overflow-y-auto", fillHeight && "flex-1 min-h-0")}
           style={maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined}
         >
-        <Table className={tableClassName}>
+        <Table className={cn("min-w-max", tableClassName)}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className={cn("bg-black hover:bg-black border-black", scrollsInternally && "sticky top-0 z-10")}>
@@ -227,15 +227,19 @@ export function DataTable<TData>({
                   return (
                     <TableHead
                       key={header.id}
+                      colSpan={header.colSpan}
                       onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                       style={{ width: header.column.columnDef.size ? `${header.column.columnDef.size}px` : undefined }}
                       className={cn(
                         "text-table-h1 font-bold text-white uppercase tracking-wide select-none",
+                        header.colSpan > 1 && "text-center",
+                        header.subHeaders.length > 0 && "border-b border-white/30 pb-1.5",
+                        (header.column.columnDef.meta as { borderLeft?: boolean } | undefined)?.borderLeft && "border-l border-white/20",
                         canSort && "cursor-pointer hover:text-white/80"
                       )}
                     >
                       {header.isPlaceholder ? null : (
-                        <span className="flex items-center gap-1">
+                        <span className={cn("flex items-center gap-1", header.colSpan > 1 && "justify-center")}>
                           {flexRender(header.column.columnDef.header, header.getContext())}
                           {canSort && (
                             <span className="text-white/50">
@@ -299,7 +303,14 @@ export function DataTable<TData>({
                   className={`border-b border-slate-300 hover:bg-slate-100 transition-colors ${onRowClick || onRowDoubleClick ? "cursor-pointer" : ""}`}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} style={{ width: cell.column.columnDef.size ? `${cell.column.columnDef.size}px` : undefined }} className="text-table-data py-3">
+                    <TableCell
+                      key={cell.id}
+                      style={{ width: cell.column.columnDef.size ? `${cell.column.columnDef.size}px` : undefined }}
+                      className={cn(
+                        "text-table-data py-3",
+                        (cell.column.columnDef.meta as { borderLeft?: boolean } | undefined)?.borderLeft && "border-l border-slate-300"
+                      )}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

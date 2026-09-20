@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AccVendorController;
 use App\Http\Controllers\Api\AccVendorBalanceController;
+use App\Http\Controllers\Api\ProductStockBalanceController;
 use App\Http\Controllers\Api\AccVendorTransactionController;
 use App\Http\Controllers\Api\TenantController;
 use App\Http\Controllers\Api\FiscalYearController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Api\BrandController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductDiscountController;
+use App\Http\Controllers\Api\ProductTransactionItemController;
 use App\Http\Controllers\Api\ImageGroupController;
 use App\Http\Controllers\Api\OfferController;
 use App\Http\Controllers\Api\SliderController;
@@ -45,6 +47,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('products/{product}/discounts', [ProductDiscountController::class, 'store']);
     Route::put('products/{product}/discounts/{discount}', [ProductDiscountController::class, 'update']);
     Route::delete('products/{product}/discounts/{discount}', [ProductDiscountController::class, 'destroy']);
+    Route::get('products/{product}/product-transaction-items', [ProductTransactionItemController::class, 'index']);
+    Route::get('products/{product}/product-transaction-items/trashed', [ProductTransactionItemController::class, 'trashed']);
+    Route::post('products/{product}/product-transaction-items/{itemUlid}/restore', [ProductTransactionItemController::class, 'restore']);
+    Route::post('products/{product}/product-transaction-items', [ProductTransactionItemController::class, 'store']);
+    Route::patch('products/{product}/product-transaction-items/{item}', [ProductTransactionItemController::class, 'update']);
+    Route::delete('products/{product}/product-transaction-items/{item}', [ProductTransactionItemController::class, 'destroy']);
+    Route::post('products/{product}/stock-balance', [ProductStockBalanceController::class, 'upsert']);
     Route::apiResource('sliders', SliderController::class)->except(['index', 'show']);
     Route::apiResource('offers', OfferController::class)->except(['index', 'show']);
     Route::apiResource('acc-vendors', AccVendorController::class);

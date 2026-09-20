@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useForm, Controller } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
@@ -161,6 +162,12 @@ export function CreateProductPanel({ open, onClose, initialName = "", onCreated 
         submitLabel={isSubmitting ? "Saving..." : "Save Product"}
         onSubmit={handleSubmit(onSubmit)}
       >
+        <Link
+          href="/admin/products/create"
+          className="block text-right text-xs font-semibold text-blue-800 underline hover:text-blue-900 transition-colors -mt-2 -mb-2"
+        >
+          Need more fields? Add full details →
+        </Link>
         <InputField
           label="Name"
           required

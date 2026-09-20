@@ -14,6 +14,10 @@ use App\Domain\Categories\Repositories\CategoryRepositoryInterface;
 use App\Domain\Images\Repositories\ImageGroupRepositoryInterface;
 use App\Domain\Products\Repositories\ProductDiscountRepositoryInterface;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
+use App\Domain\ProductTransactionItems\Repositories\ProductTransactionItemRepositoryInterface;
+use App\Infrastructure\Repositories\ProductTransactionItems\EloquentProductTransactionItemRepository;
+use App\Domain\ProductStockBalances\Repositories\ProductStockBalanceRepositoryInterface;
+use App\Infrastructure\Repositories\ProductStockBalances\EloquentProductStockBalanceRepository;
 use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorRepository;
 use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorBalanceRepository;
 use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorTransactionRepository;
@@ -60,6 +64,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(SliderRepositoryInterface::class, EloquentSliderRepository::class);
         $this->app->bind(OfferRepositoryInterface::class, EloquentOfferRepository::class);
         $this->app->bind(TenantSettingRepositoryInterface::class, EloquentTenantSettingRepository::class);
+        $this->app->bind(ProductTransactionItemRepositoryInterface::class, EloquentProductTransactionItemRepository::class);
+        $this->app->bind(ProductStockBalanceRepositoryInterface::class, EloquentProductStockBalanceRepository::class);
     }
 
     public function boot(): void

@@ -19,7 +19,12 @@ composer dump-autoload --optimize >/dev/null
 log "Running migrations (php artisan migrate --force)..."
 php artisan migrate --force
 
-USER_COUNT=$(php artisan tinker --execute="echo \App\Models\User::count();" 2>/dev/null | tail -1)
+USER_COUNT=$(php -r "
+require '/var/www/api/vendor/autoload.php';
+\$app = require '/var/www/api/bootstrap/app.php';
+\$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+echo \App\Models\User::count();
+")
 if [ "${USER_COUNT}" = "0" ]; then
     log "No users found — seeding database..."
     php artisan db:seed --force

@@ -16,6 +16,16 @@ import { useImageGroup } from "@/hooks/useImageGroup";
 import { VendorSidebar } from "../_components/VendorSidebar";
 import { VendorInfoBlock } from "../_components/VendorInfoBlock";
 import { Vendor } from "../_components/types";
+import { StockSidebar } from "../../products/_components/StockSidebar";
+
+type SidebarProduct = {
+  ulid: string;
+  name: string;
+  stock: number;
+  wacc: number | null;
+  cost_price: number | null;
+  stock_balances?: { fiscal_year_id: number; opening_quantity: number; remaining_quantity: number }[];
+};
 
 type Meta = {
   total: number;
@@ -90,7 +100,16 @@ function GoodsPurchasedContent() {
   const searchParams = useSearchParams();
   const vendorParam = searchParams.get("vendor");
   const editTransactionParam = searchParams.get("transaction");
+  const productParam = searchParams.get("product");
   const queryClient = useQueryClient();
+  // Whether this page was entered already knowing the vendor (clicked from the vendor's own
+  // page/sidebar) vs. arriving with no vendor chosen (e.g. from Product/Stock) — captured once
+  // so picking a vendor from the search field below doesn't make that field disappear mid-pick.
+  const cameWithVendorRef = useRef(!!vendorParam);
+  // Arrived from Product/Stock's "Goods Purchased" button — keep the product list in the
+  // sidebar (instead of the vendor list) for the whole session, so the user can keep picking
+  // products to add as line items while choosing the vendor up top.
+  const cameFromProductRef = useRef(!!productParam);
 
   const [sideSearch, setSideSearch] = useState("");
   const [selectedVendorUlid, setSelectedVendorUlid] = useState<string | null>(vendorParam);
@@ -120,6 +139,13 @@ function GoodsPurchasedContent() {
     queryFn: () => apiFetch<{ data: Vendor[]; meta: Meta }>("/acc-vendors?per_page=100"),
   });
 
+  const { data: sidebarProductsData, isLoading: sidebarProductsLoading } = useQuery({
+    queryKey: ["products-sidebar"],
+    queryFn: () => apiFetch<{ data: SidebarProduct[]; meta: Meta }>("/products?per_page=200&sort_by=name&sort_dir=asc"),
+    enabled: cameFromProductRef.current,
+  });
+  const sidebarProducts = sidebarProductsData?.data ?? [];
+
   const { data: settingsData } = useQuery({
     queryKey: ["settings"],
     queryFn: () => apiFetch<{ data: { fiscal_year_id: number | null; fiscal_year: { ulid: string; name: string } | null } }>("/settings"),
@@ -143,8 +169,19 @@ function GoodsPurchasedContent() {
     enabled: !!selectedVendor && !!editTransactionParam,
   });
 
+  // Pre-fill the first row with the product we arrived from, once it's loaded.
+  const prefilledProductRef = useRef(false);
   useEffect(() => {
-    if (!selectedVendorUlid && vendors.length > 0) setSelectedVendorUlid(vendors[0].ulid);
+    if (!productParam || prefilledProductRef.current || sidebarProducts.length === 0) return;
+    const product = sidebarProducts.find((p) => p.ulid === productParam);
+    if (!product) return;
+    prefilledProductRef.current = true;
+    selectSidebarProduct(product);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectSidebarProduct is stable enough for this one-time prefill
+  }, [productParam, sidebarProducts]);
+
+  useEffect(() => {
+    if (!selectedVendorUlid && vendors.length > 0 && cameWithVendorRef.current) setSelectedVendorUlid(vendors[0].ulid);
   }, [vendors]);
 
   // Starting a fresh bill whenever the vendor changes — previous vendor's draft/transaction doesn't carry over.
@@ -212,7 +249,22 @@ function GoodsPurchasedContent() {
 
   function selectVendor(ulid: string) {
     setSelectedVendorUlid(ulid);
-    router.replace(`/admin/accounts/goods-purchased?vendor=${ulid}`);
+    router.replace(`/admin/accounts/goods-purchased?vendor=${ulid}${productParam ? `&product=${productParam}` : ""}`);
+  }
+
+  // Picking a product from the (Product/Stock-origin) sidebar fills it into the first row
+  // that doesn't have a product yet, or adds a new row for it.
+  function selectSidebarProduct(product: SidebarProduct) {
+    const rate = product.wacc ?? product.cost_price ?? null;
+    setRows((prev) => {
+      const openIdx = prev.findIndex((r) => !r.saved && !r.productUlid);
+      if (openIdx === -1) {
+        return [...prev, { ...emptyRow(), productUlid: product.ulid, particular: product.name, rate: rate != null ? String(rate) : "" }];
+      }
+      return prev.map((r, i) => (i === openIdx
+        ? { ...r, productUlid: product.ulid, particular: product.name, rate: rate != null ? String(rate) : r.rate }
+        : r));
+    });
   }
 
   function updateRow(key: number, field: keyof Omit<LineItem, "key" | "saved" | "itemUlid">, value: string) {
@@ -488,22 +540,39 @@ function GoodsPurchasedContent() {
         {/* Two-column body */}
         <div className="flex gap-6 flex-1 min-h-0">
           {/* Side card: vendor list */}
-          <VendorSidebar
-            vendors={vendors}
-            vendorsLoading={vendorsLoading}
-            activeFiscalYearId={activeFiscalYearId}
-            selectedVendorUlid={selectedVendor?.ulid}
-            search={sideSearch}
-            onSearchChange={setSideSearch}
-            onSelect={(vendor) => selectVendor(vendor.ulid)}
-          />
+          {cameFromProductRef.current ? (
+            <StockSidebar
+              products={sidebarProducts}
+              loading={sidebarProductsLoading}
+              activeFiscalYearId={activeFiscalYearId}
+              selectedProductUlid={undefined}
+              search={sideSearch}
+              onSearchChange={setSideSearch}
+              onSelect={selectSidebarProduct}
+              onDelete={() => {}}
+            />
+          ) : (
+            <VendorSidebar
+              vendors={vendors}
+              vendorsLoading={vendorsLoading}
+              activeFiscalYearId={activeFiscalYearId}
+              selectedVendorUlid={selectedVendor?.ulid}
+              search={sideSearch}
+              onSearchChange={setSideSearch}
+              onSelect={(vendor) => selectVendor(vendor.ulid)}
+            />
+          )}
 
           {/* Right side: detail card + line item table */}
           <div className="flex-1 min-w-0 flex flex-col gap-4 self-start">
             {/* Account detail card */}
             <div className="bg-white px-5 py-4 space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <VendorInfoBlock vendor={selectedVendor} />
+                <VendorInfoBlock
+                  vendor={selectedVendor}
+                  vendors={cameWithVendorRef.current ? undefined : vendors}
+                  onSelectVendor={cameWithVendorRef.current ? undefined : selectVendor}
+                />
 
                 <div className="flex flex-col gap-2 shrink-0 w-48">
                   {fiscalYears.length > 0 && (

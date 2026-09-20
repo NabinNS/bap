@@ -79,4 +79,14 @@ class Product extends Model
     {
         return $this->morphMany(ImageGroup::class, 'imageable')->orderBy('sort_order');
     }
+
+    public function productTransactionItems(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProductTransactionItem::class);
+    }
+
+    public function stockBalances(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProductStockBalance::class);
+    }
 }
