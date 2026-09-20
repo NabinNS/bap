@@ -9,6 +9,7 @@ return [
         'sliders',
         'offers',
         'acc-vendor-transactions',
+        'acc-customer-transactions',
     ],
 
     'max_size' => 5120,

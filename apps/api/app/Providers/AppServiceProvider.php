@@ -5,6 +5,9 @@ namespace App\Providers;
 use App\Domain\AccVendors\Repositories\AccVendorRepositoryInterface;
 use App\Domain\AccVendors\Repositories\AccVendorBalanceRepositoryInterface;
 use App\Domain\AccVendors\Repositories\AccVendorTransactionRepositoryInterface;
+use App\Domain\AccCustomers\Repositories\AccCustomerRepositoryInterface;
+use App\Domain\AccCustomers\Repositories\AccCustomerBalanceRepositoryInterface;
+use App\Domain\AccCustomers\Repositories\AccCustomerTransactionRepositoryInterface;
 use App\Domain\Settings\Repositories\TenantSettingRepositoryInterface;
 use App\Infrastructure\Repositories\Settings\EloquentTenantSettingRepository;
 use App\Domain\Brands\Repositories\BrandRepositoryInterface;
@@ -21,6 +24,9 @@ use App\Infrastructure\Repositories\ProductStockBalances\EloquentProductStockBal
 use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorRepository;
 use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorBalanceRepository;
 use App\Infrastructure\Repositories\AccVendors\EloquentAccVendorTransactionRepository;
+use App\Infrastructure\Repositories\AccCustomers\EloquentAccCustomerRepository;
+use App\Infrastructure\Repositories\AccCustomers\EloquentAccCustomerBalanceRepository;
+use App\Infrastructure\Repositories\AccCustomers\EloquentAccCustomerTransactionRepository;
 use App\Infrastructure\Repositories\Brands\EloquentBrandRepository;
 use App\Infrastructure\Repositories\Offers\EloquentOfferRepository;
 use App\Infrastructure\Repositories\Sliders\EloquentSliderRepository;
@@ -38,7 +44,10 @@ use App\Models\Tenant;
 use App\Observers\ImageItemObserver;
 use App\Models\AccVendor;
 use App\Models\AccVendorTransaction;
+use App\Models\AccCustomer;
+use App\Models\AccCustomerTransaction;
 use App\Policies\AccVendorPolicy;
+use App\Policies\AccCustomerPolicy;
 use App\Policies\BrandPolicy;
 use App\Policies\CategoryPolicy;
 use App\Policies\OfferPolicy;
@@ -56,6 +65,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AccVendorRepositoryInterface::class, EloquentAccVendorRepository::class);
         $this->app->bind(AccVendorBalanceRepositoryInterface::class, EloquentAccVendorBalanceRepository::class);
         $this->app->bind(AccVendorTransactionRepositoryInterface::class, EloquentAccVendorTransactionRepository::class);
+        $this->app->bind(AccCustomerRepositoryInterface::class, EloquentAccCustomerRepository::class);
+        $this->app->bind(AccCustomerBalanceRepositoryInterface::class, EloquentAccCustomerBalanceRepository::class);
+        $this->app->bind(AccCustomerTransactionRepositoryInterface::class, EloquentAccCustomerTransactionRepository::class);
         $this->app->bind(BrandRepositoryInterface::class, EloquentBrandRepository::class);
         $this->app->bind(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
         $this->app->bind(ProductRepositoryInterface::class, EloquentProductRepository::class);
@@ -82,6 +94,7 @@ class AppServiceProvider extends ServiceProvider
             'offer'    => Offer::class,
             'tenant'   => Tenant::class,
             'acc_vendor_transaction' => AccVendorTransaction::class,
+            'acc_customer_transaction' => AccCustomerTransaction::class,
         ]);
 
         // Mitigation 3 — delete the R2 file whenever an ImageItem row is deleted.
@@ -89,6 +102,7 @@ class AppServiceProvider extends ServiceProvider
         ImageItem::observe(ImageItemObserver::class);
 
         Gate::policy(AccVendor::class, AccVendorPolicy::class);
+        Gate::policy(AccCustomer::class, AccCustomerPolicy::class);
         Gate::policy(Brand::class, BrandPolicy::class);
         Gate::policy(Category::class, CategoryPolicy::class);
         Gate::policy(Product::class, ProductPolicy::class);

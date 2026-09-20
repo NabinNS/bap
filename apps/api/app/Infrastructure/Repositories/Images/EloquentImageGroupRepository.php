@@ -6,6 +6,7 @@ use App\Domain\Images\DTOs\ImageGroupData;
 use App\Domain\Images\DTOs\ImageItemData;
 use App\Domain\Images\Repositories\ImageGroupRepositoryInterface;
 use App\Models\AccVendorTransaction;
+use App\Models\AccCustomerTransaction;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\ImageGroup;
@@ -78,6 +79,7 @@ class EloquentImageGroupRepository implements ImageGroupRepositoryInterface
             'slider'   => Slider::where('ulid', $ulid)->where('tenant_id', $tenantId)->firstOrFail()->id,
             'offer'    => Offer::where('ulid', $ulid)->where('tenant_id', $tenantId)->firstOrFail()->id,
             'acc_vendor_transaction' => AccVendorTransaction::where('ulid', $ulid)->where('tenant_id', $tenantId)->firstOrFail()->id,
+            'acc_customer_transaction' => AccCustomerTransaction::where('ulid', $ulid)->where('tenant_id', $tenantId)->firstOrFail()->id,
             default    => abort(422, 'Unsupported imageable type.'),
         };
     }
