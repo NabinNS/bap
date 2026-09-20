@@ -11,15 +11,24 @@ type FiscalYearModalProps = {
   draft: string;
   onDraftChange: (value: string) => void;
   onApply: () => void;
+  description?: string;
 };
 
-export function FiscalYearModal({ open, onClose, fiscalYears, draft, onDraftChange, onApply }: FiscalYearModalProps) {
+export function FiscalYearModal({
+  open,
+  onClose,
+  fiscalYears,
+  draft,
+  onDraftChange,
+  onApply,
+  description = "Choose which fiscal year's ledger to view for this vendor.",
+}: FiscalYearModalProps) {
   return (
     <Modal
       open={open}
       onClose={onClose}
       title="Fiscal Year"
-      description="Choose which fiscal year's ledger to view for this vendor."
+      description={description}
       initialWidth={460}
       initialHeight={320}
       onSubmit={onApply}

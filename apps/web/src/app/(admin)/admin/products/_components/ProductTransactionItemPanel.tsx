@@ -22,6 +22,8 @@ export type TransactionItemPanelItem = {
   purchase_price: number | null;
   sales_quantity: number | null;
   sales_price: number | null;
+  /** Set when this entry was recorded as a line item on a vendor bill — only then does a "full bill" page exist to open. */
+  reference_type: string | null;
 };
 
 /** Quick view/edit for a single purchase/sale entry — double-click the row for the full detail page. */
@@ -128,9 +130,13 @@ function PanelForm({
       onSubmit={save}
       onDelete={item ? () => { if (confirm("Delete this entry?")) deleteMutation.mutate(item.ulid); } : undefined}
     >
-      {item && (
+      {item && (item.type === "sale" || item.reference_type) && (
         <Link
-          href={`/admin/products/${item.type === "purchase" ? "goods-purchased" : "goods-sold"}?product=${productUlid}&item=${item.ulid}`}
+          href={
+            item.type === "purchase"
+              ? `/admin/accounts/goods-purchased?product=${productUlid}`
+              : `/admin/products/goods-sold?product=${productUlid}&item=${item.ulid}`
+          }
           className="block text-right text-xs font-semibold text-blue-800 underline hover:text-blue-900 transition-colors -mt-2 -mb-2"
         >
           Need full details? View full entry →

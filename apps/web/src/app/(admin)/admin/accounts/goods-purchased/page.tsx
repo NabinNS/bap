@@ -503,6 +503,11 @@ function GoodsPurchasedContent() {
 
   const inputCls = "w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white";
 
+  function exitDestination() {
+    if (cameFromProductRef.current) return `/admin/products?product=${productParam}`;
+    return selectedVendor ? `/admin/accounts?vendor=${selectedVendor.ulid}` : "/admin/accounts";
+  }
+
   return (
     <div className="flex gap-0 transition-all duration-300 h-full">
       <div className="flex-1 min-w-0 flex flex-col p-6 gap-6 h-full">
@@ -521,7 +526,7 @@ function GoodsPurchasedContent() {
           </div>
           <div className="flex items-center shrink-0">
             <Link
-              href={selectedVendor ? `/admin/accounts?vendor=${selectedVendor.ulid}` : "/admin/accounts"}
+              href={exitDestination()}
               className="flex items-center gap-2 bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/80 transition-colors cursor-pointer"
             >
               <ListOrdered className="h-4 w-4" />
@@ -800,7 +805,7 @@ function GoodsPurchasedContent() {
 
               <div className="flex items-center justify-end px-4 py-3 border-t border-slate-100">
                 <button
-                  onClick={() => router.push(selectedVendor ? `/admin/accounts?vendor=${selectedVendor.ulid}` : "/admin/accounts")}
+                  onClick={() => router.push(exitDestination())}
                   className="px-6 py-2 text-sm font-semibold text-text-default border border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Cancel
@@ -808,7 +813,7 @@ function GoodsPurchasedContent() {
                 <button
                   onClick={() => {
                     toast.success("Purchase recorded", "The bill has been saved.");
-                    router.push(selectedVendor ? `/admin/accounts?vendor=${selectedVendor.ulid}` : "/admin/accounts");
+                    router.push(exitDestination());
                   }}
                   className="px-6 py-2 text-sm font-semibold text-white bg-black hover:bg-black/80 transition-colors cursor-pointer"
                 >

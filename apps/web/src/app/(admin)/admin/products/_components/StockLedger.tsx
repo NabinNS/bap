@@ -20,6 +20,8 @@ type TransactionItem = {
   purchase_price: number | null;
   sales_quantity: number | null;
   sales_price: number | null;
+  /** Set when this entry was recorded as a line item on a vendor bill — only then does a "full bill" page exist to open. */
+  reference_type: string | null;
 };
 
 type Row = TransactionItem & { ulid: string };
@@ -154,8 +156,16 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
   }
 
   function openDetailPage(row: Row) {
-    const page = row.type === "purchase" ? "goods-purchased" : "goods-sold";
-    router.push(`/admin/products/${page}?product=${productUlid}&item=${row.ulid}`);
+    // Only a bill-linked purchase has an actual vendor bill to open — the accounts Goods
+    // Purchased page doesn't take an item id, so for a standalone entry it would just open a
+    // blank new bill instead of "this entry's full details." The quick-view side panel
+    // already covers every field for standalone entries, so there's nothing further to open.
+    if (row.type === "purchase" && row.reference_type) {
+      router.push(`/admin/accounts/goods-purchased?product=${productUlid}`);
+      return;
+    }
+    if (row.type === "purchase") return;
+    router.push(`/admin/products/goods-sold?product=${productUlid}&item=${row.ulid}`);
   }
 
   // Opening balance is the product's saved ProductStockBalance.opening_quantity for the
@@ -172,6 +182,7 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
     purchase_price: null,
     sales_quantity: null,
     sales_price: null,
+    reference_type: null,
   };
 
   const itemBalances = rawItems.reduce<number[]>((acc, it) => {
@@ -191,6 +202,7 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
     purchase_price: draftRef.current.purchase_price ? Number(draftRef.current.purchase_price) : null,
     sales_quantity: draftRef.current.sales_quantity ? Number(draftRef.current.sales_quantity) : null,
     sales_price: draftRef.current.sales_price ? Number(draftRef.current.sales_price) : null,
+    reference_type: null,
   };
 
   const rows: Row[] = [openingRow, ...rawItems, draftRow];

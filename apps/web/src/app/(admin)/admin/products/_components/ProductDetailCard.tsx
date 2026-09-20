@@ -25,6 +25,8 @@ type DetailProduct = {
 export function ProductDetailCard({
   product,
   activeFiscalYearId,
+  fiscalYearName,
+  onFiscalYearClick,
   onEditOpeningQuantity,
   onPurchaseClick,
   onSalesClick,
@@ -32,7 +34,10 @@ export function ProductDetailCard({
   onDelete,
 }: {
   product: DetailProduct | null;
+  /** The fiscal year the Opening Qty tile is scoped to — defaults to the tenant's active fiscal year (from Settings) unless the user picked a different one via the Fiscal Year tile. */
   activeFiscalYearId?: number | null;
+  fiscalYearName?: string | null;
+  onFiscalYearClick?: () => void;
   onEditOpeningQuantity?: () => void;
   onPurchaseClick?: () => void;
   onSalesClick?: () => void;
@@ -195,7 +200,7 @@ export function ProductDetailCard({
       )}
 
       {product && (
-        <div className="grid grid-cols-6 gap-4 pt-1 border-t border-slate-300">
+        <div className="grid grid-cols-7 gap-4 pt-1 border-t border-slate-300">
           <div>
             <p className="text-sm-custom text-text-body">Cost Price</p>
             <p className="text-sm-custom font-bold text-text-default mt-0.5">{product.cost_price != null ? product.cost_price.toLocaleString() : "—"}</p>
@@ -218,6 +223,16 @@ export function ProductDetailCard({
               {product.active_discount ? `${product.active_discount.percentage}%` : "—"}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={onFiscalYearClick}
+            className="text-left cursor-pointer group"
+          >
+            <p className="text-sm-custom text-text-body">Fiscal Year</p>
+            <p className="text-sm-custom font-bold text-text-default mt-0.5 group-hover:underline">
+              {fiscalYearName ?? "—"}
+            </p>
+          </button>
           <button
             type="button"
             onClick={onEditOpeningQuantity}

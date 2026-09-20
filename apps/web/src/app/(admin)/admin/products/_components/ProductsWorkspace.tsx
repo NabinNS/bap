@@ -9,6 +9,7 @@ import { SelectField } from "@/components/ui/form/FormField";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { CreateProductPanel } from "@/components/products/CreateProductPanel";
 import { EditProductPanel } from "@/components/products/EditProductPanel";
+import { FiscalYearModal } from "@/app/(admin)/admin/accounts/_components/FiscalYearModal";
 import { StockSidebar } from "./StockSidebar";
 import { ProductDetailCard } from "./ProductDetailCard";
 import { StockLedger, StockLedgerHandle } from "./StockLedger";
@@ -63,6 +64,11 @@ export function ProductsWorkspace({
   const [editingOpeningQuantity, setEditingOpeningQuantity] = useState(false);
   const [openingQuantityDraft, setOpeningQuantityDraft] = useState("");
   const [openingFiscalYearId, setOpeningFiscalYearId] = useState("");
+  // null = "follow the tenant's active fiscal year" (activeFiscalYearId); set once the user
+  // picks a different one via the Fiscal Year tile.
+  const [viewFiscalYearId, setViewFiscalYearId] = useState<number | null>(null);
+  const [fiscalYearModalOpen, setFiscalYearModalOpen] = useState(false);
+  const [fiscalYearDraft, setFiscalYearDraft] = useState("");
   const ledgerRef = useRef<StockLedgerHandle>(null);
 
   const { data: sidebarProductsData, isLoading: sidebarLoading } = useQuery({
@@ -85,11 +91,15 @@ export function ProductsWorkspace({
   const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
   const fiscalYears = fiscalYearsData?.data ?? [];
 
+  const viewedFiscalYearId = viewFiscalYearId ?? activeFiscalYearId;
+  const viewedFiscalYear = fiscalYears.find((fy) => fy.id === viewedFiscalYearId)
+    ?? (viewedFiscalYearId === activeFiscalYearId ? activeFiscalYear : null);
+
   const sidebarProducts = sidebarProductsData?.data ?? [];
   const selectedProduct = sidebarProducts.find((p) => p.ulid === selectedProductUlid) ?? null;
 
-  const activeBalance = activeFiscalYearId && selectedProduct
-    ? selectedProduct.stock_balances?.find((b) => b.fiscal_year_id === activeFiscalYearId) ?? null
+  const viewedBalance = viewedFiscalYearId && selectedProduct
+    ? selectedProduct.stock_balances?.find((b) => b.fiscal_year_id === viewedFiscalYearId) ?? null
     : null;
 
   const saveStockBalanceMutation = useMutation({
@@ -152,10 +162,12 @@ export function ProductsWorkspace({
           <div className="flex-1 min-w-0 flex flex-col gap-4 h-full min-h-0">
             <ProductDetailCard
               product={selectedProduct}
-              activeFiscalYearId={activeFiscalYearId}
+              activeFiscalYearId={viewedFiscalYearId}
+              fiscalYearName={viewedFiscalYear?.name}
+              onFiscalYearClick={() => { setFiscalYearDraft(String(viewedFiscalYearId ?? "")); setFiscalYearModalOpen(true); }}
               onEditOpeningQuantity={() => {
-                setOpeningQuantityDraft(activeBalance ? String(activeBalance.opening_quantity) : "");
-                setOpeningFiscalYearId(activeFiscalYearId ? String(activeFiscalYearId) : "");
+                setOpeningQuantityDraft(viewedBalance ? String(viewedBalance.opening_quantity) : "");
+                setOpeningFiscalYearId(viewedFiscalYearId ? String(viewedFiscalYearId) : "");
                 setEditingOpeningQuantity(true);
               }}
               onPurchaseClick={() => router.push(`/admin/accounts/goods-purchased?product=${selectedProduct?.ulid ?? ""}`)}
@@ -171,11 +183,11 @@ export function ProductsWorkspace({
                     ref={ledgerRef}
                     productUlid={selectedProduct.ulid}
                     currentStock={selectedProduct.stock}
-                    openingQuantity={activeBalance?.opening_quantity}
-                    fiscalYearName={activeFiscalYear?.name}
+                    openingQuantity={viewedBalance?.opening_quantity}
+                    fiscalYearName={viewedFiscalYear?.name}
                     onOpeningBalanceClick={() => {
-                      setOpeningQuantityDraft(activeBalance ? String(activeBalance.opening_quantity) : "");
-                      setOpeningFiscalYearId(activeFiscalYearId ? String(activeFiscalYearId) : "");
+                      setOpeningQuantityDraft(viewedBalance ? String(viewedBalance.opening_quantity) : "");
+                      setOpeningFiscalYearId(viewedFiscalYearId ? String(viewedFiscalYearId) : "");
                       setEditingOpeningQuantity(true);
                     }}
                     onItemClick={(item) => setPanelItem(item)}
@@ -252,6 +264,18 @@ export function ProductsWorkspace({
         productUlid={selectedProduct?.ulid ?? ""}
         item={panelItem}
         onClose={() => setPanelItem(null)}
+      />
+
+      <FiscalYearModal
+        open={fiscalYearModalOpen}
+        onClose={() => setFiscalYearModalOpen(false)}
+        fiscalYears={fiscalYears}
+        draft={fiscalYearDraft}
+        onDraftChange={setFiscalYearDraft}
+        onApply={() => {
+          setViewFiscalYearId(fiscalYearDraft ? Number(fiscalYearDraft) : null);
+          setFiscalYearModalOpen(false);
+        }}
       />
     </div>
   );
