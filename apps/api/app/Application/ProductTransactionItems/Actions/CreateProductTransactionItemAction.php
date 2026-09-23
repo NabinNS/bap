@@ -94,8 +94,16 @@ class CreateProductTransactionItemAction
             return;
         }
 
-        // Sale: stock decreases; cost basis (wacc) of what remains is unaffected.
-        $newStock = max(0, $product->stock - $data->salesQuantity);
+        // Sale: stock decreases; cost basis (wacc) of what remains is unaffected. Reject
+        // selling more than what's actually on hand rather than silently clamping to 0 —
+        // that would desync recorded stock from what's real and overstate what was sold.
+        if ($data->salesQuantity > $product->stock) {
+            throw ValidationException::withMessages([
+                'sales_quantity' => ["Only {$product->stock} unit(s) of \"{$product->name}\" in stock."],
+            ]);
+        }
+
+        $newStock = $product->stock - $data->salesQuantity;
         $this->products->updateStockAndCost($product, $newStock, $product->wacc ?? 0);
     }
 }

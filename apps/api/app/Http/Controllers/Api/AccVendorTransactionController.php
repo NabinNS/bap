@@ -6,9 +6,11 @@ use App\Application\AccVendors\Actions\AddAccVendorTransactionItemAction;
 use App\Application\AccVendors\Actions\DeleteAccVendorTransactionAction;
 use App\Application\AccVendors\Actions\DeleteAccVendorTransactionItemAction;
 use App\Application\AccVendors\Actions\ListAccVendorTransactionsAction;
+use App\Application\AccVendors\Actions\ListTrashedAccVendorTransactionItemsAction;
 use App\Application\AccVendors\Actions\ListTrashedAccVendorTransactionsAction;
 use App\Application\AccVendors\Actions\RecalculateAccVendorTransactionTotalsAction;
 use App\Application\AccVendors\Actions\RestoreAccVendorTransactionAction;
+use App\Application\AccVendors\Actions\RestoreAccVendorTransactionItemAction;
 use App\Application\AccVendors\Actions\StoreAccVendorTransactionAction;
 use App\Application\AccVendors\Actions\UpdateAccVendorTransactionAction;
 use App\Application\AccVendors\Actions\UpdateAccVendorTransactionItemAction;
@@ -167,5 +169,33 @@ class AccVendorTransactionController extends Controller
         $action->execute($this->tenantId(), $accVendor, $transaction, $item);
 
         return ApiResponse::noContent('Item deleted successfully');
+    }
+
+    public function trashedItems(
+        AccVendor $accVendor,
+        AccVendorTransaction $transaction,
+        ListTrashedAccVendorTransactionItemsAction $action
+    ): JsonResponse {
+        $this->authorize('view', $accVendor);
+        abort_unless($transaction->vendor_id === $accVendor->id, 404);
+
+        return ApiResponse::success(
+            AccVendorTransactionItemResource::collection($action->execute($transaction)),
+            'Trashed items retrieved successfully'
+        );
+    }
+
+    public function restoreItem(
+        AccVendor $accVendor,
+        AccVendorTransaction $transaction,
+        string $itemUlid,
+        RestoreAccVendorTransactionItemAction $action
+    ): JsonResponse {
+        $this->authorize('update', $accVendor);
+        abort_unless($transaction->vendor_id === $accVendor->id, 404);
+
+        $item = $action->execute($this->tenantId(), $accVendor, $transaction, $itemUlid);
+
+        return ApiResponse::success(new AccVendorTransactionItemResource($item), 'Item restored successfully');
     }
 }

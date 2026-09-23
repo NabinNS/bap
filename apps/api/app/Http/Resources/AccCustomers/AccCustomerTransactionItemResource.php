@@ -21,6 +21,7 @@ class AccCustomerTransactionItemResource extends JsonResource
                 'grand_total'      => $this->transaction->grand_total,
             ],
             'product_ulid'  => $this->product->ulid,
+            'product_name'  => $this->product->name,
             'quantity'      => $this->quantity,
             'rate'          => $this->rate,
             'amount'        => $this->amount,

@@ -71,6 +71,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('acc-vendors/{accVendor}/transactions/{transaction}', [AccVendorTransactionController::class, 'destroy']);
     Route::patch('acc-vendors/{accVendor}/transactions/{transaction}/items/{item}', [AccVendorTransactionController::class, 'updateItem']);
     Route::delete('acc-vendors/{accVendor}/transactions/{transaction}/items/{item}', [AccVendorTransactionController::class, 'destroyItem']);
+    Route::get('acc-vendors/{accVendor}/transactions/{transaction}/items/trashed', [AccVendorTransactionController::class, 'trashedItems']);
+    Route::post('acc-vendors/{accVendor}/transactions/{transaction}/items/{itemUlid}/restore', [AccVendorTransactionController::class, 'restoreItem']);
     Route::apiResource('acc-customers', AccCustomerController::class);
     Route::post('acc-customers/{accCustomer}/balance', [AccCustomerBalanceController::class, 'upsert']);
     Route::get('acc-customers/{accCustomer}/transactions', [AccCustomerTransactionController::class, 'index']);
@@ -83,6 +85,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('acc-customers/{accCustomer}/transactions/{transaction}', [AccCustomerTransactionController::class, 'destroy']);
     Route::patch('acc-customers/{accCustomer}/transactions/{transaction}/items/{item}', [AccCustomerTransactionController::class, 'updateItem']);
     Route::delete('acc-customers/{accCustomer}/transactions/{transaction}/items/{item}', [AccCustomerTransactionController::class, 'destroyItem']);
+    Route::get('acc-customers/{accCustomer}/transactions/{transaction}/items/trashed', [AccCustomerTransactionController::class, 'trashedItems']);
+    Route::post('acc-customers/{accCustomer}/transactions/{transaction}/items/{itemUlid}/restore', [AccCustomerTransactionController::class, 'restoreItem']);
     Route::get('settings/bootstrap', [TenantSettingController::class, 'bootstrap']);
     Route::get('tenant', [TenantController::class, 'show']);
     Route::put('tenant', [TenantController::class, 'update']);

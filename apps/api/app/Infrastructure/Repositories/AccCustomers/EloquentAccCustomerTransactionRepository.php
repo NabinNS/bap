@@ -18,6 +18,7 @@ class EloquentAccCustomerTransactionRepository implements AccCustomerTransaction
     public function paginate(AccCustomer $customer, int $perPage, ?int $fiscalYearId = null): LengthAwarePaginator
     {
         return AccCustomerTransaction::where('customer_id', $customer->id)
+            ->where('tenant_id', $customer->tenant_id)
             ->when($fiscalYearId, fn ($query) => $query->where('fiscal_year_id', $fiscalYearId))
             ->with(['items.product'])
             ->orderBy('date', 'asc')
@@ -28,6 +29,7 @@ class EloquentAccCustomerTransactionRepository implements AccCustomerTransaction
     {
         return AccCustomerTransaction::onlyTrashed()
             ->where('customer_id', $customer->id)
+            ->where('tenant_id', $customer->tenant_id)
             ->when($fiscalYearId, fn ($query) => $query->where('fiscal_year_id', $fiscalYearId))
             ->with(['items.product'])
             ->orderBy('deleted_at', 'desc')
@@ -50,6 +52,7 @@ class EloquentAccCustomerTransactionRepository implements AccCustomerTransaction
     public function netTotal(AccCustomer $customer, int $fiscalYearId): float
     {
         return (float) $customer->transactions()
+            ->where('tenant_id', $customer->tenant_id)
             ->where('fiscal_year_id', $fiscalYearId)
             ->selectRaw('COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as net')
             ->value('net');
@@ -181,5 +184,27 @@ class EloquentAccCustomerTransactionRepository implements AccCustomerTransaction
     public function deleteItem(AccCustomerTransactionItem $item): void
     {
         $item->delete();
+    }
+
+    public function trashedItems(AccCustomerTransaction $transaction): Collection
+    {
+        return AccCustomerTransactionItem::onlyTrashed()
+            ->where('transaction_id', $transaction->id)
+            ->with(['product', 'transaction'])
+            ->orderBy('deleted_at', 'desc')
+            ->get();
+    }
+
+    public function restoreItem(int $tenantId, AccCustomerTransaction $transaction, string $itemUlid): AccCustomerTransactionItem
+    {
+        $item = AccCustomerTransactionItem::onlyTrashed()
+            ->where('ulid', $itemUlid)
+            ->where('transaction_id', $transaction->id)
+            ->where('tenant_id', $tenantId)
+            ->firstOrFail();
+
+        $item->restore();
+
+        return $item->fresh();
     }
 }

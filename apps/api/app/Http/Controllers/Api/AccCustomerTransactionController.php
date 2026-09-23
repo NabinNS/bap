@@ -6,9 +6,11 @@ use App\Application\AccCustomers\Actions\AddAccCustomerTransactionItemAction;
 use App\Application\AccCustomers\Actions\DeleteAccCustomerTransactionAction;
 use App\Application\AccCustomers\Actions\DeleteAccCustomerTransactionItemAction;
 use App\Application\AccCustomers\Actions\ListAccCustomerTransactionsAction;
+use App\Application\AccCustomers\Actions\ListTrashedAccCustomerTransactionItemsAction;
 use App\Application\AccCustomers\Actions\ListTrashedAccCustomerTransactionsAction;
 use App\Application\AccCustomers\Actions\RecalculateAccCustomerTransactionTotalsAction;
 use App\Application\AccCustomers\Actions\RestoreAccCustomerTransactionAction;
+use App\Application\AccCustomers\Actions\RestoreAccCustomerTransactionItemAction;
 use App\Application\AccCustomers\Actions\StoreAccCustomerTransactionAction;
 use App\Application\AccCustomers\Actions\UpdateAccCustomerTransactionAction;
 use App\Application\AccCustomers\Actions\UpdateAccCustomerTransactionItemAction;
@@ -167,5 +169,33 @@ class AccCustomerTransactionController extends Controller
         $action->execute($this->tenantId(), $accCustomer, $transaction, $item);
 
         return ApiResponse::noContent('Item deleted successfully');
+    }
+
+    public function trashedItems(
+        AccCustomer $accCustomer,
+        AccCustomerTransaction $transaction,
+        ListTrashedAccCustomerTransactionItemsAction $action
+    ): JsonResponse {
+        $this->authorize('view', $accCustomer);
+        abort_unless($transaction->customer_id === $accCustomer->id, 404);
+
+        return ApiResponse::success(
+            AccCustomerTransactionItemResource::collection($action->execute($transaction)),
+            'Trashed items retrieved successfully'
+        );
+    }
+
+    public function restoreItem(
+        AccCustomer $accCustomer,
+        AccCustomerTransaction $transaction,
+        string $itemUlid,
+        RestoreAccCustomerTransactionItemAction $action
+    ): JsonResponse {
+        $this->authorize('update', $accCustomer);
+        abort_unless($transaction->customer_id === $accCustomer->id, 404);
+
+        $item = $action->execute($this->tenantId(), $accCustomer, $transaction, $itemUlid);
+
+        return ApiResponse::success(new AccCustomerTransactionItemResource($item), 'Item restored successfully');
     }
 }

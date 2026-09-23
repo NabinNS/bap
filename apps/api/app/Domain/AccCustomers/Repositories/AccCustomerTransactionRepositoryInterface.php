@@ -62,4 +62,13 @@ interface AccCustomerTransactionRepositoryInterface
     public function updateItem(AccCustomerTransactionItem $item, Product $product, AccCustomerTransactionItemData $data): AccCustomerTransactionItem;
 
     public function deleteItem(AccCustomerTransactionItem $item): void;
+
+    /** @return \Illuminate\Support\Collection<int, AccCustomerTransactionItem> */
+    public function trashedItems(AccCustomerTransaction $transaction): \Illuminate\Support\Collection;
+
+    /**
+     * Restore a soft-deleted item by ulid (implicit route-model-binding can't resolve a
+     * trashed row, so this looks it up explicitly rather than taking a bound model).
+     */
+    public function restoreItem(int $tenantId, AccCustomerTransaction $transaction, string $itemUlid): AccCustomerTransactionItem;
 }

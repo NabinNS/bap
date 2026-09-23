@@ -24,6 +24,7 @@ import { FiscalYearModal } from "../accounts/_components/FiscalYearModal";
 import { FilterModal } from "./_components/FilterModal";
 import { TrashModal } from "./_components/TrashModal";
 import { CustomerFormPanel, CustomerFormState, CustomerFormErrors } from "./_components/CustomerFormPanel";
+import { useInvalidateCustomerTransactions } from "../accounts/_components/useAccountingInvalidation";
 import { Customer, FiscalYear } from "./_components/types";
 
 type Meta = {
@@ -95,6 +96,7 @@ function ParticularCombobox({ customerUlid, onChange }: { customerUlid: string; 
 
 function AdminCustomersContent() {
   const queryClient = useQueryClient();
+  const invalidateCustomerTransactions = useInvalidateCustomerTransactions();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sideSearch, setSideSearch] = useState("");
@@ -235,7 +237,7 @@ function AdminCustomersContent() {
       apiFetch(`/acc-customers/${customerUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }),
     onSuccess: (_data, variables) => {
       queryClient.refetchQueries({ queryKey: ["acc-customer-transactions", variables.customerUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
+      invalidateCustomerTransactions(variables.customerUlid);
       draftRef.current = { particular: "", voucher_no: "", debit: "", credit: "", date: "" };
       forceUpdate();
       toast.success("Transaction saved", "Entry has been recorded.");
@@ -247,8 +249,9 @@ function AdminCustomersContent() {
     mutationFn: ({ customerUlid, txUlid }: { customerUlid: string; txUlid: string }) =>
       apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}`, { method: "DELETE" }),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-customer-transactions", variables.customerUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
+      // Deleting a whole bill reverses every item's stock contribution too (see
+      // DeleteAccCustomerTransactionAction) — the full invalidation set covers that.
+      invalidateCustomerTransactions(variables.customerUlid);
       toast.success("Transaction deleted", "The transaction has been removed.");
     },
     onError: (err: any) => toast.error("Failed to delete transaction", err?.message ?? "Something went wrong."),
@@ -267,9 +270,10 @@ function AdminCustomersContent() {
     mutationFn: ({ customerUlid, txUlid }: { customerUlid: string; txUlid: string }) =>
       apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}/restore`, { method: "POST" }),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-customer-transactions", variables.customerUlid] });
+      // Restoring a whole bill re-applies every item's stock contribution too (see
+      // RestoreAccCustomerTransactionAction) — the full invalidation set covers that.
+      invalidateCustomerTransactions(variables.customerUlid);
       queryClient.invalidateQueries({ queryKey: ["acc-customer-transactions-trashed", variables.customerUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
       toast.success("Transaction restored", "The transaction is back in the ledger.");
     },
     onError: (err: any) => toast.error("Failed to restore transaction", err?.message ?? "Something went wrong."),
@@ -288,13 +292,7 @@ function AdminCustomersContent() {
   const updateItemMutation = useMutation({
     mutationFn: ({ customerUlid, txUlid, itemUlid, payload }: { customerUlid: string; txUlid: string; itemUlid: string; payload: object }) =>
       apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-customer-transactions", variables.customerUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
-      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
-    },
+    onSuccess: (_data, variables) => invalidateCustomerTransactions(variables.customerUlid),
     onError: (err: any) => toast.error("Failed to update item", err?.message ?? "Something went wrong."),
   });
 
@@ -302,11 +300,7 @@ function AdminCustomersContent() {
     mutationFn: ({ customerUlid, txUlid, itemUlid }: { customerUlid: string; txUlid: string; itemUlid: string }) =>
       apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "DELETE" }),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-customer-transactions", variables.customerUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
-      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
+      invalidateCustomerTransactions(variables.customerUlid);
       toast.success("Item removed", "The line item has been deleted.");
     },
     onError: (err: any) => toast.error("Failed to delete item", err?.message ?? "Something went wrong."),
@@ -318,11 +312,7 @@ function AdminCustomersContent() {
         `/acc-customers/${customerUlid}/transactions/${txUlid}/items`, { method: "POST", body: JSON.stringify(payload) }
       ),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-customer-transactions", variables.customerUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
-      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
+      invalidateCustomerTransactions(variables.customerUlid);
     },
     onError: (err: any) => toast.error("Failed to add item", err?.message ?? "Something went wrong."),
   });

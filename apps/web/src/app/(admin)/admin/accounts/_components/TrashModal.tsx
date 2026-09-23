@@ -27,7 +27,7 @@ export function TrashModal({ open, onClose, loading, transactions, restoring, on
       open={open}
       onClose={onClose}
       title="Recently Deleted"
-      description="Deleted transactions for this vendor. Restoring recalculates the vendor's balance, but does not re-apply any stock/cost changes the transaction originally made."
+      description="Deleted transactions for this vendor. Restoring recalculates the vendor's balance and re-applies each item's stock/WACC contribution to its product."
       initialWidth={520}
       initialHeight={420}
     >

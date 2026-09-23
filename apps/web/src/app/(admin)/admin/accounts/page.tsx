@@ -24,6 +24,7 @@ import { FiscalYearModal } from "./_components/FiscalYearModal";
 import { FilterModal } from "./_components/FilterModal";
 import { TrashModal } from "./_components/TrashModal";
 import { VendorFormPanel, VendorFormState, VendorFormErrors } from "./_components/VendorFormPanel";
+import { useInvalidateVendorTransactions } from "./_components/useAccountingInvalidation";
 import { Vendor, FiscalYear } from "./_components/types";
 
 type Meta = {
@@ -95,6 +96,7 @@ function ParticularCombobox({ vendorUlid, onChange }: { vendorUlid: string; onCh
 
 function AdminAccountsContent() {
   const queryClient = useQueryClient();
+  const invalidateVendorTransactions = useInvalidateVendorTransactions();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sideSearch, setSideSearch] = useState("");
@@ -235,7 +237,7 @@ function AdminAccountsContent() {
       apiFetch(`/acc-vendors/${vendorUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }),
     onSuccess: (_data, variables) => {
       queryClient.refetchQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      invalidateVendorTransactions(variables.vendorUlid);
       draftRef.current = { particular: "", voucher_no: "", debit: "", credit: "", date: "" };
       forceUpdate();
       toast.success("Transaction saved", "Entry has been recorded.");
@@ -247,8 +249,9 @@ function AdminAccountsContent() {
     mutationFn: ({ vendorUlid, txUlid }: { vendorUlid: string; txUlid: string }) =>
       apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}`, { method: "DELETE" }),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      // Deleting a whole bill reverses every item's stock/WACC contribution too (see
+      // DeleteAccVendorTransactionAction) — the full invalidation set covers that.
+      invalidateVendorTransactions(variables.vendorUlid);
       toast.success("Transaction deleted", "The transaction has been removed.");
     },
     onError: (err: any) => toast.error("Failed to delete transaction", err?.message ?? "Something went wrong."),
@@ -267,9 +270,10 @@ function AdminAccountsContent() {
     mutationFn: ({ vendorUlid, txUlid }: { vendorUlid: string; txUlid: string }) =>
       apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}/restore`, { method: "POST" }),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
+      // Restoring a whole bill re-applies every item's stock/WACC contribution too (see
+      // RestoreAccVendorTransactionAction) — the full invalidation set covers that.
+      invalidateVendorTransactions(variables.vendorUlid);
       queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions-trashed", variables.vendorUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
       toast.success("Transaction restored", "The transaction is back in the ledger.");
     },
     onError: (err: any) => toast.error("Failed to restore transaction", err?.message ?? "Something went wrong."),
@@ -288,13 +292,7 @@ function AdminAccountsContent() {
   const updateItemMutation = useMutation({
     mutationFn: ({ vendorUlid, txUlid, itemUlid, payload }: { vendorUlid: string; txUlid: string; itemUlid: string; payload: object }) =>
       apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
-      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
-    },
+    onSuccess: (_data, variables) => invalidateVendorTransactions(variables.vendorUlid),
     onError: (err: any) => toast.error("Failed to update item", err?.message ?? "Something went wrong."),
   });
 
@@ -302,11 +300,7 @@ function AdminAccountsContent() {
     mutationFn: ({ vendorUlid, txUlid, itemUlid }: { vendorUlid: string; txUlid: string; itemUlid: string }) =>
       apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "DELETE" }),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
-      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
+      invalidateVendorTransactions(variables.vendorUlid);
       toast.success("Item removed", "The line item has been deleted.");
     },
     onError: (err: any) => toast.error("Failed to delete item", err?.message ?? "Something went wrong."),
@@ -317,13 +311,7 @@ function AdminAccountsContent() {
       apiFetch<{ data: { ulid: string; product_ulid: string; quantity: number; rate: number; discount: number; total: number } }>(
         `/acc-vendors/${vendorUlid}/transactions/${txUlid}/items`, { method: "POST", body: JSON.stringify(payload) }
       ),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
-      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
-    },
+    onSuccess: (_data, variables) => invalidateVendorTransactions(variables.vendorUlid),
     onError: (err: any) => toast.error("Failed to add item", err?.message ?? "Something went wrong."),
   });
 

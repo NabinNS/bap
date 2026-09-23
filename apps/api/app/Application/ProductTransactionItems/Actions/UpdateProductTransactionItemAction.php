@@ -99,7 +99,13 @@ class UpdateProductTransactionItemAction
             return;
         }
 
-        $newStock = max(0, $product->stock - $data->salesQuantity);
+        if ($data->salesQuantity > $product->stock) {
+            throw ValidationException::withMessages([
+                'sales_quantity' => ["Only {$product->stock} unit(s) of \"{$product->name}\" in stock."],
+            ]);
+        }
+
+        $newStock = $product->stock - $data->salesQuantity;
         $this->products->updateStockAndCost($product, $newStock, $product->wacc ?? 0);
     }
 }

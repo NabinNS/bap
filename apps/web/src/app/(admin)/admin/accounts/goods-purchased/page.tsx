@@ -15,6 +15,8 @@ import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
 import { useImageGroup } from "@/hooks/useImageGroup";
 import { VendorSidebar } from "../_components/VendorSidebar";
 import { VendorInfoBlock } from "../_components/VendorInfoBlock";
+import { TrashedItemsModal } from "../_components/TrashedItemsModal";
+import { useInvalidateVendorTransactions } from "../_components/useAccountingInvalidation";
 import { Vendor } from "../_components/types";
 import { StockSidebar } from "../../products/_components/StockSidebar";
 
@@ -332,16 +334,9 @@ function GoodsPurchasedContent() {
   // page (or the ledger) within that window would silently show pre-edit data. A bill item
   // also mirrors into that product's own stock ledger (product_transaction_items), so that
   // cache needs invalidating too — otherwise the Product page only catches up on a hard
-  // reload. No product ulid is passed here on purpose: invalidating the whole
-  // "product-transaction-items" family (no id) matches every product's cached entry by
-  // prefix, which is simpler and just as cheap as tracking the one product ulid.
-  function invalidateVendorTransactions(vendorUlid: string) {
-    queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", vendorUlid] });
-    queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
-    queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
-    queryClient.invalidateQueries({ queryKey: ["products"] });
-    queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
-  }
+  // reload. Shared with admin/accounts/page.tsx, which has its own copy of this same
+  // mutation flow — see useAccountingInvalidation.ts for why this is centralized.
+  const invalidateVendorTransactions = useInvalidateVendorTransactions();
 
   const createTransactionMutation = useMutation({
     mutationFn: ({ vendorUlid, payload }: { vendorUlid: string; payload: object }) =>
@@ -386,14 +381,30 @@ function GoodsPurchasedContent() {
     mutationFn: ({ vendorUlid, txUlid, itemUlid }: { vendorUlid: string; txUlid: string; itemUlid: string }) =>
       apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "DELETE" }),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
-      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
+      invalidateVendorTransactions(variables.vendorUlid);
       toast.success("Item removed", "The line item has been deleted.");
     },
     onError: (err: any) => toast.error("Failed to delete item", err?.message ?? "Something went wrong."),
+  });
+
+  const [trashedItemsOpen, setTrashedItemsOpen] = useState(false);
+  const { data: trashedItemsData, isLoading: trashedItemsLoading } = useQuery({
+    queryKey: ["acc-vendor-transaction-items-trashed", transactionUlid],
+    queryFn: () => apiFetch<{ data: { ulid: string; product_name: string; quantity: number; rate: number; discount: number; total: number }[] }>(
+      `/acc-vendors/${selectedVendorUlid}/transactions/${transactionUlid}/items/trashed`
+    ),
+    enabled: !!selectedVendorUlid && !!transactionUlid && trashedItemsOpen,
+  });
+
+  const restoreItemMutation = useMutation({
+    mutationFn: (itemUlid: string) =>
+      apiFetch(`/acc-vendors/${selectedVendorUlid}/transactions/${transactionUlid}/items/${itemUlid}/restore`, { method: "POST" }),
+    onSuccess: () => {
+      if (selectedVendorUlid) invalidateVendorTransactions(selectedVendorUlid);
+      queryClient.invalidateQueries({ queryKey: ["acc-vendor-transaction-items-trashed", transactionUlid] });
+      toast.success("Item restored", "The line item is back on this bill.");
+    },
+    onError: (err: any) => toast.error("Failed to restore item", err?.message ?? "Something went wrong."),
   });
 
   function saveHeader() {
@@ -514,8 +525,6 @@ function GoodsPurchasedContent() {
         const isLast = prev[prev.length - 1]?.key === key;
         return isLast ? [...next, emptyRow()] : next;
       });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
       toast.success(isUpdate ? "Item updated" : "Item recorded", `${row.particular} has been ${isUpdate ? "updated" : "added to this purchase"}.`);
     } catch (err: any) {
       toast.error("Failed to save item", err?.message ?? "Something went wrong.");
@@ -554,6 +563,15 @@ function GoodsPurchasedContent() {
             <p className="text-sm text-text-muted mt-0.5">{editTransactionParam ? "Update items purchased from a vendor." : "Record items purchased from a vendor."}</p>
           </div>
           <div className="flex items-center shrink-0">
+            {transactionUlid && (
+              <button
+                onClick={() => setTrashedItemsOpen(true)}
+                className="flex items-center gap-2 border border-slate-300 px-4 py-2 text-sm font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                <Trash2 className="h-4 w-4" />
+                Recently Deleted
+              </button>
+            )}
             <Link
               href={exitDestination()}
               className="flex items-center gap-2 bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/80 transition-colors cursor-pointer"
@@ -874,6 +892,15 @@ function GoodsPurchasedContent() {
           }
           setCreateProductRowKey(null);
         }}
+      />
+
+      <TrashedItemsModal
+        open={trashedItemsOpen}
+        onClose={() => setTrashedItemsOpen(false)}
+        loading={trashedItemsLoading}
+        items={trashedItemsData?.data ?? []}
+        restoring={restoreItemMutation.isPending}
+        onRestore={(itemUlid) => restoreItemMutation.mutate(itemUlid)}
       />
     </div>
   );

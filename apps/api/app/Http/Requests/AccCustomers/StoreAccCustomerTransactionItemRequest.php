@@ -4,6 +4,7 @@ namespace App\Http\Requests\AccCustomers;
 
 use App\Domain\AccCustomers\DTOs\AccCustomerTransactionItemData;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StoreAccCustomerTransactionItemRequest extends FormRequest
 {
@@ -15,6 +16,18 @@ class StoreAccCustomerTransactionItemRequest extends FormRequest
             'rate'         => ['required', 'integer', 'min:0'],
             'discount'     => ['nullable', 'integer', 'min:0'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $amount   = (int) $this->input('quantity', 0) * (int) $this->input('rate', 0);
+            $discount = (int) $this->input('discount', 0);
+
+            if ($discount > $amount) {
+                $validator->errors()->add('discount', 'Discount cannot exceed the line amount.');
+            }
+        });
     }
 
     public function toDTO(): AccCustomerTransactionItemData
