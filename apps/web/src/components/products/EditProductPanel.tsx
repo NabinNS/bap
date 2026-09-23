@@ -34,7 +34,6 @@ type FormValues = {
   brand: string;
   cost_price: string;
   sales_price: string;
-  stock: string;
   low_stock_quantity: string;
 };
 
@@ -74,7 +73,6 @@ export function EditProductPanel({ open, onClose, product, onUpdated }: Props) {
         brand: product.brand?.ulid ?? "",
         cost_price: product.cost_price != null ? String(product.cost_price) : "",
         sales_price: product.sales_price != null ? String(product.sales_price) : "",
-        stock: String(product.stock),
         low_stock_quantity: product.low_stock_quantity != null ? String(product.low_stock_quantity) : "0",
       });
       productImage.load(product.ulid);
@@ -108,7 +106,6 @@ export function EditProductPanel({ open, onClose, product, onUpdated }: Props) {
           brand_ulid: data.brand || null,
           cost_price: Number(data.cost_price),
           sales_price: Number(data.sales_price),
-          stock: Number(data.stock || 0),
           low_stock_quantity: Number(data.low_stock_quantity || 0),
         }),
       });
@@ -207,24 +204,17 @@ export function EditProductPanel({ open, onClose, product, onUpdated }: Props) {
             error={errors.sales_price?.message}
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <NumberField
-            label="Stock"
-            placeholder="0"
-            error={errors.stock?.message}
-            {...register("stock", {
-              min: { value: 0, message: "Stock cannot be negative." },
-            })}
-          />
-          <NumberField
-            label="Low Stock Quantity"
-            placeholder="e.g. 5"
-            error={errors.low_stock_quantity?.message}
-            {...register("low_stock_quantity", {
-              min: { value: 0, message: "Low stock quantity cannot be negative." },
-            })}
-          />
-        </div>
+        <NumberField
+          label="Low Stock Quantity"
+          placeholder="e.g. 5"
+          error={errors.low_stock_quantity?.message}
+          {...register("low_stock_quantity", {
+            min: { value: 0, message: "Low stock quantity cannot be negative." },
+          })}
+        />
+        <p className="text-xs text-text-muted -mt-2">
+          Stock is tracked from purchases and sales — record a Goods Purchased/Sold entry to change it.
+        </p>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">

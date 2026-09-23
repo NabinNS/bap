@@ -26,6 +26,8 @@ type StockSidebarProps<T extends StockSidebarProduct> = {
   onAddClick?: () => void;
   /** When provided, "Edit" opens the quick-edit side panel instead of navigating to the full edit page. */
   onEditClick?: (product: T) => void;
+  /** When provided, renders a "Recently Deleted" trigger next to Add. */
+  onTrashClick?: () => void;
 };
 
 function remainingQuantity<T extends StockSidebarProduct>(product: T, activeFiscalYearId: number | null) {
@@ -44,6 +46,7 @@ export function StockSidebar<T extends StockSidebarProduct>({
   onDelete,
   onAddClick,
   onEditClick,
+  onTrashClick,
 }: StockSidebarProps<T>) {
   const router = useRouter();
   const filteredProducts = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
@@ -78,11 +81,21 @@ export function StockSidebar<T extends StockSidebarProduct>({
             className="w-full pl-8 pr-3 py-2 text-sm border border-slate-400 focus:outline-none focus:border-slate-600"
           />
         </div>
+        {onTrashClick && (
+          <button
+            type="button"
+            onClick={onTrashClick}
+            title="Recently Deleted"
+            className="flex items-center justify-center border border-slate-300 px-2.5 py-2 text-text-muted hover:bg-slate-50 hover:text-text-default transition-colors shrink-0 cursor-pointer ml-2"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
         {onAddClick ? (
           <button
             type="button"
             onClick={onAddClick}
-            className="flex items-center gap-1.5 bg-black px-3 py-2 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
+            className="flex items-center gap-1.5 bg-black px-3 py-2 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer ml-2"
           >
             <Plus className="h-4 w-4" />
             Add
@@ -90,7 +103,7 @@ export function StockSidebar<T extends StockSidebarProduct>({
         ) : (
           <Link
             href="/admin/products/create"
-            className="flex items-center gap-1.5 bg-black px-3 py-2 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
+            className="flex items-center gap-1.5 bg-black px-3 py-2 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer ml-2"
           >
             <Plus className="h-4 w-4" />
             Add

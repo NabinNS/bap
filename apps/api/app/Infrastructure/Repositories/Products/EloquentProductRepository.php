@@ -129,4 +129,25 @@ class EloquentProductRepository implements ProductRepositoryInterface
     {
         $product->delete();
     }
+
+    public function trashed(int $tenantId): Collection
+    {
+        return Product::onlyTrashed()
+            ->where('tenant_id', $tenantId)
+            ->with(['category', 'brand'])
+            ->orderBy('deleted_at', 'desc')
+            ->get();
+    }
+
+    public function restore(int $tenantId, string $ulid): Product
+    {
+        $product = Product::onlyTrashed()
+            ->where('ulid', $ulid)
+            ->where('tenant_id', $tenantId)
+            ->firstOrFail();
+
+        $product->restore();
+
+        return $product->fresh();
+    }
 }

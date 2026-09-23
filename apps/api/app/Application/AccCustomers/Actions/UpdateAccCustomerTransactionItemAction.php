@@ -62,7 +62,7 @@ class UpdateAccCustomerTransactionItemAction
         AccCustomerTransaction $transaction,
         AccCustomerTransactionItemData $data
     ): void {
-        $linked = $this->productItems->findByReference('acc_customer_transaction_item', $item->id);
+        $linked = $this->productItems->findByReference($tenantId, 'acc_customer_transaction_item', $item->id);
 
         if (!$linked) {
             return;

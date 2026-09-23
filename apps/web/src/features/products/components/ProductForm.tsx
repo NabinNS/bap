@@ -524,17 +524,19 @@ export default function ProductForm({ product }: Props) {
                   }))}
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-                <NumberField
-                  label="Opening Stock"
-                  required
-                  placeholder="e.g. 50"
-                  error={errors.stock?.message}
-                  {...withAutoSave(register("stock", {
-                    required: "Stock is required.",
-                    min: { value: 0, message: "Stock cannot be negative." },
-                  }))}
-                />
+              <div className={`grid grid-cols-1 gap-4 mb-2 ${isEdit ? "" : "md:grid-cols-2"}`}>
+                {!isEdit && (
+                  <NumberField
+                    label="Opening Stock"
+                    required
+                    placeholder="e.g. 50"
+                    error={errors.stock?.message}
+                    {...withAutoSave(register("stock", {
+                      required: "Stock is required.",
+                      min: { value: 0, message: "Stock cannot be negative." },
+                    }))}
+                  />
+                )}
                 <NumberField
                   label="Low Stock Quantity"
                   placeholder="e.g. 5"
@@ -544,6 +546,11 @@ export default function ProductForm({ product }: Props) {
                   }))}
                 />
               </div>
+              {isEdit && (
+                <p className="text-xs text-text-muted -mt-2 mb-2">
+                  Stock is tracked from purchases and sales — record a Goods Purchased/Sold entry to change it.
+                </p>
+              )}
               {/* Additional Information */}
               <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between border-b border-slate-400 pb-3">

@@ -14,6 +14,7 @@ import { StockSidebar } from "./StockSidebar";
 import { ProductDetailCard } from "./ProductDetailCard";
 import { StockLedger, StockLedgerHandle } from "./StockLedger";
 import { ProductTransactionItemPanel, TransactionItemPanelItem } from "./ProductTransactionItemPanel";
+import { ProductTrashModal } from "./ProductTrashModal";
 
 type FiscalYear = { id: number; ulid: string; name: string };
 
@@ -134,6 +135,24 @@ export function ProductsWorkspace({
     onError: () => toast.error("Failed to delete", "Something went wrong."),
   });
 
+  const [productTrashOpen, setProductTrashOpen] = useState(false);
+  const { data: trashedProductsData, isLoading: trashedProductsLoading } = useQuery({
+    queryKey: ["products-trashed"],
+    queryFn: () => apiFetch<{ data: { ulid: string; name: string; sku: string | null }[] }>("/products/trashed"),
+    enabled: productTrashOpen,
+  });
+
+  const restoreProduct = useMutation({
+    mutationFn: (ulid: string) => apiFetch(`/products/${ulid}/restore`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
+      queryClient.invalidateQueries({ queryKey: ["products-trashed"] });
+      toast.success("Product restored", "The product is back in the catalogue.");
+    },
+    onError: () => toast.error("Failed to restore", "Something went wrong."),
+  });
+
   return (
     <div className="flex gap-0 transition-all duration-300 h-full">
       <div className="flex-1 min-w-0 flex flex-col p-6 gap-6 h-full">
@@ -156,6 +175,7 @@ export function ProductsWorkspace({
             onDelete={(product) => deleteProduct.mutate(product.ulid)}
             onAddClick={() => setAddProductOpen(true)}
             onEditClick={(product) => setEditingProduct(product)}
+            onTrashClick={() => setProductTrashOpen(true)}
           />
 
           {/* Detail card + ledger */}
@@ -272,6 +292,15 @@ export function ProductsWorkspace({
           setViewFiscalYearId(fiscalYearDraft ? Number(fiscalYearDraft) : null);
           setFiscalYearModalOpen(false);
         }}
+      />
+
+      <ProductTrashModal
+        open={productTrashOpen}
+        onClose={() => setProductTrashOpen(false)}
+        loading={trashedProductsLoading}
+        products={trashedProductsData?.data ?? []}
+        restoring={restoreProduct.isPending}
+        onRestore={(ulid) => restoreProduct.mutate(ulid)}
       />
     </div>
   );

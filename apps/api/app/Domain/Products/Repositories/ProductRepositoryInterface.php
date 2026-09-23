@@ -30,4 +30,13 @@ interface ProductRepositoryInterface
     public function update(Product $product, ProductData $data): Product;
 
     public function delete(Product $product): void;
+
+    /** @return \Illuminate\Support\Collection<int, Product> */
+    public function trashed(int $tenantId): \Illuminate\Support\Collection;
+
+    /**
+     * Restore a soft-deleted product by ulid (implicit route-model-binding can't resolve a
+     * trashed row, so this looks it up explicitly rather than taking a bound model).
+     */
+    public function restore(int $tenantId, string $ulid): Product;
 }

@@ -31,7 +31,7 @@ class DeleteAccVendorTransactionItemAction
         DB::transaction(function () use ($tenantId, $vendor, $transaction, $item) {
             $item = $this->transactions->lockItemForUpdate($item);
 
-            $linked = $this->productItems->findByReference('acc_vendor_transaction_item', $item->id);
+            $linked = $this->productItems->findByReference($tenantId, 'acc_vendor_transaction_item', $item->id);
 
             if ($linked) {
                 $product = $this->products->lockById($tenantId, $linked->product_id);

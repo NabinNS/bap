@@ -14,6 +14,7 @@ class EloquentProductTransactionItemRepository implements ProductTransactionItem
     public function paginate(Product $product, int $perPage): LengthAwarePaginator
     {
         return ProductTransactionItem::where('product_id', $product->id)
+            ->where('tenant_id', $product->tenant_id)
             ->orderBy('date', 'asc')
             ->orderBy('id', 'asc')
             ->paginate($perPage);
@@ -23,6 +24,7 @@ class EloquentProductTransactionItemRepository implements ProductTransactionItem
     {
         return ProductTransactionItem::onlyTrashed()
             ->where('product_id', $product->id)
+            ->where('tenant_id', $product->tenant_id)
             ->orderBy('deleted_at', 'desc')
             ->get();
     }
@@ -65,12 +67,13 @@ class EloquentProductTransactionItemRepository implements ProductTransactionItem
         ]);
     }
 
-    public function findByReference(string $referenceType, int $referenceId): ?ProductTransactionItem
+    public function findByReference(int $tenantId, string $referenceType, int $referenceId): ?ProductTransactionItem
     {
         // withTrashed so a restore flow (see RestoreAccVendorTransactionAction /
         // RestoreAccCustomerTransactionAction) can find the soft-deleted linked row it needs
         // to bring back — callers that only want live rows should check ->trashed() themselves.
         return ProductTransactionItem::withTrashed()
+            ->where('tenant_id', $tenantId)
             ->where('reference_type', $referenceType)
             ->where('reference_id', $referenceId)
             ->first();

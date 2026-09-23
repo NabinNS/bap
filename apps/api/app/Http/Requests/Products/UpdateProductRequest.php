@@ -37,7 +37,6 @@ class UpdateProductRequest extends FormRequest
             'image'              => ['nullable', 'string'],
             'cost_price'         => ['sometimes', 'required', 'integer', 'min:0'],
             'sales_price'        => ['sometimes', 'required', 'integer', 'min:0'],
-            'stock'              => ['sometimes', 'integer', 'min:0'],
             'low_stock_quantity' => ['nullable', 'integer', 'min:0'],
             'is_active'          => ['boolean'],
             'is_featured'        => ['boolean'],
@@ -70,7 +69,10 @@ class UpdateProductRequest extends FormRequest
             image:            $v['image']           ?? $product->image,
             costPrice:        (int) ($v['cost_price']  ?? $product->cost_price),
             salesPrice:       (int) ($v['sales_price'] ?? $product->sales_price),
-            stock:            (int) ($v['stock']    ?? $product->stock),
+            // Stock is intentionally not an editable field here — it's derived from the
+            // product's transaction ledger (ProductTransactionItem) after creation, not set
+            // directly. Always carry the current value through unchanged.
+            stock:            $product->stock,
             lowStockQuantity: array_key_exists('low_stock_quantity', $v) ? (isset($v['low_stock_quantity']) ? (int) $v['low_stock_quantity'] : null) : $product->low_stock_quantity,
             isActive:         $v['is_active']       ?? $product->is_active,
             isFeatured:       $v['is_featured']     ?? $product->is_featured,

@@ -29,6 +29,8 @@ Route::middleware('resolve.tenant')->group(function () {
     Route::get('categories/{category}', [CategoryController::class, 'show']);
     Route::get('products', [ProductController::class, 'index']);
     Route::get('products/search', [ProductController::class, 'search']);
+    Route::get('products/trashed', [ProductController::class, 'trashed']);
+    Route::post('products/{ulid}/restore', [ProductController::class, 'restore']);
     Route::get('products/{ulid}', [ProductController::class, 'show']);
     Route::get('sliders', [SliderController::class, 'index']);
     Route::get('sliders/{slider}', [SliderController::class, 'show']);

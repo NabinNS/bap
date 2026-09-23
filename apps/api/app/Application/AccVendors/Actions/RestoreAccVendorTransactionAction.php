@@ -31,7 +31,7 @@ class RestoreAccVendorTransactionAction
             $transaction = $this->transactions->restore($tenantId, $vendor, $transactionUlid);
 
             foreach ($this->transactions->items($transaction) as $item) {
-                $linked = $this->productItems->findByReference('acc_vendor_transaction_item', $item->id);
+                $linked = $this->productItems->findByReference($tenantId, 'acc_vendor_transaction_item', $item->id);
 
                 if ($linked && $linked->trashed()) {
                     $product = $this->products->lockById($tenantId, $linked->product_id);

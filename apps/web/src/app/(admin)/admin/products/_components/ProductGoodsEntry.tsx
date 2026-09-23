@@ -156,6 +156,7 @@ export function ProductGoodsEntry({ type }: { type: "purchase" | "sale" }) {
       apiFetch<{ data: { ulid: string } }>(`/products/${productUlid}/product-transaction-items`, { method: "POST", body: JSON.stringify(payload) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
     },
   });
@@ -165,6 +166,7 @@ export function ProductGoodsEntry({ type }: { type: "purchase" | "sale" }) {
       apiFetch(`/products/${productUlid}/product-transaction-items/${itemUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
     },
   });
@@ -174,6 +176,7 @@ export function ProductGoodsEntry({ type }: { type: "purchase" | "sale" }) {
       apiFetch(`/products/${productUlid}/product-transaction-items/${itemUlid}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
     },
   });

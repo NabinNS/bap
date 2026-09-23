@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Application\Products\Actions\CreateProductAction;
 use App\Application\Products\Actions\DeleteProductAction;
 use App\Application\Products\Actions\ListProductsAction;
+use App\Application\Products\Actions\ListTrashedProductsAction;
+use App\Application\Products\Actions\RestoreProductAction;
 use App\Application\Products\Actions\SearchProductsLiteAction;
 use App\Application\Products\Actions\ShowProductAction;
 use App\Application\Products\Actions\UpdateProductAction;
@@ -74,5 +76,20 @@ class ProductController extends Controller
         $action->execute($product);
 
         return ApiResponse::noContent('Product deleted successfully');
+    }
+
+    public function trashed(ListTrashedProductsAction $action): JsonResponse
+    {
+        return ApiResponse::success(
+            ProductResource::collection($action->execute($this->tenantId())),
+            'Trashed products retrieved successfully'
+        );
+    }
+
+    public function restore(string $ulid, RestoreProductAction $action): JsonResponse
+    {
+        $product = $action->execute($this->tenantId(), $ulid);
+
+        return ApiResponse::success(new ProductResource($product), 'Product restored successfully');
     }
 }

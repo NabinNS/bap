@@ -62,7 +62,7 @@ class UpdateAccVendorTransactionItemAction
         AccVendorTransaction $transaction,
         AccVendorTransactionItemData $data
     ): void {
-        $linked = $this->productItems->findByReference('acc_vendor_transaction_item', $item->id);
+        $linked = $this->productItems->findByReference($tenantId, 'acc_vendor_transaction_item', $item->id);
 
         if (!$linked) {
             return;
