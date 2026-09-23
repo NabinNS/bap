@@ -2,8 +2,13 @@
 
 namespace App\Application\AccCustomers\Actions;
 
+use App\Application\ProductTransactionItems\Actions\CreateProductTransactionItemAction;
+use App\Application\ProductTransactionItems\Actions\DeleteProductTransactionItemAction;
+use App\Application\ProductTransactionItems\Actions\UpdateProductTransactionItemAction;
 use App\Domain\AccCustomers\DTOs\AccCustomerTransactionItemData;
 use App\Domain\AccCustomers\Repositories\AccCustomerTransactionRepositoryInterface;
+use App\Domain\ProductTransactionItems\DTOs\ProductTransactionItemData;
+use App\Domain\ProductTransactionItems\Repositories\ProductTransactionItemRepositoryInterface;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Models\AccCustomer;
 use App\Models\AccCustomerTransaction;
@@ -15,8 +20,11 @@ class UpdateAccCustomerTransactionItemAction
     public function __construct(
         private AccCustomerTransactionRepositoryInterface $transactions,
         private ProductRepositoryInterface $products,
-        private ReverseAccCustomerTransactionItemStockAction $reverseItemStock,
         private RecalculateAccCustomerTransactionTotalsAction $recalculateTotals,
+        private ProductTransactionItemRepositoryInterface $productItems,
+        private CreateProductTransactionItemAction $createProductTransactionItem,
+        private UpdateProductTransactionItemAction $updateProductTransactionItem,
+        private DeleteProductTransactionItemAction $deleteProductTransactionItem,
     ) {}
 
     public function execute(
@@ -29,20 +37,57 @@ class UpdateAccCustomerTransactionItemAction
         return DB::transaction(function () use ($tenantId, $customer, $transaction, $item, $data) {
             $item = $this->transactions->lockItemForUpdate($item);
 
-            // Undo the old line's stock contribution first (adds it back), then decrement for
-            // the new one on top — this composes correctly even when the product itself didn't change.
-            $this->reverseItemStock->execute($tenantId, $item);
-
             $product = $this->products->lockByUlid($tenantId, $data->productUlid);
 
-            $newStock = max(0, $product->stock - $data->quantity);
-            $this->products->updateStockAndCost($product, $newStock, $product->wacc ?? 0);
-
             $updated = $this->transactions->updateItem($item, $product, $data);
+
+            $this->syncProductLedger($tenantId, $item, $product, $transaction, $data);
 
             $this->recalculateTotals->execute($customer, $transaction);
 
             return $updated;
         });
+    }
+
+    /**
+     * Mirror the updated bill line back into the product's own stock ledger, which owns the
+     * stock math. If the line was never linked (predates this feature), there's nothing to sync.
+     * If the product changed, the old ledger row belongs to the old product and can't be
+     * "moved" — delete it there and create a fresh one on the new product instead.
+     */
+    private function syncProductLedger(
+        int $tenantId,
+        AccCustomerTransactionItem $item,
+        $product,
+        AccCustomerTransaction $transaction,
+        AccCustomerTransactionItemData $data
+    ): void {
+        $linked = $this->productItems->findByReference('acc_customer_transaction_item', $item->id);
+
+        if (!$linked) {
+            return;
+        }
+
+        $newData = new ProductTransactionItemData(
+            fiscalYearId:     $transaction->fiscal_year_id,
+            date:             $transaction->date,
+            type:             'sale',
+            purchaseQuantity: null,
+            purchasePrice:    null,
+            salesQuantity:    $data->quantity,
+            salesPrice:       $data->rate,
+            referenceType:    'acc_customer_transaction_item',
+            referenceId:      $item->id,
+        );
+
+        if ($linked->product_id === $product->id) {
+            $this->updateProductTransactionItem->execute($tenantId, $product, $linked, $newData);
+
+            return;
+        }
+
+        $oldProduct = $this->products->lockById($tenantId, $linked->product_id);
+        $this->deleteProductTransactionItem->execute($tenantId, $oldProduct, $linked);
+        $this->createProductTransactionItem->execute($tenantId, $product, $newData);
     }
 }

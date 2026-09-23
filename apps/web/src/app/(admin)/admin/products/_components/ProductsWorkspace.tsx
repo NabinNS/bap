@@ -165,13 +165,8 @@ export function ProductsWorkspace({
               activeFiscalYearId={viewedFiscalYearId}
               fiscalYearName={viewedFiscalYear?.name}
               onFiscalYearClick={() => { setFiscalYearDraft(String(viewedFiscalYearId ?? "")); setFiscalYearModalOpen(true); }}
-              onEditOpeningQuantity={() => {
-                setOpeningQuantityDraft(viewedBalance ? String(viewedBalance.opening_quantity) : "");
-                setOpeningFiscalYearId(viewedFiscalYearId ? String(viewedFiscalYearId) : "");
-                setEditingOpeningQuantity(true);
-              }}
               onPurchaseClick={() => router.push(`/admin/accounts/goods-purchased?product=${selectedProduct?.ulid ?? ""}`)}
-              onSalesClick={() => router.push(`/admin/products/goods-sold?product=${selectedProduct?.ulid ?? ""}`)}
+              onSalesClick={() => router.push(`/admin/customers/goods-sold?product=${selectedProduct?.ulid ?? ""}`)}
               onEditClick={() => { if (selectedProduct) setEditingProduct(selectedProduct); }}
               onDelete={() => { if (selectedProduct) deleteProduct.mutate(selectedProduct.ulid); }}
             />
@@ -190,6 +185,7 @@ export function ProductsWorkspace({
                       setOpeningFiscalYearId(viewedFiscalYearId ? String(viewedFiscalYearId) : "");
                       setEditingOpeningQuantity(true);
                     }}
+                    onFiscalYearClick={() => { setFiscalYearDraft(String(viewedFiscalYearId ?? "")); setFiscalYearModalOpen(true); }}
                     onItemClick={(item) => setPanelItem(item)}
                   />
                 ) : (

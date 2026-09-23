@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, Calendar, Filter as FilterIcon, Maximize2 } from "lucide-react";
 import { DataTable } from "@/components/data-table/DataTable";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { BsDateInput, isValidBsDate } from "@/components/ui/form/BsDateInput";
 import { ComboboxField } from "@/components/ui/form/FormField";
+import { FilterModal } from "@/app/(admin)/admin/accounts/_components/FilterModal";
+import { TrashModal } from "./TrashModal";
 
 type TransactionItem = {
   ulid: string;
@@ -20,8 +22,21 @@ type TransactionItem = {
   purchase_price: number | null;
   sales_quantity: number | null;
   sales_price: number | null;
+  cost_price: number | null;
+  /** (sales_price - cost_price) * sales_quantity — null for purchase rows or pre-snapshot sales. */
+  profit: number | null;
   /** Set when this entry was recorded as a line item on a vendor bill — only then does a "full bill" page exist to open. */
   reference_type: string | null;
+  bill: {
+    transaction_ulid: string;
+    party_ulid: string;
+    party_name: string;
+    items: { product_name: string; quantity: number; rate: number; discount: number; total: number }[];
+    discount_percent: number;
+    taxable_amount: number;
+    vat_amount: number;
+    grand_total: number;
+  } | null;
 };
 
 type Row = TransactionItem & { ulid: string };
@@ -68,9 +83,11 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
   openingQuantity?: number | null;
   fiscalYearName?: string | null;
   onOpeningBalanceClick?: () => void;
+  /** Opens the shared Fiscal Year modal — owned by the parent since it's also used elsewhere. */
+  onFiscalYearClick?: () => void;
   /** Single click on a saved row — parent renders the quick-view/edit side panel. */
   onItemClick?: (item: TransactionItem) => void;
-}>(function StockLedger({ productUlid, currentStock, openingQuantity, fiscalYearName, onOpeningBalanceClick, onItemClick }, ref) {
+}>(function StockLedger({ productUlid, currentStock, openingQuantity, fiscalYearName, onOpeningBalanceClick, onFiscalYearClick, onItemClick }, ref) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
@@ -88,18 +105,114 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
     },
   }), [productUlid]);
 
+  const [showFullDetails, setShowFullDetails] = useState(false);
+
   const { data, isLoading } = useQuery({
     queryKey: ["product-transaction-items", productUlid],
     queryFn: () => apiFetch<{ data: TransactionItem[] }>(`/products/${productUlid}/product-transaction-items?per_page=1000`),
     enabled: !!productUlid,
   });
 
-  const rawItems = data?.data ?? [];
+  const allItems = data?.data ?? [];
+
+  // Date-range filter (via the "Filter" more-action) — applied client-side since the whole
+  // ledger is already fetched in one page.
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [dateFromDraft, setDateFromDraft] = useState("");
+  const [dateToDraft, setDateToDraft] = useState("");
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [filterResetKey, setFilterResetKey] = useState(0);
+
+  const rawItems = allItems.filter((it) => (!dateFrom || it.date >= dateFrom) && (!dateTo || it.date <= dateTo));
+
+  const [trashModalOpen, setTrashModalOpen] = useState(false);
+  const { data: trashedData, isLoading: trashedLoading } = useQuery({
+    queryKey: ["product-transaction-items-trashed", productUlid],
+    queryFn: () => apiFetch<{ data: TransactionItem[] }>(`/products/${productUlid}/product-transaction-items/trashed`),
+    enabled: !!productUlid && trashModalOpen,
+  });
 
   function invalidateAfterChange() {
     queryClient.invalidateQueries({ queryKey: ["product-transaction-items", productUlid] });
+    queryClient.invalidateQueries({ queryKey: ["product-transaction-items-trashed", productUlid] });
     queryClient.invalidateQueries({ queryKey: ["products"] });
     queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
+  }
+
+  const restoreMutation = useMutation({
+    mutationFn: (itemUlid: string) => apiFetch(`/products/${productUlid}/product-transaction-items/${itemUlid}/restore`, { method: "POST" }),
+    onSuccess: () => {
+      invalidateAfterChange();
+      toast.success("Entry restored", "Stock transaction has been restored.");
+    },
+    onError: () => toast.error("Failed to restore", "Could not restore the transaction."),
+  });
+
+  function escapeHtml(value: string): string {
+    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function exportableRows() {
+    return rawItems.map((it, i) => {
+      const isPurchase = it.type === "purchase";
+      return {
+        date: it.date,
+        particular: isPurchase ? "Purchase" : "Sale",
+        qty: String((isPurchase ? it.purchase_quantity : it.sales_quantity) ?? ""),
+        rate: String((isPurchase ? it.purchase_price : it.sales_price) ?? ""),
+        balance: String((openingQuantity ?? 0) + rawItems.slice(0, i + 1).reduce((acc, r) => acc + (r.purchase_quantity ?? 0) - (r.sales_quantity ?? 0), 0)),
+      };
+    });
+  }
+
+  function handlePrintLedger() {
+    const rows = exportableRows();
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const title = "Stock Ledger";
+    const rowsHtml = rows.map((r) => `
+      <tr>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.particular)}</td>
+        <td class="num">${r.qty}</td>
+        <td class="num">${r.rate ? Number(r.rate).toLocaleString() : ""}</td>
+        <td class="num">${r.balance ? Number(r.balance).toLocaleString() : ""}</td>
+      </tr>`).join("");
+    win.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title><style>
+      body { font-family: sans-serif; padding: 24px; }
+      h2 { margin: 0 0 4px; }
+      p { margin: 0 0 16px; color: #555; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+      th { background: #f2f2f2; }
+      td.num, th.num { text-align: right; }
+    </style></head><body>
+      <h2>${escapeHtml(title)}</h2>
+      <table>
+        <thead><tr><th>Date</th><th>Particular</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Balance</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
+  function handleExportLedgerCsv() {
+    const rows = exportableRows();
+    const header = ["Date", "Particular", "Qty", "Rate", "Balance"];
+    const csvEscape = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const lines = [header, ...rows.map((r) => [r.date, r.particular, r.qty, r.rate, r.balance])]
+      .map((cols) => cols.map(csvEscape).join(","))
+      .join("\n");
+    const blob = new Blob([lines], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "stock-ledger.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const saveMutation = useMutation({
@@ -156,16 +269,14 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
   }
 
   function openDetailPage(row: Row) {
-    // Only a bill-linked purchase has an actual vendor bill to open — the accounts Goods
-    // Purchased page doesn't take an item id, so for a standalone entry it would just open a
-    // blank new bill instead of "this entry's full details." The quick-view side panel
-    // already covers every field for standalone entries, so there's nothing further to open.
-    if (row.type === "purchase" && row.reference_type) {
-      router.push(`/admin/accounts/goods-purchased?product=${productUlid}`);
-      return;
+    // Only a bill-linked entry has an actual vendor/customer bill to open — for a standalone
+    // entry there's no bill, and the quick-view side panel already covers every field.
+    if (!row.bill) return;
+    if (row.type === "purchase") {
+      router.push(`/admin/accounts/goods-purchased?vendor=${row.bill.party_ulid}&transaction=${row.bill.transaction_ulid}&product=${productUlid}`);
+    } else {
+      router.push(`/admin/customers/goods-sold?customer=${row.bill.party_ulid}&transaction=${row.bill.transaction_ulid}&product=${productUlid}`);
     }
-    if (row.type === "purchase") return;
-    router.push(`/admin/products/goods-sold?product=${productUlid}&item=${row.ulid}`);
   }
 
   // Opening balance is the product's saved ProductStockBalance.opening_quantity for the
@@ -182,7 +293,10 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
     purchase_price: null,
     sales_quantity: null,
     sales_price: null,
+    cost_price: null,
+    profit: null,
     reference_type: null,
+    bill: null,
   };
 
   const itemBalances = rawItems.reduce<number[]>((acc, it) => {
@@ -202,7 +316,10 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
     purchase_price: draftRef.current.purchase_price ? Number(draftRef.current.purchase_price) : null,
     sales_quantity: draftRef.current.sales_quantity ? Number(draftRef.current.sales_quantity) : null,
     sales_price: draftRef.current.sales_price ? Number(draftRef.current.sales_price) : null,
+    cost_price: null,
+    profit: null,
     reference_type: null,
+    bill: null,
   };
 
   const rows: Row[] = [openingRow, ...rawItems, draftRow];
@@ -237,7 +354,39 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
             onChange={(v) => { draftRef.current.type = v as "purchase" | "sale"; forceUpdate(); }}
           />
         );
-        return <span className="text-sm font-medium text-black">{row.original.type === "purchase" ? "Purchase" : "Sale"}</span>;
+        const bill = row.original.bill;
+        return (
+          <div className="py-0.5">
+            <span className="block mb-1 text-sm font-medium text-black">{row.original.type === "purchase" ? "Purchase" : "Sale"}</span>
+            {showFullDetails && bill && (
+              <div className="border-l-2 border-slate-200 pl-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted/70 truncate" title={bill.party_name}>
+                  {bill.party_name}
+                </p>
+                <div className="grid grid-cols-[1fr_44px_64px_56px_64px] gap-x-2 text-[10px] font-semibold uppercase tracking-wide text-text-muted/70">
+                  <span>Item</span>
+                  <span className="text-right">Qty</span>
+                  <span className="text-right">Rate</span>
+                  <span className="text-right">Disc</span>
+                  <span className="text-right">Total</span>
+                </div>
+                {bill.items.map((it, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_44px_64px_56px_64px] gap-x-2 text-[11px] leading-tight text-text-muted">
+                    <span className="truncate text-text-default" title={it.product_name}>{it.product_name}</span>
+                    <span className="text-right">{it.quantity}</span>
+                    <span className="text-right">{it.rate.toLocaleString()}</span>
+                    <span className="text-right">{it.discount.toLocaleString()}</span>
+                    <span className="text-right font-semibold text-text-default">{it.total.toLocaleString()}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between text-[11px] font-semibold text-text-default pt-0.5 border-t border-slate-100 mt-0.5">
+                  <span>Grand Total</span>
+                  <span>{bill.grand_total.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        );
       },
     },
     {
@@ -381,6 +530,22 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
       ],
     },
     {
+      id: "profit",
+      header: "Profit",
+      size: 90,
+      meta: { borderLeft: true },
+      cell: ({ row }) => {
+        if (row.original.ulid === "__new__" || row.original.ulid === "__opening_balance__") return null;
+        const profit = row.original.profit;
+        if (profit == null) return null;
+        return (
+          <span className={`text-sm font-semibold ${profit < 0 ? "text-red-600" : "text-emerald-600"}`}>
+            {profit.toLocaleString()}
+          </span>
+        );
+      },
+    },
+    {
       id: "balance",
       header: "Balance",
       size: 100,
@@ -416,7 +581,7 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
       },
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- draftRef/forceUpdate are stable
-  ], [productUlid, presetNonce, openMenuUlid]);
+  ], [productUlid, presetNonce, openMenuUlid, showFullDetails]);
 
   return (
     <>
@@ -430,6 +595,14 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
       scrollToBottomOnLoad
       scrollToBottomKey={`${productUlid}:${rawItems.length}:${presetNonce}`}
       tableClassName="table-fixed"
+      onPrint={handlePrintLedger}
+      onExportCsv={handleExportLedgerCsv}
+      moreActions={[
+        { label: showFullDetails ? "Hide Full" : "Show Full", icon: Maximize2, onClick: () => setShowFullDetails((v) => !v) },
+        ...(onFiscalYearClick ? [{ label: "Fiscal Year", icon: Calendar, onClick: onFiscalYearClick }] : []),
+        { label: dateFrom || dateTo ? "Filter (active)" : "Filter", icon: FilterIcon, onClick: () => { setDateFromDraft(dateFrom); setDateToDraft(dateTo); setFilterModalOpen(true); } },
+        { label: "Recently Deleted", icon: Trash2, onClick: () => setTrashModalOpen(true) },
+      ]}
       onRowBlur={(row) => { if (row.ulid === "__new__") tryAutoSave(); }}
       onRowClick={(row) => {
         if (row.ulid === "__opening_balance__") onOpeningBalanceClick?.();
@@ -446,33 +619,83 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
         style={{ position: "fixed", top: menuPos.top, left: menuPos.left, zIndex: 9999 }}
         className="w-36 bg-white border border-slate-200 shadow-md"
       >
-        <button
-          type="button"
-          onClick={() => {
-            const item = rawItems.find((it) => it.ulid === openMenuUlid);
-            if (item) onItemClick?.(item);
-            setOpenMenuUlid(null);
-            setMenuPos(null);
-          }}
-          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
-        >
-          <Pencil className="h-3.5 w-3.5" /> Edit
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            const ulid = openMenuUlid;
-            setOpenMenuUlid(null);
-            setMenuPos(null);
-            if (ulid && confirm("Delete this entry?")) deleteMutation.mutate(ulid);
-          }}
-          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
-        >
-          <Trash2 className="h-3.5 w-3.5" /> Delete
-        </button>
+        {(() => {
+          const item = rawItems.find((it) => it.ulid === openMenuUlid);
+          if (item?.bill) {
+            // Bill-linked — editing/deleting here would desync the bill's own line item from
+            // what actually happened to stock. Send them to the bill instead.
+            return (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenMenuUlid(null);
+                  setMenuPos(null);
+                  openDetailPage(item as Row);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+              >
+                <Pencil className="h-3.5 w-3.5" /> View in bill
+              </button>
+            );
+          }
+          return (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  if (item) onItemClick?.(item);
+                  setOpenMenuUlid(null);
+                  setMenuPos(null);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const ulid = openMenuUlid;
+                  setOpenMenuUlid(null);
+                  setMenuPos(null);
+                  if (ulid && confirm("Delete this entry?")) deleteMutation.mutate(ulid);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+            </>
+          );
+        })()}
       </div>,
       document.body
     )}
+
+    <FilterModal
+      open={filterModalOpen}
+      onClose={() => setFilterModalOpen(false)}
+      dateFrom={dateFrom}
+      dateTo={dateTo}
+      dateFromDraft={dateFromDraft}
+      dateToDraft={dateToDraft}
+      resetKey={filterResetKey}
+      onDateFromDraftChange={setDateFromDraft}
+      onDateToDraftChange={setDateToDraft}
+      onApply={() => { setDateFrom(dateFromDraft); setDateTo(dateToDraft); setFilterModalOpen(false); }}
+      onClearAll={() => {
+        setDateFrom(""); setDateTo(""); setDateFromDraft(""); setDateToDraft("");
+        setFilterResetKey((k) => k + 1);
+        setFilterModalOpen(false);
+      }}
+    />
+
+    <TrashModal
+      open={trashModalOpen}
+      onClose={() => setTrashModalOpen(false)}
+      loading={trashedLoading}
+      items={trashedData?.data ?? []}
+      restoring={restoreMutation.isPending}
+      onRestore={(itemUlid) => restoreMutation.mutate(itemUlid)}
+    />
     </>
   );
 });

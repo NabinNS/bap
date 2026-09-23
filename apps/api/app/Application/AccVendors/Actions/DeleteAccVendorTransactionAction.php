@@ -2,7 +2,10 @@
 
 namespace App\Application\AccVendors\Actions;
 
+use App\Application\ProductTransactionItems\Actions\DeleteProductTransactionItemAction;
 use App\Domain\AccVendors\Repositories\AccVendorTransactionRepositoryInterface;
+use App\Domain\ProductTransactionItems\Repositories\ProductTransactionItemRepositoryInterface;
+use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Models\AccVendor;
 use App\Models\AccVendorTransaction;
 use Illuminate\Support\Facades\DB;
@@ -11,8 +14,10 @@ class DeleteAccVendorTransactionAction
 {
     public function __construct(
         private AccVendorTransactionRepositoryInterface $transactions,
-        private ReverseAccVendorTransactionItemStockAction $reverseItemStock,
         private RecalculateVendorBalanceAction $recalculateBalance,
+        private ProductTransactionItemRepositoryInterface $productItems,
+        private ProductRepositoryInterface $products,
+        private DeleteProductTransactionItemAction $deleteProductTransactionItem,
     ) {}
 
     public function execute(int $tenantId, AccVendor $vendor, AccVendorTransaction $transaction): void
@@ -21,7 +26,12 @@ class DeleteAccVendorTransactionAction
             $fiscalYearId = $transaction->fiscal_year_id;
 
             foreach ($this->transactions->items($transaction) as $item) {
-                $this->reverseItemStock->execute($tenantId, $item);
+                $linked = $this->productItems->findByReference('acc_vendor_transaction_item', $item->id);
+
+                if ($linked) {
+                    $product = $this->products->lockById($tenantId, $linked->product_id);
+                    $this->deleteProductTransactionItem->execute($tenantId, $product, $linked);
+                }
             }
 
             $this->transactions->delete($transaction);

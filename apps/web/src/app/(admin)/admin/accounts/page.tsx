@@ -235,6 +235,7 @@ function AdminAccountsContent() {
       apiFetch(`/acc-vendors/${vendorUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }),
     onSuccess: (_data, variables) => {
       queryClient.refetchQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
       draftRef.current = { particular: "", voucher_no: "", debit: "", credit: "", date: "" };
       forceUpdate();
       toast.success("Transaction saved", "Entry has been recorded.");
@@ -290,7 +291,9 @@ function AdminAccountsContent() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
     },
     onError: (err: any) => toast.error("Failed to update item", err?.message ?? "Something went wrong."),
   });
@@ -301,7 +304,9 @@ function AdminAccountsContent() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
       toast.success("Item removed", "The line item has been deleted.");
     },
     onError: (err: any) => toast.error("Failed to delete item", err?.message ?? "Something went wrong."),
@@ -315,7 +320,9 @@ function AdminAccountsContent() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
     },
     onError: (err: any) => toast.error("Failed to add item", err?.message ?? "Something went wrong."),
   });

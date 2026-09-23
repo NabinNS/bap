@@ -21,6 +21,8 @@ interface ProductTransactionItemRepositoryInterface
 
     public function create(int $tenantId, Product $product, ProductTransactionItemData $data): ProductTransactionItem;
 
+    public function findByReference(string $referenceType, int $referenceId): ?ProductTransactionItem;
+
     /** Locks the row for update — use inside a DB transaction when the caller will reverse/adjust stock. */
     public function lockForUpdate(ProductTransactionItem $item): ProductTransactionItem;
 

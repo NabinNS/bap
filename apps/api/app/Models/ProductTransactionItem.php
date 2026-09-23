@@ -21,6 +21,7 @@ class ProductTransactionItem extends Model
         'purchase_price',
         'sales_quantity',
         'sales_price',
+        'cost_price',
         'reference_type',
         'reference_id',
     ];
@@ -30,6 +31,7 @@ class ProductTransactionItem extends Model
         'purchase_price'    => 'integer',
         'sales_quantity'    => 'integer',
         'sales_price'       => 'integer',
+        'cost_price'        => 'integer',
     ];
 
     public function product(): BelongsTo

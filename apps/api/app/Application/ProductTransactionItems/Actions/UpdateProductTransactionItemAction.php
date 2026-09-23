@@ -40,6 +40,8 @@ class UpdateProductTransactionItemAction
             purchasePrice:    $data->purchasePrice,
             salesQuantity:    $data->salesQuantity,
             salesPrice:       $data->salesPrice,
+            referenceType:    $data->referenceType,
+            referenceId:      $data->referenceId,
         );
 
         return DB::transaction(function () use ($tenantId, $product, $item, $data) {
@@ -51,6 +53,21 @@ class UpdateProductTransactionItemAction
             // one on top — composes correctly even when type/quantity/price all changed.
             $this->reverseItem->execute($locked, $item);
             $locked->refresh();
+
+            if ($data->type === 'sale') {
+                $data = new ProductTransactionItemData(
+                    fiscalYearId:     $data->fiscalYearId,
+                    date:             $data->date,
+                    type:             $data->type,
+                    purchaseQuantity: $data->purchaseQuantity,
+                    purchasePrice:    $data->purchasePrice,
+                    salesQuantity:    $data->salesQuantity,
+                    salesPrice:       $data->salesPrice,
+                    referenceType:    $data->referenceType,
+                    referenceId:      $data->referenceId,
+                    costPrice:        $locked->wacc ?? 0,
+                );
+            }
 
             $this->applyToProduct($locked, $data);
 

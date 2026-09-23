@@ -12,11 +12,11 @@ import {
   LayoutDashboard,
   ShoppingBag,
   Package,
-  Users,
   BarChart2,
   Settings,
   LogOut,
   ChevronLeft,
+  ChevronDown,
   Tag,
   Bookmark,
   Images,
@@ -28,16 +28,26 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { apiFetch } from "@/lib/api";
 
-const navItems = [
+type NavItem =
+  | { label: string; href: string; icon: typeof LayoutDashboard; children?: undefined }
+  | { label: string; icon: typeof LayoutDashboard; children: { label: string; href: string }[] };
+
+const navItems: NavItem[] = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { label: "Accounts", href: "/admin/accounts", icon: CircleUserRound },
+  {
+    label: "Accounts",
+    icon: CircleUserRound,
+    children: [
+      { label: "Vendor", href: "/admin/accounts" },
+      { label: "Customer", href: "/admin/customers" },
+    ],
+  },
   { label: "Product/Stock", href: "/admin/products", icon: Package },
   { label: "Sliders", href: "/admin/sliders", icon: Images },
   { label: "Offers", href: "/admin/offers", icon: BadgePercent },
   { label: "Categories", href: "/admin/categories", icon: Tag },
   { label: "Brands", href: "/admin/brands", icon: Bookmark },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag },
-  { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart2 },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
@@ -48,6 +58,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const { logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(
+    () => navItems.find((item) => item.children?.some((c) => pathname.startsWith(c.href)))?.label ?? null
+  );
   const [fiscalYearModalOpen, setFiscalYearModalOpen] = useState(false);
   const [fiscalYearDraft, setFiscalYearDraft] = useState("");
 
@@ -123,23 +136,74 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               <ChevronLeft className="h-4 w-4 rotate-180" />
             </button>
           )}
-          {navItems.map(({ label, href, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              title={collapsed ? label : undefined}
-              className={cn(
-                "flex items-center gap-3 px-4 py-2.5 text-h4 font-semibold transition-all",
-                collapsed && "justify-center px-0",
-                pathname === href
-                  ? "border-l-2 border-white bg-white/15 text-white"
-                  : "border-l-2 border-transparent text-white/80 hover:bg-white/15 hover:text-white"
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {!collapsed && label}
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            if (!item.children) {
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-2.5 text-h4 font-semibold transition-all",
+                    collapsed && "justify-center px-0",
+                    pathname === item.href
+                      ? "border-l-2 border-white bg-white/15 text-white"
+                      : "border-l-2 border-transparent text-white/80 hover:bg-white/15 hover:text-white"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {!collapsed && item.label}
+                </Link>
+              );
+            }
+
+            const isActiveGroup = item.children.some((c) => pathname.startsWith(c.href));
+            const isOpen = collapsed ? isActiveGroup : openGroup === item.label;
+
+            return (
+              <div key={item.label}>
+                <button
+                  type="button"
+                  onClick={() => setOpenGroup((g) => (g === item.label ? null : item.label))}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    "flex w-full items-center gap-3 px-4 py-2.5 text-h4 font-semibold transition-all cursor-pointer",
+                    collapsed && "justify-center px-0",
+                    isActiveGroup
+                      ? "border-l-2 border-white bg-white/15 text-white"
+                      : "border-l-2 border-transparent text-white/80 hover:bg-white/15 hover:text-white"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1 text-left">{item.label}</span>
+                      <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", isOpen && "rotate-180")} />
+                    </>
+                  )}
+                </button>
+                {!collapsed && isOpen && (
+                  <div className="space-y-1 pt-1">
+                    {item.children.map((child) => (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className={cn(
+                          "flex items-center gap-3 pl-11 pr-4 py-2 text-sm font-semibold transition-all",
+                          pathname.startsWith(child.href)
+                            ? "text-white bg-white/10"
+                            : "text-white/70 hover:bg-white/10 hover:text-white"
+                        )}
+                      >
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="py-4 border-t border-white/10">

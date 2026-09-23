@@ -59,7 +59,21 @@ class EloquentProductTransactionItemRepository implements ProductTransactionItem
             'purchase_price'    => $data->purchasePrice,
             'sales_quantity'    => $data->salesQuantity,
             'sales_price'       => $data->salesPrice,
+            'cost_price'        => $data->costPrice,
+            'reference_type'    => $data->referenceType,
+            'reference_id'      => $data->referenceId,
         ]);
+    }
+
+    public function findByReference(string $referenceType, int $referenceId): ?ProductTransactionItem
+    {
+        // withTrashed so a restore flow (see RestoreAccVendorTransactionAction /
+        // RestoreAccCustomerTransactionAction) can find the soft-deleted linked row it needs
+        // to bring back — callers that only want live rows should check ->trashed() themselves.
+        return ProductTransactionItem::withTrashed()
+            ->where('reference_type', $referenceType)
+            ->where('reference_id', $referenceId)
+            ->first();
     }
 
     public function lockForUpdate(ProductTransactionItem $item): ProductTransactionItem
@@ -77,6 +91,7 @@ class EloquentProductTransactionItemRepository implements ProductTransactionItem
             'purchase_price'    => $data->purchasePrice,
             'sales_quantity'    => $data->salesQuantity,
             'sales_price'       => $data->salesPrice,
+            'cost_price'        => $data->costPrice,
         ]);
 
         return $item->fresh();

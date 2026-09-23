@@ -86,12 +86,14 @@ export function SlidePanel({
               {deleteLabel}
             </button>
           )}
-          <button
-            onClick={onSubmit}
-            className="flex-1 h-12 bg-black text-white text-sm font-semibold hover:bg-black/80 cursor-pointer transition-colors"
-          >
-            {submitLabel}
-          </button>
+          {onSubmit && (
+            <button
+              onClick={onSubmit}
+              className="flex-1 h-12 bg-black text-white text-sm font-semibold hover:bg-black/80 cursor-pointer transition-colors"
+            >
+              {submitLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>

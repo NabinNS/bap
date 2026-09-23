@@ -27,28 +27,21 @@ export function ProductDetailCard({
   activeFiscalYearId,
   fiscalYearName,
   onFiscalYearClick,
-  onEditOpeningQuantity,
   onPurchaseClick,
   onSalesClick,
   onEditClick,
   onDelete,
 }: {
   product: DetailProduct | null;
-  /** The fiscal year the Opening Qty tile is scoped to — defaults to the tenant's active fiscal year (from Settings) unless the user picked a different one via the Fiscal Year tile. */
   activeFiscalYearId?: number | null;
   fiscalYearName?: string | null;
   onFiscalYearClick?: () => void;
-  onEditOpeningQuantity?: () => void;
   onPurchaseClick?: () => void;
   onSalesClick?: () => void;
   /** When provided, "Edit" opens the quick-edit side panel instead of navigating to the full edit page. */
   onEditClick?: (product: DetailProduct) => void;
   onDelete?: (product: DetailProduct) => void;
 }) {
-  const activeBalance = activeFiscalYearId
-    ? product?.stock_balances?.find((b) => b.fiscal_year_id === activeFiscalYearId) ?? null
-    : null;
-
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -214,6 +207,12 @@ export function ProductDetailCard({
             <p className="text-sm-custom font-bold text-text-default mt-0.5">{product.sales_price != null ? product.sales_price.toLocaleString() : "—"}</p>
           </div>
           <div>
+            <p className="text-sm-custom text-text-body">Stock Value</p>
+            <p className="text-sm-custom font-bold text-text-default mt-0.5">
+              {product.wacc != null ? (product.stock * product.wacc).toLocaleString() : "—"}
+            </p>
+          </div>
+          <div>
             <p className="text-sm-custom text-text-body">Low Stock At</p>
             <p className="text-sm-custom font-bold text-text-default mt-0.5">{product.low_stock_quantity ?? "—"}</p>
           </div>
@@ -231,16 +230,6 @@ export function ProductDetailCard({
             <p className="text-sm-custom text-text-body">Fiscal Year</p>
             <p className="text-sm-custom font-bold text-text-default mt-0.5 group-hover:underline">
               {fiscalYearName ?? "—"}
-            </p>
-          </button>
-          <button
-            type="button"
-            onClick={onEditOpeningQuantity}
-            className="text-left cursor-pointer group"
-          >
-            <p className="text-sm-custom text-text-body">Opening Qty (FY)</p>
-            <p className="text-sm-custom font-bold text-text-default mt-0.5 group-hover:underline">
-              {(activeBalance?.opening_quantity ?? 0).toLocaleString()}
             </p>
           </button>
         </div>

@@ -20,6 +20,7 @@ return new class extends Migration
             $table->unsignedInteger('purchase_price')->nullable();
             $table->unsignedInteger('sales_quantity')->nullable();
             $table->unsignedInteger('sales_price')->nullable();
+            $table->unsignedInteger('cost_price')->nullable();
             $table->string('reference_type')->nullable();
             $table->unsignedBigInteger('reference_id')->nullable();
             $table->timestamps();

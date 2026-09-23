@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2, Plus, ArrowLeft, ListOrdered, Check } from "lucide-react";
+import { Trash2, Plus, ArrowLeft, ListOrdered } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { BsDateInput, getTodayBs, isValidBsDate } from "@/components/ui/form/BsDateInput";
@@ -327,11 +327,28 @@ function GoodsPurchasedContent() {
 
   type TotalsPayload = { discount_percent: number | null; discount_amount: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null };
 
+  // Every mutation that changes a transaction/item invalidates the vendor's transactions
+  // cache — the global QueryClient uses a 30s staleTime, so without this a re-visit to this
+  // page (or the ledger) within that window would silently show pre-edit data. A bill item
+  // also mirrors into that product's own stock ledger (product_transaction_items), so that
+  // cache needs invalidating too — otherwise the Product page only catches up on a hard
+  // reload. No product ulid is passed here on purpose: invalidating the whole
+  // "product-transaction-items" family (no id) matches every product's cached entry by
+  // prefix, which is simpler and just as cheap as tracking the one product ulid.
+  function invalidateVendorTransactions(vendorUlid: string) {
+    queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", vendorUlid] });
+    queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+    queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
+  }
+
   const createTransactionMutation = useMutation({
     mutationFn: ({ vendorUlid, payload }: { vendorUlid: string; payload: object }) =>
       apiFetch<{ data: { ulid: string } & TotalsPayload }>(
         `/acc-vendors/${vendorUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }
       ),
+    onSuccess: (_data, variables) => invalidateVendorTransactions(variables.vendorUlid),
   });
 
   const addItemMutation = useMutation({
@@ -339,6 +356,15 @@ function GoodsPurchasedContent() {
       apiFetch<{ data: { ulid: string; transaction: TotalsPayload } }>(
         `/acc-vendors/${vendorUlid}/transactions/${txUlid}/items`, { method: "POST", body: JSON.stringify(payload) }
       ),
+    onSuccess: (_data, variables) => invalidateVendorTransactions(variables.vendorUlid),
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid, itemUlid, payload }: { vendorUlid: string; txUlid: string; itemUlid: string; payload: object }) =>
+      apiFetch<{ data: { ulid: string; transaction: TotalsPayload } }>(
+        `/acc-vendors/${vendorUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "PATCH", body: JSON.stringify(payload) }
+      ),
+    onSuccess: (_data, variables) => invalidateVendorTransactions(variables.vendorUlid),
   });
 
   const updateTotalsMutation = useMutation({
@@ -346,11 +372,13 @@ function GoodsPurchasedContent() {
       apiFetch<{ data: TotalsPayload }>(
         `/acc-vendors/${vendorUlid}/transactions/${txUlid}/totals`, { method: "PATCH", body: JSON.stringify(body) }
       ),
+    onSuccess: (_data, variables) => invalidateVendorTransactions(variables.vendorUlid),
   });
 
   const updateHeaderMutation = useMutation({
     mutationFn: ({ vendorUlid, txUlid, payload }: { vendorUlid: string; txUlid: string; payload: object }) =>
       apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    onSuccess: (_data, variables) => invalidateVendorTransactions(variables.vendorUlid),
     onError: (err: any) => toast.error("Failed to update bill details", err?.message ?? "Something went wrong."),
   });
 
@@ -360,7 +388,9 @@ function GoodsPurchasedContent() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
       toast.success("Item removed", "The line item has been deleted.");
     },
     onError: (err: any) => toast.error("Failed to delete item", err?.message ?? "Something went wrong."),
@@ -450,9 +480,15 @@ function GoodsPurchasedContent() {
         rate: Number(row.rate),
         discount: rowDiscount(row),
       };
-      let itemUlid: string | null = null;
+      let itemUlid: string | null = row.itemUlid;
+      const isUpdate = !!(row.itemUlid && transactionUlid);
 
-      if (!transactionUlid) {
+      if (isUpdate && transactionUlid && row.itemUlid) {
+        // Re-editing an already-saved row (double-clicked back into edit mode) — update the
+        // existing line item instead of creating a duplicate.
+        const res = await updateItemMutation.mutateAsync({ vendorUlid: selectedVendorUlid, txUlid: transactionUlid, itemUlid: row.itemUlid, payload: itemPayload });
+        applyTotalsResult(res.data.transaction);
+      } else if (!transactionUlid) {
         const res = await createTransactionMutation.mutateAsync({
           vendorUlid: selectedVendorUlid,
           payload: {
@@ -480,7 +516,7 @@ function GoodsPurchasedContent() {
       });
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
-      toast.success("Item recorded", `${row.particular} has been added to this purchase.`);
+      toast.success(isUpdate ? "Item updated" : "Item recorded", `${row.particular} has been ${isUpdate ? "updated" : "added to this purchase"}.`);
     } catch (err: any) {
       toast.error("Failed to save item", err?.message ?? "Something went wrong.");
     } finally {
@@ -511,13 +547,6 @@ function GoodsPurchasedContent() {
   return (
     <div className="flex gap-0 transition-all duration-300 h-full">
       <div className="flex-1 min-w-0 flex flex-col p-6 gap-6 h-full">
-        <nav className="flex items-center gap-1.5 text-sm text-text-muted">
-          <Link href="/admin" className="hover:text-text-default transition-colors">Dashboard</Link>
-          <span>/</span>
-          <Link href="/admin/accounts" className="hover:text-text-default transition-colors">Accounts</Link>
-          <span>/</span>
-          <span className="text-text-default font-medium">Goods Purchased</span>
-        </nav>
 
         <div className="flex items-center justify-between">
           <div>
@@ -569,7 +598,7 @@ function GoodsPurchasedContent() {
           )}
 
           {/* Right side: detail card + line item table */}
-          <div className="flex-1 min-w-0 flex flex-col gap-4 self-start">
+          <div className="flex-1 min-w-0 flex flex-col gap-4 h-full min-h-0">
             {/* Account detail card */}
             <div className="bg-white px-5 py-4 space-y-3">
               <div className="flex items-start justify-between gap-4">
@@ -608,8 +637,9 @@ function GoodsPurchasedContent() {
               </div>
             </div>
 
-            {/* Line item table */}
-            <div className="border border-slate-300 bg-white flex flex-col overflow-x-auto">
+            {/* Line item table + footer group — no gap between them; only the table scrolls */}
+            <div className="flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 border border-slate-300 border-b-0 bg-white flex flex-col overflow-auto">
               <div className="grid grid-cols-[50px_1fr_170px_160px_130px_100px_50px] min-w-[909px] bg-black">
                 <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">S.N.</span>
                 <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Particulars (Name of Stock)</span>
@@ -626,18 +656,20 @@ function GoodsPurchasedContent() {
                   onBlur={(e) => {
                     if (!row.saved && !e.currentTarget.contains(e.relatedTarget as Node)) trySaveRow(row.key);
                   }}
+                  onDoubleClick={() => {
+                    if (row.saved) setRows((prev) => prev.map((r) => (r.key === row.key ? { ...r, saved: false } : r)));
+                  }}
                   className="grid grid-cols-[50px_1fr_170px_160px_130px_100px_50px] min-w-[909px] border-b border-slate-200 items-center"
                 >
                   <span className="px-3 py-2 text-sm font-medium text-black">{idx + 1}</span>
 
                   {row.saved ? (
                     <>
-                      <span className="px-3 py-2 text-sm font-medium text-black truncate flex items-center gap-1.5">
+                      <span className="px-3 py-2 text-sm font-medium text-black truncate cursor-pointer" title="Double-click to edit">
                         {row.particular}
-                        <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
                       </span>
-                      <span className="px-3 py-2 text-sm font-medium text-black">{row.quantity}</span>
-                      <span className="px-3 py-2 text-sm font-medium text-black">{Number(row.rate).toLocaleString()}</span>
+                      <span className="px-3 py-2 text-sm font-medium text-black cursor-pointer" title="Double-click to edit">{row.quantity}</span>
+                      <span className="px-3 py-2 text-sm font-medium text-black cursor-pointer" title="Double-click to edit">{Number(row.rate).toLocaleString()}</span>
                     </>
                   ) : (
                     <>
@@ -681,7 +713,7 @@ function GoodsPurchasedContent() {
                   )}
 
                   {row.saved ? (
-                    <span className="px-3 py-2 text-sm font-medium text-black">{rowDiscount(row).toLocaleString()}</span>
+                    <span className="px-3 py-2 text-sm font-medium text-black cursor-pointer" title="Double-click to edit">{rowDiscount(row).toLocaleString()}</span>
                   ) : (
                     <div className="px-3 py-1.5">
                       <input
@@ -802,24 +834,26 @@ function GoodsPurchasedContent() {
                   max={1}
                 />
               </div>
+            </div>
 
-              <div className="flex items-center justify-end px-4 py-3 border-t border-slate-100">
-                <button
-                  onClick={() => router.push(exitDestination())}
-                  className="px-6 py-2 text-sm font-semibold text-text-default border border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    toast.success("Purchase recorded", "The bill has been saved.");
-                    router.push(exitDestination());
-                  }}
-                  className="px-6 py-2 text-sm font-semibold text-white bg-black hover:bg-black/80 transition-colors cursor-pointer"
-                >
-                  Save
-                </button>
-              </div>
+            {/* Fixed footer — stays put while the line item table above scrolls */}
+            <div className="flex items-center justify-end px-4 py-3 border border-slate-300 bg-white shrink-0">
+              <button
+                onClick={() => router.push(exitDestination())}
+                className="px-6 py-2 text-sm font-semibold text-text-default border border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  toast.success("Purchase recorded", "The bill has been saved.");
+                  router.push(exitDestination());
+                }}
+                className="px-6 py-2 text-sm font-semibold text-white bg-black hover:bg-black/80 transition-colors cursor-pointer"
+              >
+                Save
+              </button>
+            </div>
             </div>
           </div>
         </div>

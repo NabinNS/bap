@@ -2,7 +2,10 @@
 
 namespace App\Application\AccCustomers\Actions;
 
+use App\Application\ProductTransactionItems\Actions\DeleteProductTransactionItemAction;
 use App\Domain\AccCustomers\Repositories\AccCustomerTransactionRepositoryInterface;
+use App\Domain\ProductTransactionItems\Repositories\ProductTransactionItemRepositoryInterface;
+use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Models\AccCustomer;
 use App\Models\AccCustomerTransaction;
 use App\Models\AccCustomerTransactionItem;
@@ -12,9 +15,11 @@ class DeleteAccCustomerTransactionItemAction
 {
     public function __construct(
         private AccCustomerTransactionRepositoryInterface $transactions,
-        private ReverseAccCustomerTransactionItemStockAction $reverseItemStock,
         private RecalculateAccCustomerTransactionTotalsAction $recalculateTotals,
         private RecalculateCustomerBalanceAction $recalculateBalance,
+        private ProductTransactionItemRepositoryInterface $productItems,
+        private ProductRepositoryInterface $products,
+        private DeleteProductTransactionItemAction $deleteProductTransactionItem,
     ) {}
 
     /**
@@ -26,7 +31,12 @@ class DeleteAccCustomerTransactionItemAction
         DB::transaction(function () use ($tenantId, $customer, $transaction, $item) {
             $item = $this->transactions->lockItemForUpdate($item);
 
-            $this->reverseItemStock->execute($tenantId, $item);
+            $linked = $this->productItems->findByReference('acc_customer_transaction_item', $item->id);
+
+            if ($linked) {
+                $product = $this->products->lockById($tenantId, $linked->product_id);
+                $this->deleteProductTransactionItem->execute($tenantId, $product, $linked);
+            }
 
             $fiscalYearId = $transaction->fiscal_year_id;
             $this->transactions->deleteItem($item);

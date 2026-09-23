@@ -12,5 +12,11 @@ readonly class ProductTransactionItemData
         public ?int    $purchasePrice,
         public ?int    $salesQuantity,
         public ?int    $salesPrice,
+        public ?string $referenceType = null,
+        public ?int    $referenceId = null,
+        // Snapshot of the product's wacc at the moment of a sale — captured so profit/loss on
+        // that sale stays accurate even after later purchases blend the product's wacc further.
+        // Null for purchase rows.
+        public ?int    $costPrice = null,
     ) {}
 }

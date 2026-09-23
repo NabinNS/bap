@@ -43,10 +43,30 @@ class CreateProductTransactionItemAction
             purchasePrice:    $data->purchasePrice,
             salesQuantity:    $data->salesQuantity,
             salesPrice:       $data->salesPrice,
+            referenceType:    $data->referenceType,
+            referenceId:      $data->referenceId,
         );
 
         return DB::transaction(function () use ($tenantId, $product, $data) {
             $locked = $this->products->lockByUlid($tenantId, $product->ulid);
+
+            // Snapshot the cost basis before it's touched — a sale doesn't change wacc, but
+            // capturing it here (rather than reading it back later) keeps this correct even if
+            // that ever changes.
+            if ($data->type === 'sale') {
+                $data = new ProductTransactionItemData(
+                    fiscalYearId:     $data->fiscalYearId,
+                    date:             $data->date,
+                    type:             $data->type,
+                    purchaseQuantity: $data->purchaseQuantity,
+                    purchasePrice:    $data->purchasePrice,
+                    salesQuantity:    $data->salesQuantity,
+                    salesPrice:       $data->salesPrice,
+                    referenceType:    $data->referenceType,
+                    referenceId:      $data->referenceId,
+                    costPrice:        $locked->wacc ?? 0,
+                );
+            }
 
             $this->applyToProduct($locked, $data);
 

@@ -22,8 +22,11 @@ export type TransactionItemPanelItem = {
   purchase_price: number | null;
   sales_quantity: number | null;
   sales_price: number | null;
+  cost_price?: number | null;
+  profit?: number | null;
   /** Set when this entry was recorded as a line item on a vendor bill — only then does a "full bill" page exist to open. */
   reference_type: string | null;
+  bill: { transaction_ulid: string; party_ulid: string } | null;
 };
 
 /** Quick view/edit for a single purchase/sale entry — double-click the row for the full detail page. */
@@ -104,8 +107,10 @@ function PanelForm({
 
   const amount = quantity && rate ? Number(quantity) * Number(rate) : null;
 
+  const readOnly = !!item?.bill;
+
   function save() {
-    if (!item || !isValidBsDate(date) || !quantity || !rate) return;
+    if (!item || readOnly || !isValidBsDate(date) || !quantity || !rate) return;
     const isPurchase = type === "purchase";
     updateMutation.mutate({
       itemUlid: item.ulid,
@@ -125,27 +130,27 @@ function PanelForm({
       open={!!item}
       onClose={onClose}
       title={type === "purchase" ? "Purchase Entry" : "Sale Entry"}
-      description="Quick view — double-click to open full detail."
-      submitLabel={updateMutation.isPending ? "Saving..." : "Save Changes"}
-      onSubmit={save}
-      onDelete={item ? () => { if (confirm("Delete this entry?")) deleteMutation.mutate(item.ulid); } : undefined}
+      description={readOnly ? "Bill-linked — edit it from the bill page." : "Quick view — double-click to open full detail."}
+      submitLabel={readOnly ? undefined : updateMutation.isPending ? "Saving..." : "Save Changes"}
+      onSubmit={readOnly ? undefined : save}
+      onDelete={item && !readOnly ? () => { if (confirm("Delete this entry?")) deleteMutation.mutate(item.ulid); } : undefined}
     >
-      {item && (item.type === "sale" || item.reference_type) && (
+      {item && item.bill && (
         <Link
           href={
             item.type === "purchase"
-              ? `/admin/accounts/goods-purchased?product=${productUlid}`
-              : `/admin/products/goods-sold?product=${productUlid}&item=${item.ulid}`
+              ? `/admin/accounts/goods-purchased?vendor=${item.bill.party_ulid}&transaction=${item.bill.transaction_ulid}&product=${productUlid}`
+              : `/admin/customers/goods-sold?customer=${item.bill.party_ulid}&transaction=${item.bill.transaction_ulid}&product=${productUlid}`
           }
           className="block text-right text-xs font-semibold text-blue-800 underline hover:text-blue-900 transition-colors -mt-2 -mb-2"
         >
           Need full details? View full entry →
         </Link>
       )}
-      <ComboboxField label="Particular" options={PARTICULAR_OPTIONS} value={type} onChange={(v) => setType(v as "purchase" | "sale")} />
-      <BsDateInput value={date} onChange={setDate} />
-      <NumberField label="Quantity" placeholder="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-      <NumberField label="Rate" placeholder="0.00" allowDecimal value={rate} onChange={(e) => setRate(e.target.value)} />
+      <ComboboxField label="Particular" options={PARTICULAR_OPTIONS} value={type} onChange={(v) => setType(v as "purchase" | "sale")} disabled={readOnly} />
+      <BsDateInput value={date} onChange={setDate} disabled={readOnly} />
+      <NumberField label="Quantity" placeholder="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={readOnly} />
+      <NumberField label="Rate" placeholder="0.00" allowDecimal value={rate} onChange={(e) => setRate(e.target.value)} disabled={readOnly} />
       <div>
         <label className="block text-sm font-semibold text-text-default">Amount</label>
         <input
@@ -156,6 +161,17 @@ function PanelForm({
           className="mt-1 w-full h-10 px-3 text-sm font-semibold border border-slate-300 bg-slate-100 text-black cursor-not-allowed"
         />
       </div>
+      {item?.type === "sale" && item.profit != null && (
+        <div>
+          <label className="block text-sm font-semibold text-text-default">Profit</label>
+          <input
+            type="text"
+            readOnly
+            value={item.profit.toLocaleString()}
+            className={`mt-1 w-full h-10 px-3 text-sm font-semibold border border-slate-300 bg-slate-100 cursor-not-allowed ${item.profit < 0 ? "text-red-600" : "text-emerald-600"}`}
+          />
+        </div>
+      )}
     </SlidePanel>
   );
 }

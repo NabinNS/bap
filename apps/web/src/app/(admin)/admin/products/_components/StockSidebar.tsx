@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Search, Plus, MoreVertical, Eye, Pencil, Trash2 } from "lucide-react";
@@ -44,6 +45,7 @@ export function StockSidebar<T extends StockSidebarProduct>({
   onAddClick,
   onEditClick,
 }: StockSidebarProps<T>) {
+  const router = useRouter();
   const filteredProducts = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
 
   const [openMenuUlid, setOpenMenuUlid] = useState<string | null>(null);
@@ -115,6 +117,7 @@ export function StockSidebar<T extends StockSidebarProduct>({
                 <div
                   key={product.ulid}
                   onClick={() => onSelect(product)}
+                  onDoubleClick={() => router.push(`/admin/products/${product.ulid}/view`)}
                   className={`flex items-center py-3.5 border-b border-slate-400 cursor-pointer transition-colors ${isSelected ? "bg-slate-200 border-l-2 border-l-slate-700 pl-[14px] pr-1" : "pl-4 pr-1 hover:bg-slate-50"}`}
                 >
                   <span

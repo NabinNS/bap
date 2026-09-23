@@ -138,6 +138,7 @@ export function CreateProductPanel({ open, onClose, initialName = "", onCreated 
 
       toast.success("Product created", `"${data.name}" has been added.`);
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
       onCreated(res.data);
       onClose();
     } catch (err: any) {

@@ -100,6 +100,10 @@ export function DataTable<TData>({
   const scrollBodyRef = useRef<HTMLDivElement>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  // Delays onRowClick just long enough to see if a second click follows — otherwise a
+  // double-click always fires the single-click handler first (opening/flashing a panel)
+  // right before the double-click handler navigates away.
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
@@ -108,6 +112,8 @@ export function DataTable<TData>({
     if (moreMenuOpen) document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [moreMenuOpen]);
+
+  useEffect(() => () => { if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current); }, []);
 
   useEffect(() => {
     if (scrollToBottomOnLoad && data.length > 0 && scrollBodyRef.current) {
@@ -295,8 +301,18 @@ export function DataTable<TData>({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  onClick={() => onRowClick?.(row.original)}
-                  onDoubleClick={() => onRowDoubleClick?.(row.original)}
+                  onClick={() => {
+                    if (!onRowClick) return;
+                    if (!onRowDoubleClick) { onRowClick(row.original); return; }
+                    // Both handlers exist — wait a beat for a possible second click before
+                    // treating this as a real single click.
+                    if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+                    clickTimeoutRef.current = setTimeout(() => onRowClick(row.original), 220);
+                  }}
+                  onDoubleClick={() => {
+                    if (clickTimeoutRef.current) { clearTimeout(clickTimeoutRef.current); clickTimeoutRef.current = null; }
+                    onRowDoubleClick?.(row.original);
+                  }}
                   onBlur={onRowBlur ? (e) => {
                     if (!e.currentTarget.contains(e.relatedTarget as Node)) onRowBlur(row.original, e);
                   } : undefined}

@@ -67,6 +67,7 @@ class ProductTransactionItemController extends Controller
     ): JsonResponse {
         $this->authorize('update', $product);
         abort_unless($item->product_id === $product->id, 404);
+        $this->abortIfBillLinked($item);
 
         $updated = $action->execute($this->tenantId(), $product, $item, $request->toDTO());
 
@@ -77,9 +78,22 @@ class ProductTransactionItemController extends Controller
     {
         $this->authorize('update', $product);
         abort_unless($item->product_id === $product->id, 404);
+        $this->abortIfBillLinked($item);
 
         $action->execute($this->tenantId(), $product, $item);
 
         return ApiResponse::noContent('Transaction item deleted successfully');
+    }
+
+    /**
+     * A bill-linked entry (reference_type set) is owned by the vendor/customer bill that
+     * created it — editing/deleting it here directly would silently desync the bill's own
+     * line item, amount and totals from what actually happened to stock. This endpoint is
+     * only reached from the product's own ledger UI; the bill's own item endpoints call the
+     * underlying actions directly and are unaffected by this guard.
+     */
+    private function abortIfBillLinked(ProductTransactionItem $item): void
+    {
+        abort_if($item->reference_type !== null, 422, 'This entry is part of a bill — edit or delete it from the bill page instead.');
     }
 }
