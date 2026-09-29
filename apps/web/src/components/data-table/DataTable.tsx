@@ -217,7 +217,7 @@ export function DataTable<TData>({
       </div>
 
       {/* Table */}
-      <div className={cn("border border-slate-300 bg-slate-50 overflow-hidden min-w-0", fillHeight && "flex-1 min-h-0 flex flex-col")}>
+      <div className={cn("border border-slate-400 bg-white overflow-hidden min-w-0", fillHeight && "flex-1 min-h-0 flex flex-col")}>
         <div
           ref={scrollBodyRef}
           className={cn("overflow-x-auto", scrollsInternally && "overflow-y-auto", fillHeight && "flex-1 min-h-0")}
@@ -266,7 +266,7 @@ export function DataTable<TData>({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
+          <TableBody className={fillHeight ? "[&_tr:last-child]:!border-b [&_tr:last-child]:!border-slate-300" : undefined}>
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <TableRow key={i} className="border-b border-slate-300 bg-white/40 dark:bg-slate-900/40">
@@ -323,7 +323,7 @@ export function DataTable<TData>({
                       key={cell.id}
                       style={{ width: cell.column.columnDef.size ? `${cell.column.columnDef.size}px` : undefined }}
                       className={cn(
-                        "text-table-data py-3",
+                        "text-table-data py-2",
                         (cell.column.columnDef.meta as { borderLeft?: boolean } | undefined)?.borderLeft && "border-l border-slate-300"
                       )}
                     >

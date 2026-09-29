@@ -41,6 +41,8 @@ type ComboboxFieldProps = BaseProps & {
   onAddNew?: (query: string) => void;
   /** Reports the raw typed text as the user types — use for server-side search instead of/alongside local filtering. */
   onSearchChange?: (query: string) => void;
+  /** Focuses the field on mount without opening the options dropdown (unlike a normal focus). */
+  autoFocus?: boolean;
 };
 
 type FileUploadFieldProps = BaseProps & {
@@ -185,6 +187,7 @@ export function ComboboxField({
   emptyMessage = "No results found.",
   onAddNew,
   onSearchChange,
+  autoFocus,
 }: ComboboxFieldProps) {
   const listboxId = useId();
   const listRef = useRef<HTMLUListElement>(null);
@@ -194,11 +197,22 @@ export function ComboboxField({
   const [inputValue, setInputValue] = useState(selectedLabel);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  // Set right before an imperative .focus() call from the autoFocus effect below, so the
+  // resulting focus event can skip opening the dropdown — a real user focus (click/tab) should
+  // still open it, only this programmatic one shouldn't.
+  const suppressOpenOnFocusRef = useRef(false);
 
   const { refs, floatingStyles } = useFloatingPosition({ open, matchReferenceWidth: true });
   const ownInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useMergeRefs([ownInputRef, refs.setReference]);
   const floatingListRef = useMergeRefs([listRef, refs.setFloating]);
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    suppressOpenOnFocusRef.current = true;
+    ownInputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once on mount only
+  }, []);
 
   const filtered = inputValue.trim()
     ? options.filter((o) => o.label.toLowerCase().includes(inputValue.toLowerCase()))
@@ -312,7 +326,11 @@ export function ComboboxField({
           type="text"
           value={inputValue}
           onChange={handleInputChange}
-          onFocus={() => !disabled && setOpen(true)}
+          onFocus={() => {
+            if (suppressOpenOnFocusRef.current) { suppressOpenOnFocusRef.current = false; return; }
+            if (!disabled) setOpen(true);
+          }}
+          onClick={() => !disabled && setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}

@@ -41,8 +41,8 @@ type TransactionItem = {
 
 type Row = TransactionItem & { ulid: string };
 
-const inputCls = "w-full text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-600 bg-white px-2 py-1 rounded-none";
-const amountCls = "w-full text-sm font-semibold text-black border border-slate-300 bg-slate-100 px-2 py-1 rounded-none cursor-not-allowed";
+const inputCls = "w-full text-sm text-black border-0 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400 bg-transparent px-2 py-1.5 rounded-none placeholder:text-text-muted";
+const amountCls = "w-full text-sm font-semibold text-black border-0 bg-transparent px-2 py-1.5 rounded-none cursor-not-allowed";
 
 const PARTICULAR_OPTIONS = [
   { value: "purchase", label: "Purchase" },
@@ -52,13 +52,14 @@ const PARTICULAR_OPTIONS = [
 function ParticularCombobox({ resetKey, initialValue, onChange }: { resetKey: string | number; initialValue: string; onChange: (val: string) => void }) {
   const [value, setValue] = useState(initialValue);
   return (
-    <div className="[&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
+    <div className="absolute inset-0 [&_input]:!h-full [&_input]:!w-full [&_input]:!text-sm [&_input]:!font-medium [&_input]:!text-black [&_input]:!border-0 [&_input]:!ring-0 [&_input]:!shadow-none [&_input]:!bg-transparent [&_input]:!px-2 [&_input]:focus:!outline-none [&_input]:focus:!ring-0 [&_input]:focus:!border-0 [&_.mt-1]:mt-0">
       <ComboboxField
         key={resetKey}
         label=""
         options={PARTICULAR_OPTIONS}
         value={value}
         onChange={(v) => { setValue(v); onChange(v); }}
+        autoFocus
       />
     </div>
   );
@@ -335,6 +336,7 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
             key={`date-${productUlid}`}
             value=""
             onChange={(val) => { draftRef.current.date = val; }}
+            className={inputCls}
           />
         );
         return <span className="text-sm font-medium text-black">{row.original.date}</span>;
@@ -413,7 +415,7 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
                   disabled={disabled}
                   onChange={(e) => { draftRef.current.purchase_quantity = e.target.value; forceUpdate(); }}
                   placeholder="0"
-                  className={`${inputCls} disabled:bg-slate-100 disabled:cursor-not-allowed`}
+                  className={`${inputCls} disabled:bg-transparent disabled:text-text-muted disabled:cursor-not-allowed`}
                 />
               );
             }
@@ -437,7 +439,7 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
                   disabled={disabled}
                   onChange={(e) => { draftRef.current.purchase_price = e.target.value; forceUpdate(); }}
                   placeholder="0"
-                  className={`${inputCls} disabled:bg-slate-100 disabled:cursor-not-allowed`}
+                  className={`${inputCls} disabled:bg-transparent disabled:text-text-muted disabled:cursor-not-allowed`}
                 />
               );
             }
@@ -483,7 +485,7 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
                   disabled={disabled}
                   onChange={(e) => { draftRef.current.sales_quantity = e.target.value; forceUpdate(); }}
                   placeholder="0"
-                  className={`${inputCls} disabled:bg-slate-100 disabled:cursor-not-allowed`}
+                  className={`${inputCls} disabled:bg-transparent disabled:text-text-muted disabled:cursor-not-allowed`}
                 />
               );
             }
@@ -507,7 +509,7 @@ export const StockLedger = forwardRef<StockLedgerHandle, {
                   disabled={disabled}
                   onChange={(e) => { draftRef.current.sales_price = e.target.value; forceUpdate(); }}
                   placeholder="0"
-                  className={`${inputCls} disabled:bg-slate-100 disabled:cursor-not-allowed`}
+                  className={`${inputCls} disabled:bg-transparent disabled:text-text-muted disabled:cursor-not-allowed`}
                 />
               );
             }

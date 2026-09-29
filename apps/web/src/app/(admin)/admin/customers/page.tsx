@@ -83,13 +83,14 @@ const PARTICULAR_OPTIONS = TRANSACTION_PARTICULARS.map((p) => ({ value: p.value,
 function ParticularCombobox({ customerUlid, onChange }: { customerUlid: string; onChange: (val: string) => void }) {
   const [value, setValue] = useState("");
   return (
-    <div className="[&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
+    <div className="absolute inset-0 [&_input]:!h-full [&_input]:!w-full [&_input]:!text-sm [&_input]:!font-medium [&_input]:!text-black [&_input]:!border-0 [&_input]:!ring-0 [&_input]:!shadow-none [&_input]:!bg-transparent [&_input]:!px-2 [&_input]:focus:!outline-none [&_input]:focus:!ring-0 [&_input]:focus:!border-0 [&_.mt-1]:mt-0">
       <ComboboxField
         key={customerUlid}
         label=""
         options={PARTICULAR_OPTIONS}
         value={value}
         onChange={(v) => { setValue(v); onChange(v); }}
+        autoFocus
       />
     </div>
   );
@@ -716,7 +717,7 @@ function AdminCustomersContent() {
   const txMenuUlidRef = useRef<string | null>(null);
   txMenuUlidRef.current = txMenuUlid;
 
-  const inputCls = "w-full text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-600 bg-white px-2 py-1 rounded-none";
+  const inputCls = "w-full text-sm text-black border-0 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400 bg-transparent px-2 py-1.5 rounded-none placeholder:text-text-muted";
 
   function exportableRows(): { date: string; particular: string; voucher_no: string; debit: string; credit: string; balance: string }[] {
     return transactions
@@ -814,6 +815,7 @@ function AdminCustomersContent() {
             resetKey={selectedCustomerUlid ?? ""}
             value=""
             onChange={(val) => { draftRef.current.date = val; }}
+            className={inputCls}
           />
         );
         return <span className="text-sm font-medium text-black">{row.original.date}</span>;
@@ -822,6 +824,7 @@ function AdminCustomersContent() {
     {
       accessorKey: "particular",
       header: "Particular",
+      meta: { borderLeft: true },
       size: 350,
       cell: ({ row }) => {
         if (row.original.ulid === "__new__") return (
@@ -862,6 +865,7 @@ function AdminCustomersContent() {
     {
       accessorKey: "voucher_no",
       header: "Voucher No",
+      meta: { borderLeft: true },
       size: 140,
       cell: ({ row }) => {
         if (row.original.ulid === "__new__") return (
@@ -882,6 +886,7 @@ function AdminCustomersContent() {
     {
       accessorKey: "debit",
       header: "Debit",
+      meta: { borderLeft: true },
       size: 140,
       cell: ({ row }) => {
         if (row.original.ulid === "__new__") return (
@@ -903,6 +908,7 @@ function AdminCustomersContent() {
     {
       accessorKey: "credit",
       header: "Credit",
+      meta: { borderLeft: true },
       size: 140,
       cell: ({ row }) => {
         if (row.original.ulid === "__new__") return (
@@ -924,6 +930,7 @@ function AdminCustomersContent() {
     {
       id: "balance",
       header: "Balance",
+      meta: { borderLeft: true },
       cell: ({ row }) => {
         const balance = runningBalancesRef.current[row.index];
         const isSpecial = row.original.ulid === "__opening_balance__" || row.original.ulid === "__new__";
