@@ -606,7 +606,7 @@ function GoodsPurchasedContent() {
     return transactionUlidRef.current;
   }
 
-  const inputCls = "w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white";
+  const inputCls = "w-full h-full px-3 text-sm text-black bg-white border-0 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400 placeholder:text-text-muted";
 
   function exitDestination() {
     if (cameFromProductRef.current) return `/admin/products?product=${productParam}`;
@@ -739,14 +739,14 @@ function GoodsPurchasedContent() {
 
             {/* Line item table + footer group — no gap between them; only the table scrolls */}
             <div className="flex-1 min-h-0 flex flex-col">
-            <div className="flex-1 min-h-0 border border-slate-300 border-b-0 bg-white flex flex-col overflow-auto">
+            <div className="flex-1 min-h-0 border border-slate-300 bg-white flex flex-col overflow-auto">
               <div className="grid grid-cols-[50px_1fr_170px_160px_130px_100px_50px] min-w-[909px] bg-black">
                 <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">S.N.</span>
-                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Particulars (Name of Stock)</span>
-                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Quantity</span>
-                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Rate</span>
-                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Discount</span>
-                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide">Amount</span>
+                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide border-l border-white/20">Particulars (Name of Stock)</span>
+                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide border-l border-white/20">Quantity</span>
+                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide border-l border-white/20">Rate</span>
+                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide border-l border-white/20">Discount</span>
+                <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide border-l border-white/20">Amount</span>
                 <span></span>
               </div>
 
@@ -759,21 +759,21 @@ function GoodsPurchasedContent() {
                   onDoubleClick={() => {
                     if (row.saved) setRows((prev) => prev.map((r) => (r.key === row.key ? { ...r, saved: false } : r)));
                   }}
-                  className="grid grid-cols-[50px_1fr_170px_160px_130px_100px_50px] min-w-[909px] border-b border-slate-200 items-center"
+                  className="grid grid-cols-[50px_1fr_170px_160px_130px_100px_50px] min-w-[909px] border-b border-[#b0bccc] items-stretch"
                 >
-                  <span className="px-3 py-2 text-sm font-medium text-black">{idx + 1}</span>
+                  <span className="px-3 py-2 text-sm font-medium text-black flex items-center">{idx + 1}</span>
 
                   {row.saved ? (
                     <>
-                      <span className="px-3 py-2 text-sm font-medium text-black truncate cursor-pointer" title="Double-click to edit">
+                      <span className="px-3 py-2 text-sm font-medium text-black truncate cursor-pointer flex items-center border-l border-[#b0bccc]" title="Double-click to edit">
                         {row.particular}
                       </span>
-                      <span className="px-3 py-2 text-sm font-medium text-black cursor-pointer" title="Double-click to edit">{row.quantity}</span>
-                      <span className="px-3 py-2 text-sm font-medium text-black cursor-pointer" title="Double-click to edit">{Number(row.rate).toLocaleString()}</span>
+                      <span className="px-3 py-2 text-sm font-medium text-black cursor-pointer flex items-center border-l border-[#b0bccc]" title="Double-click to edit">{row.quantity}</span>
+                      <span className="px-3 py-2 text-sm font-medium text-black cursor-pointer flex items-center border-l border-[#b0bccc]" title="Double-click to edit">{Number(row.rate).toLocaleString()}</span>
                     </>
                   ) : (
                     <>
-                      <div className="px-3 py-1.5 [&_input]:h-8 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
+                      <div className="border-l border-[#b0bccc] [&_input]:h-full [&_input]:px-3 [&_input]:text-sm [&_input]:text-black [&_input]:bg-white [&_input]:border-0 [&_input]:rounded-none [&_input]:focus:outline-none [&_input]:focus:ring-1 [&_input]:focus:ring-inset [&_input]:focus:ring-slate-400 [&_.mt-1]:mt-0">
                         <ProductCombobox
                           placeholder="Select a product..."
                           value={row.productUlid}
@@ -785,7 +785,7 @@ function GoodsPurchasedContent() {
                           onAddNew={(query) => { setCreateProductRowKey(row.key); setCreateProductQuery(query); }}
                         />
                       </div>
-                      <div className="px-3 py-1.5">
+                      <div className="border-l border-[#b0bccc]">
                         <input
                           type="number"
                           min="0"
@@ -797,7 +797,7 @@ function GoodsPurchasedContent() {
                           className={`${inputCls}`}
                         />
                       </div>
-                      <div className="px-3 py-1.5">
+                      <div className="border-l border-[#b0bccc]">
                         <input
                           type="number"
                           min="0"
@@ -813,9 +813,9 @@ function GoodsPurchasedContent() {
                   )}
 
                   {row.saved ? (
-                    <span className="px-3 py-2 text-sm font-medium text-black cursor-pointer" title="Double-click to edit">{rowDiscount(row).toLocaleString()}</span>
+                    <span className="px-3 py-2 text-sm font-medium text-black cursor-pointer flex items-center border-l border-[#b0bccc]" title="Double-click to edit">{rowDiscount(row).toLocaleString()}</span>
                   ) : (
-                    <div className="px-3 py-1.5">
+                    <div className="border-l border-[#b0bccc]">
                       <input
                         type="number"
                         min="0"
@@ -829,7 +829,7 @@ function GoodsPurchasedContent() {
                     </div>
                   )}
 
-                  <span className="px-3 py-2 text-sm font-medium text-black">
+                  <span className="px-3 py-2 text-sm font-medium text-black border-l border-[#b0bccc] flex items-center">
                     {rowAmount(row) ? rowAmount(row).toLocaleString() : "—"}
                   </span>
 
@@ -843,7 +843,7 @@ function GoodsPurchasedContent() {
                 </div>
               ))}
 
-              <div className="px-4 py-2.5 flex items-center min-w-[909px]">
+              <div className="px-4 py-2.5 flex items-center min-w-[909px] border-b border-[#b0bccc]">
                 <button
                   onClick={addRow}
                   className="flex items-center gap-1.5 text-sm font-semibold text-text-default hover:text-black transition-colors cursor-pointer"
@@ -937,7 +937,7 @@ function GoodsPurchasedContent() {
             </div>
 
             {/* Fixed footer — stays put while the line item table above scrolls */}
-            <div className="flex items-center justify-end px-4 py-3 border border-slate-300 bg-white shrink-0">
+            <div className="flex items-center justify-end px-4 py-3 mt-3 bg-white shrink-0">
               <button
                 onClick={() => router.push(exitDestination())}
                 className="px-6 py-2 text-sm font-semibold text-text-default border border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"

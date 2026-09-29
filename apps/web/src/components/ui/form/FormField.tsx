@@ -59,7 +59,7 @@ function Label({ label, required }: { label: string; required?: boolean }) {
 
 function FieldWrapper({ children, hint, error }: { children: React.ReactNode; hint?: string; error?: string }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 h-full">
       {children}
       {hint && !error && <p className="text-xs text-text-muted">{hint}</p>}
       {error && <p className="text-xs text-red-500">{error}</p>}
@@ -298,8 +298,8 @@ export function ComboboxField({
 
   return (
     <FieldWrapper hint={hint} error={error}>
-      <Label label={label} required={required} />
-      <div ref={containerRef} className="relative mt-1">
+      {label && <Label label={label} required={required} />}
+      <div ref={containerRef} className={`relative h-full ${label ? "mt-1" : ""}`}>
         <input
           ref={inputRef}
           role="combobox"
