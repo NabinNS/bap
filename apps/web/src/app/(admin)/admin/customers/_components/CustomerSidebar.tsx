@@ -1,7 +1,7 @@
 "use client";
 
-import { ReactNode } from "react";
-import { Search } from "lucide-react";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { Search, MoreVertical, Trash2 } from "lucide-react";
 import { Customer } from "./types";
 
 type CustomerSidebarProps = {
@@ -16,6 +16,8 @@ type CustomerSidebarProps = {
   headerRight?: ReactNode;
   /** Rendered at the right edge of each row, e.g. a row action menu button. */
   renderRowAction?: (customer: Customer) => ReactNode;
+  /** When provided, renders a header three-dot dropdown (e.g. "Recently Deleted") next to headerRight. */
+  onTrashClick?: () => void;
 };
 
 function customerBalance(customer: Customer, activeFiscalYearId: number | null) {
@@ -33,8 +35,20 @@ export function CustomerSidebar({
   onSelect,
   headerRight,
   renderRowAction,
+  onTrashClick,
 }: CustomerSidebarProps) {
   const filteredCustomers = customers.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()));
+
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) setHeaderMenuOpen(false);
+    }
+    if (headerMenuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [headerMenuOpen]);
 
   return (
     <div className="w-80 shrink-0 flex flex-col h-full">
@@ -50,6 +64,29 @@ export function CustomerSidebar({
           />
         </div>
         {headerRight}
+        {onTrashClick && (
+          <div className="relative" ref={headerMenuRef}>
+            <button
+              type="button"
+              onClick={() => setHeaderMenuOpen((v) => !v)}
+              title="More actions"
+              className="flex items-center justify-center h-9 w-7 bg-black border-l border-slate-500 text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
+            >
+              <MoreVertical className="h-3.5 w-3.5" />
+            </button>
+            {headerMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 shadow-md z-10">
+                <button
+                  type="button"
+                  onClick={() => { setHeaderMenuOpen(false); onTrashClick(); }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Recently Deleted
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col flex-1 min-h-0 border border-slate-400 overflow-hidden">
@@ -82,6 +119,20 @@ export function CustomerSidebar({
             })
           )}
         </div>
+
+        {!customersLoading && filteredCustomers.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-400 bg-slate-50 shrink-0">
+            <span className="text-sm font-bold text-text-default">Total</span>
+            <span className="text-sm font-bold text-text-default">
+              {filteredCustomers
+                .reduce((sum, c) => {
+                  const balance = activeFiscalYearId && c.balances?.find((b) => b.fiscal_year_id === activeFiscalYearId);
+                  return sum + (balance ? Number(balance.remaining_balance) : 0);
+                }, 0)
+                .toLocaleString()}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

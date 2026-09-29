@@ -22,6 +22,7 @@ class StoreAccCustomerTransactionRequest extends FormRequest
             'credit'     => ['nullable', 'numeric', 'min:0'],
             'discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
             'fiscal_year_id'   => ['nullable', 'integer', 'exists:fiscal_years,id'],
+            'payment_type'     => ['nullable', Rule::in(['cash', 'credit'])],
 
             'items'                    => ['nullable', 'array'],
             'items.*.product_ulid'     => ['required_with:items', 'string', 'exists:products,ulid'],
@@ -53,6 +54,7 @@ class StoreAccCustomerTransactionRequest extends FormRequest
                 $v['items'] ?? [],
             ),
             fiscalYearId: $v['fiscal_year_id'] ?? null,
+            paymentType:  $v['payment_type'] ?? null,
         );
     }
 }

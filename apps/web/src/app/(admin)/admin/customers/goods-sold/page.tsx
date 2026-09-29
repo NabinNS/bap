@@ -19,6 +19,8 @@ import { TrashedItemsModal } from "../../accounts/_components/TrashedItemsModal"
 import { useInvalidateCustomerTransactions } from "../../accounts/_components/useAccountingInvalidation";
 import { Customer } from "../_components/types";
 import { StockSidebar } from "../../products/_components/StockSidebar";
+import { CustomerFormPanel, CustomerFormState, CustomerFormErrors } from "../_components/CustomerFormPanel";
+import { TrashedCustomersModal } from "../_components/TrashedCustomersModal";
 
 type SidebarProduct = {
   ulid: string;
@@ -87,6 +89,7 @@ type SavedTransaction = {
   taxable_amount: number | null;
   vat_amount: number | null;
   grand_total: number | null;
+  payment_type: string | null;
   items: SavedItem[];
 };
 
@@ -122,6 +125,7 @@ function GoodsSoldContent() {
   // Which fiscal year this bill is recorded against — defaults to the tenant's active one
   // once it loads, but the user can pick a different year via the dropdown before saving.
   const [selectedFiscalYearId, setSelectedFiscalYearId] = useState<number | null>(null);
+  const [paymentType, setPaymentType] = useState<"cash" | "credit">("credit");
   // Mirrors transactionUlid but updates synchronously — ensureTransactionUlid needs the
   // fresh id right after awaiting the row save that creates the transaction.
   const transactionUlidRef = useRef<string | null>(null);
@@ -136,10 +140,64 @@ function GoodsSoldContent() {
 
   const receiptImage = useImageGroup("acc_customer_transaction", "acc-customer-transactions", "bill");
 
+  const CUSTOMER_INITIAL_FORM: CustomerFormState = { name: "", address: "", phone: "", telephone: "", vat_no: "", fiscal_year_id: "", opening_balance: "" };
+  const [customerPanelOpen, setCustomerPanelOpen] = useState(false);
+  const [customerForm, setCustomerForm] = useState<CustomerFormState>(CUSTOMER_INITIAL_FORM);
+  const [customerErrors, setCustomerErrors] = useState<CustomerFormErrors>({});
+  const [trashedCustomersOpen, setTrashedCustomersOpen] = useState(false);
+
   const { data: customersData, isLoading: customersLoading } = useQuery({
     queryKey: ["acc-customers"],
     queryFn: () => apiFetch<{ data: Customer[]; meta: Meta }>("/acc-customers?per_page=100"),
   });
+
+  const { data: trashedCustomersData, isLoading: trashedCustomersLoading } = useQuery({
+    queryKey: ["acc-customers-trashed"],
+    queryFn: () => apiFetch<{ data: Customer[] }>("/acc-customers/trashed"),
+    enabled: trashedCustomersOpen,
+  });
+  const trashedCustomers = trashedCustomersData?.data ?? [];
+
+  const restoreCustomerMutation = useMutation({
+    mutationFn: (customerUlid: string) => apiFetch(`/acc-customers/${customerUlid}/restore`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["acc-customers-trashed"] });
+      toast.success("Customer restored", "The customer is back in the list.");
+    },
+    onError: () => toast.error("Failed to restore", "Something went wrong."),
+  });
+
+  const createCustomerMutation = useMutation({
+    mutationFn: (payload: { name: string; address: string | null; phone: string | null; telephone: string | null; vat_no: string | null }) =>
+      apiFetch<{ data: Customer }>("/acc-customers", { method: "POST", body: JSON.stringify(payload) }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
+      toast.success("Customer created", `"${res.data.name}" has been added.`);
+      setCustomerPanelOpen(false);
+      setCustomerForm(CUSTOMER_INITIAL_FORM);
+      selectCustomer(res.data.ulid);
+    },
+    onError: (err: any) => {
+      if (err?.errors) {
+        setCustomerErrors(err.errors);
+        toast.warning("Please fix the errors", "Check the highlighted fields.");
+      } else {
+        toast.error("Failed to create customer", err?.message ?? "Something went wrong.");
+      }
+    },
+  });
+
+  function submitCustomerForm() {
+    if (!customerForm.name.trim()) { setCustomerErrors({ name: "Name is required." }); return; }
+    createCustomerMutation.mutate({
+      name: customerForm.name,
+      address: customerForm.address || null,
+      phone: customerForm.phone || null,
+      telephone: customerForm.telephone || null,
+      vat_no: customerForm.vat_no || null,
+    });
+  }
 
   const { data: sidebarProductsData, isLoading: sidebarProductsLoading } = useQuery({
     queryKey: ["products-sidebar"],
@@ -198,6 +256,7 @@ function GoodsSoldContent() {
     setDiscountAmountDraft(null);
     setBillTotals(null);
     setSelectedFiscalYearId(activeFiscalYearId);
+    setPaymentType("credit");
   }, [selectedCustomerUlid]);
 
   // Settings load asynchronously — default to the active fiscal year once it arrives,
@@ -219,6 +278,7 @@ function GoodsSoldContent() {
     setSelectedFiscalYearId(tx.fiscal_year_id);
     setBillDate(tx.date);
     setBillNo(tx.voucher_no ?? "");
+    setPaymentType(tx.payment_type === "cash" ? "cash" : "credit");
     setDiscountPercent(String(tx.discount_percent ?? 0));
     setBillTotals({
       discountAmount: tx.discount_amount ?? 0,
@@ -407,12 +467,17 @@ function GoodsSoldContent() {
     onError: (err: any) => toast.error("Failed to restore item", err?.message ?? "Something went wrong."),
   });
 
-  function saveHeader() {
+  function saveHeader(overrides?: { paymentType?: "cash" | "credit" }) {
     if (!selectedCustomerUlid || !transactionUlid || !isValidBsDate(billDate)) return;
     updateHeaderMutation.mutate({
       customerUlid: selectedCustomerUlid,
       txUlid: transactionUlid,
-      payload: { date: billDate, particular: "sales", voucher_no: billNo || null },
+      payload: {
+        date: billDate,
+        particular: "sales",
+        voucher_no: billNo || null,
+        payment_type: overrides?.paymentType ?? paymentType,
+      },
     });
   }
 
@@ -509,6 +574,7 @@ function GoodsSoldContent() {
             discount_percent: Math.max(0, Math.min(100, Number(discountPercent) || 0)),
             items: [itemPayload],
             fiscal_year_id: selectedFiscalYearId ?? undefined,
+            payment_type: paymentType,
           },
         });
         transactionUlidRef.current = res.data.ulid;
@@ -611,6 +677,21 @@ function GoodsSoldContent() {
               search={sideSearch}
               onSearchChange={setSideSearch}
               onSelect={(customer) => selectCustomer(customer.ulid)}
+              onTrashClick={() => setTrashedCustomersOpen(true)}
+              headerRight={
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomerForm({ ...CUSTOMER_INITIAL_FORM, fiscal_year_id: activeFiscalYearId ? String(activeFiscalYearId) : "" });
+                    setCustomerErrors({});
+                    setCustomerPanelOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 h-9 bg-black px-3 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add
+                </button>
+              }
             />
           )}
 
@@ -626,30 +707,37 @@ function GoodsSoldContent() {
                 />
 
                 <div className="flex flex-col gap-2 shrink-0 w-48">
-                  {fiscalYears.length > 0 && (
-                    <select
-                      value={selectedFiscalYearId ?? ""}
-                      onChange={(e) => setSelectedFiscalYearId(Number(e.target.value))}
-                      disabled={!!transactionUlid}
-                      title={transactionUlid ? "Fiscal year is locked once the bill has an item" : "Fiscal year this bill is recorded against"}
-                      className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
-                    >
-                      {fiscalYears.map((fy) => (
-                        <option key={fy.id} value={fy.id}>
-                          {fy.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
                   <input
                     type="text"
                     value={billNo}
                     onChange={(e) => setBillNo(e.target.value)}
-                    onBlur={saveHeader}
+                    onBlur={() => saveHeader()}
                     placeholder="Bill no..."
                     className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
                   />
-                  <BsDateInput value={billDate} onChange={setBillDate} onBlur={saveHeader} />
+                  <BsDateInput value={billDate} onChange={setBillDate} onBlur={() => saveHeader()} />
+                  <div className="flex items-center gap-4 h-8">
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-black cursor-pointer">
+                      <input
+                        type="radio"
+                        name="payment-type"
+                        checked={paymentType === "cash"}
+                        onChange={() => { setPaymentType("cash"); if (transactionUlid) saveHeader({ paymentType: "cash" }); }}
+                        className="accent-black"
+                      />
+                      Cash
+                    </label>
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-black cursor-pointer">
+                      <input
+                        type="radio"
+                        name="payment-type"
+                        checked={paymentType === "credit"}
+                        onChange={() => { setPaymentType("credit"); if (transactionUlid) saveHeader({ paymentType: "credit" }); }}
+                        className="accent-black"
+                      />
+                      Credit
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -901,6 +989,32 @@ function GoodsSoldContent() {
         items={trashedItemsData?.data ?? []}
         restoring={restoreItemMutation.isPending}
         onRestore={(itemUlid) => restoreItemMutation.mutate(itemUlid)}
+      />
+
+      <CustomerFormPanel
+        open={customerPanelOpen}
+        onClose={() => setCustomerPanelOpen(false)}
+        isEditing={false}
+        saving={createCustomerMutation.isPending}
+        form={customerForm}
+        errors={customerErrors}
+        fiscalYears={fiscalYears}
+        onFieldChange={(field, value) => {
+          setCustomerForm((f) => ({ ...f, [field]: value }));
+          if (field === "name") setCustomerErrors((prev) => ({ ...prev, name: undefined }));
+        }}
+        onFieldBlur={() => {}}
+        onOpeningBalanceBlur={() => {}}
+        onSubmit={submitCustomerForm}
+      />
+
+      <TrashedCustomersModal
+        open={trashedCustomersOpen}
+        onClose={() => setTrashedCustomersOpen(false)}
+        loading={trashedCustomersLoading}
+        customers={trashedCustomers}
+        restoring={restoreCustomerMutation.isPending}
+        onRestore={(customerUlid) => restoreCustomerMutation.mutate(customerUlid)}
       />
     </div>
   );

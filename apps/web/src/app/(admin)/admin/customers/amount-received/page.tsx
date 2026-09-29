@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ListOrdered } from "lucide-react";
+import { ArrowLeft, ListOrdered, Plus } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { BsDateInput, getTodayBs, isValidBsDate } from "@/components/ui/form/BsDateInput";
@@ -15,6 +15,8 @@ import { useImageGroup } from "@/hooks/useImageGroup";
 import { CustomerSidebar } from "../_components/CustomerSidebar";
 import { CustomerInfoBlock } from "../_components/CustomerInfoBlock";
 import { Customer } from "../_components/types";
+import { CustomerFormPanel, CustomerFormState, CustomerFormErrors } from "../_components/CustomerFormPanel";
+import { TrashedCustomersModal } from "../_components/TrashedCustomersModal";
 
 type Meta = {
   total: number;
@@ -86,6 +88,60 @@ function AmountReceivedContent() {
     staleTime: Infinity,
   });
   const fiscalYears = fiscalYearsData?.data ?? [];
+
+  const CUSTOMER_INITIAL_FORM: CustomerFormState = { name: "", address: "", phone: "", telephone: "", vat_no: "", fiscal_year_id: "", opening_balance: "" };
+  const [customerPanelOpen, setCustomerPanelOpen] = useState(false);
+  const [customerForm, setCustomerForm] = useState<CustomerFormState>(CUSTOMER_INITIAL_FORM);
+  const [customerErrors, setCustomerErrors] = useState<CustomerFormErrors>({});
+  const [trashedCustomersOpen, setTrashedCustomersOpen] = useState(false);
+
+  const { data: trashedCustomersData, isLoading: trashedCustomersLoading } = useQuery({
+    queryKey: ["acc-customers-trashed"],
+    queryFn: () => apiFetch<{ data: Customer[] }>("/acc-customers/trashed"),
+    enabled: trashedCustomersOpen,
+  });
+  const trashedCustomers = trashedCustomersData?.data ?? [];
+
+  const restoreCustomerMutation = useMutation({
+    mutationFn: (customerUlid: string) => apiFetch(`/acc-customers/${customerUlid}/restore`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["acc-customers-trashed"] });
+      toast.success("Customer restored", "The customer is back in the list.");
+    },
+    onError: () => toast.error("Failed to restore", "Something went wrong."),
+  });
+
+  const createCustomerMutation = useMutation({
+    mutationFn: (payload: { name: string; address: string | null; phone: string | null; telephone: string | null; vat_no: string | null }) =>
+      apiFetch<{ data: Customer }>("/acc-customers", { method: "POST", body: JSON.stringify(payload) }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
+      toast.success("Customer created", `"${res.data.name}" has been added.`);
+      setCustomerPanelOpen(false);
+      setCustomerForm(CUSTOMER_INITIAL_FORM);
+      selectCustomer(res.data.ulid);
+    },
+    onError: (err: any) => {
+      if (err?.errors) {
+        setCustomerErrors(err.errors);
+        toast.warning("Please fix the errors", "Check the highlighted fields.");
+      } else {
+        toast.error("Failed to create customer", err?.message ?? "Something went wrong.");
+      }
+    },
+  });
+
+  function submitCustomerForm() {
+    if (!customerForm.name.trim()) { setCustomerErrors({ name: "Name is required." }); return; }
+    createCustomerMutation.mutate({
+      name: customerForm.name,
+      address: customerForm.address || null,
+      phone: customerForm.phone || null,
+      telephone: customerForm.telephone || null,
+      vat_no: customerForm.vat_no || null,
+    });
+  }
 
   const customers = customersData?.data ?? [];
   const selectedCustomer = customers.find((c) => c.ulid === selectedCustomerUlid) ?? null;
@@ -324,6 +380,21 @@ function AmountReceivedContent() {
             search={sideSearch}
             onSearchChange={setSideSearch}
             onSelect={(customer) => selectCustomer(customer.ulid)}
+            onTrashClick={() => setTrashedCustomersOpen(true)}
+            headerRight={
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomerForm({ ...CUSTOMER_INITIAL_FORM, fiscal_year_id: activeFiscalYearId ? String(activeFiscalYearId) : "" });
+                  setCustomerErrors({});
+                  setCustomerPanelOpen(true);
+                }}
+                className="flex items-center gap-1.5 h-9 bg-black px-3 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </button>
+            }
           />
 
           {/* Right side: detail card + payment content */}
@@ -452,6 +523,32 @@ function AmountReceivedContent() {
           </div>
         </div>
       </div>
+
+      <CustomerFormPanel
+        open={customerPanelOpen}
+        onClose={() => setCustomerPanelOpen(false)}
+        isEditing={false}
+        saving={createCustomerMutation.isPending}
+        form={customerForm}
+        errors={customerErrors}
+        fiscalYears={fiscalYears}
+        onFieldChange={(field, value) => {
+          setCustomerForm((f) => ({ ...f, [field]: value }));
+          if (field === "name") setCustomerErrors((prev) => ({ ...prev, name: undefined }));
+        }}
+        onFieldBlur={() => {}}
+        onOpeningBalanceBlur={() => {}}
+        onSubmit={submitCustomerForm}
+      />
+
+      <TrashedCustomersModal
+        open={trashedCustomersOpen}
+        onClose={() => setTrashedCustomersOpen(false)}
+        loading={trashedCustomersLoading}
+        customers={trashedCustomers}
+        restoring={restoreCustomerMutation.isPending}
+        onRestore={(customerUlid) => restoreCustomerMutation.mutate(customerUlid)}
+      />
     </div>
   );
 }

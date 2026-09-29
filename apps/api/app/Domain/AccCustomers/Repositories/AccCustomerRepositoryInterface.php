@@ -6,6 +6,7 @@ use App\Domain\AccCustomers\DTOs\AccCustomerData;
 use App\Domain\AccCustomers\DTOs\AccCustomerFilterData;
 use App\Models\AccCustomer;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 interface AccCustomerRepositoryInterface
 {
@@ -16,4 +17,8 @@ interface AccCustomerRepositoryInterface
     public function update(AccCustomer $customer, AccCustomerData $data): AccCustomer;
 
     public function delete(AccCustomer $customer): void;
+
+    public function trashed(int $tenantId): Collection;
+
+    public function restore(int $tenantId, string $customerUlid): AccCustomer;
 }

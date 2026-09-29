@@ -17,7 +17,9 @@ import { VendorSidebar } from "../_components/VendorSidebar";
 import { VendorInfoBlock } from "../_components/VendorInfoBlock";
 import { TrashedItemsModal } from "../_components/TrashedItemsModal";
 import { useInvalidateVendorTransactions } from "../_components/useAccountingInvalidation";
-import { Vendor } from "../_components/types";
+import { Vendor, FiscalYear } from "../_components/types";
+import { VendorFormPanel, VendorFormState, VendorFormErrors } from "../_components/VendorFormPanel";
+import { TrashedVendorsModal } from "../_components/TrashedVendorsModal";
 import { StockSidebar } from "../../products/_components/StockSidebar";
 
 type SidebarProduct = {
@@ -132,10 +134,71 @@ function GoodsPurchasedContent() {
 
   const receiptImage = useImageGroup("acc_vendor_transaction", "acc-vendor-transactions", "bill");
 
+  const VENDOR_INITIAL_FORM: VendorFormState = { name: "", address: "", phone: "", telephone: "", vat_no: "", fiscal_year_id: "", opening_balance: "" };
+  const [vendorPanelOpen, setVendorPanelOpen] = useState(false);
+  const [vendorForm, setVendorForm] = useState<VendorFormState>(VENDOR_INITIAL_FORM);
+  const [vendorErrors, setVendorErrors] = useState<VendorFormErrors>({});
+  const [trashedVendorsOpen, setTrashedVendorsOpen] = useState(false);
+
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
     queryKey: ["acc-vendors"],
     queryFn: () => apiFetch<{ data: Vendor[]; meta: Meta }>("/acc-vendors?per_page=100"),
   });
+
+  const { data: trashedVendorsData, isLoading: trashedVendorsLoading } = useQuery({
+    queryKey: ["acc-vendors-trashed"],
+    queryFn: () => apiFetch<{ data: Vendor[] }>("/acc-vendors/trashed"),
+    enabled: trashedVendorsOpen,
+  });
+  const trashedVendors = trashedVendorsData?.data ?? [];
+
+  const restoreVendorMutation = useMutation({
+    mutationFn: (vendorUlid: string) => apiFetch(`/acc-vendors/${vendorUlid}/restore`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors-trashed"] });
+      toast.success("Vendor restored", "The vendor is back in the list.");
+    },
+    onError: () => toast.error("Failed to restore", "Something went wrong."),
+  });
+
+  const { data: fiscalYearsData } = useQuery({
+    queryKey: ["fiscal-years"],
+    queryFn: () => apiFetch<{ data: FiscalYear[] }>("/fiscal-years"),
+    staleTime: Infinity,
+  });
+  const fiscalYears = fiscalYearsData?.data ?? [];
+
+  const createVendorMutation = useMutation({
+    mutationFn: (payload: { name: string; address: string | null; phone: string | null; telephone: string | null; vat_no: string | null }) =>
+      apiFetch<{ data: Vendor }>("/acc-vendors", { method: "POST", body: JSON.stringify(payload) }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      toast.success("Vendor created", `"${res.data.name}" has been added.`);
+      setVendorPanelOpen(false);
+      setVendorForm(VENDOR_INITIAL_FORM);
+      selectVendor(res.data.ulid);
+    },
+    onError: (err: any) => {
+      if (err?.errors) {
+        setVendorErrors(err.errors);
+        toast.warning("Please fix the errors", "Check the highlighted fields.");
+      } else {
+        toast.error("Failed to create vendor", err?.message ?? "Something went wrong.");
+      }
+    },
+  });
+
+  function submitVendorForm() {
+    if (!vendorForm.name.trim()) { setVendorErrors({ name: "Name is required." }); return; }
+    createVendorMutation.mutate({
+      name: vendorForm.name,
+      address: vendorForm.address || null,
+      phone: vendorForm.phone || null,
+      telephone: vendorForm.telephone || null,
+      vat_no: vendorForm.vat_no || null,
+    });
+  }
 
   const { data: sidebarProductsData, isLoading: sidebarProductsLoading } = useQuery({
     queryKey: ["products-sidebar"],
@@ -609,6 +672,21 @@ function GoodsPurchasedContent() {
               search={sideSearch}
               onSearchChange={setSideSearch}
               onSelect={(vendor) => selectVendor(vendor.ulid)}
+              onTrashClick={() => setTrashedVendorsOpen(true)}
+              headerRight={
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVendorForm({ ...VENDOR_INITIAL_FORM, fiscal_year_id: activeFiscalYearId ? String(activeFiscalYearId) : "" });
+                    setVendorErrors({});
+                    setVendorPanelOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 h-9 bg-black px-3 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add
+                </button>
+              }
             />
           )}
 
@@ -905,6 +983,32 @@ function GoodsPurchasedContent() {
         items={trashedItemsData?.data ?? []}
         restoring={restoreItemMutation.isPending}
         onRestore={(itemUlid) => restoreItemMutation.mutate(itemUlid)}
+      />
+
+      <VendorFormPanel
+        open={vendorPanelOpen}
+        onClose={() => setVendorPanelOpen(false)}
+        isEditing={false}
+        saving={createVendorMutation.isPending}
+        form={vendorForm}
+        errors={vendorErrors}
+        fiscalYears={fiscalYears}
+        onFieldChange={(field, value) => {
+          setVendorForm((f) => ({ ...f, [field]: value }));
+          if (field === "name") setVendorErrors((prev) => ({ ...prev, name: undefined }));
+        }}
+        onFieldBlur={() => {}}
+        onOpeningBalanceBlur={() => {}}
+        onSubmit={submitVendorForm}
+      />
+
+      <TrashedVendorsModal
+        open={trashedVendorsOpen}
+        onClose={() => setTrashedVendorsOpen(false)}
+        loading={trashedVendorsLoading}
+        vendors={trashedVendors}
+        restoring={restoreVendorMutation.isPending}
+        onRestore={(vendorUlid) => restoreVendorMutation.mutate(vendorUlid)}
       />
     </div>
   );

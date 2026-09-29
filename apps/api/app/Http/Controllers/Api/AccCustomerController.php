@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Application\AccCustomers\Actions\CreateAccCustomerAction;
 use App\Application\AccCustomers\Actions\DeleteAccCustomerAction;
 use App\Application\AccCustomers\Actions\ListAccCustomersAction;
+use App\Application\AccCustomers\Actions\ListTrashedAccCustomersAction;
+use App\Application\AccCustomers\Actions\RestoreAccCustomerAction;
 use App\Application\AccCustomers\Actions\UpdateAccCustomerAction;
 use App\Domain\AccCustomers\DTOs\AccCustomerFilterData;
 use App\Http\Controllers\Controller;
@@ -59,5 +61,21 @@ class AccCustomerController extends Controller
         $action->execute($accCustomer);
 
         return ApiResponse::noContent('Customer deleted successfully');
+    }
+
+    public function trashed(ListTrashedAccCustomersAction $action): JsonResponse
+    {
+        return ApiResponse::success(
+            AccCustomerResource::collection($action->execute($this->tenantId())),
+            'Trashed customers retrieved successfully'
+        );
+    }
+
+    public function restore(Request $request, string $customerUlid, RestoreAccCustomerAction $action): JsonResponse
+    {
+        return ApiResponse::success(
+            new AccCustomerResource($action->execute($this->tenantId(), $customerUlid)),
+            'Customer restored successfully'
+        );
     }
 }

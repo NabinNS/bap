@@ -20,6 +20,7 @@ import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
 import { useImageGroup } from "@/hooks/useImageGroup";
 import { CustomerSidebar } from "./_components/CustomerSidebar";
 import { CustomerInfoBlock } from "./_components/CustomerInfoBlock";
+import { TrashedCustomersModal } from "./_components/TrashedCustomersModal";
 import { FiscalYearModal } from "../accounts/_components/FiscalYearModal";
 import { FilterModal } from "./_components/FilterModal";
 import { TrashModal } from "./_components/TrashModal";
@@ -114,6 +115,7 @@ function AdminCustomersContent() {
   const [showFullDetails, setShowFullDetails] = useState(false);
   const [fiscalYearModalOpen, setFiscalYearModalOpen] = useState(false);
   const [trashModalOpen, setTrashModalOpen] = useState(false);
+  const [trashedCustomersOpen, setTrashedCustomersOpen] = useState(false);
   // null = "follow the tenant's active fiscal year" (activeFiscalYearId); set once the user
   // explicitly picks one from the modal, to browse a different year's ledger.
   const [viewFiscalYearId, setViewFiscalYearId] = useState<number | null>(null);
@@ -149,6 +151,23 @@ function AdminCustomersContent() {
   const { data: customersData, isLoading: customersLoading } = useQuery({
     queryKey: ["acc-customers"],
     queryFn: () => apiFetch<{ data: Customer[]; meta: Meta }>("/acc-customers?per_page=100"),
+  });
+
+  const { data: trashedCustomersData, isLoading: trashedCustomersLoading } = useQuery({
+    queryKey: ["acc-customers-trashed"],
+    queryFn: () => apiFetch<{ data: Customer[] }>("/acc-customers/trashed"),
+    enabled: trashedCustomersOpen,
+  });
+  const trashedCustomers = trashedCustomersData?.data ?? [];
+
+  const restoreCustomerMutation = useMutation({
+    mutationFn: (customerUlid: string) => apiFetch(`/acc-customers/${customerUlid}/restore`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["acc-customers-trashed"] });
+      toast.success("Customer restored", "The customer is back in the list.");
+    },
+    onError: () => toast.error("Failed to restore", "Something went wrong."),
   });
 
   const { data: settingsData } = useQuery({
@@ -952,6 +971,7 @@ function AdminCustomersContent() {
             search={sideSearch}
             onSearchChange={setSideSearch}
             onSelect={(customer) => trySwitchCustomer(customer.ulid)}
+            onTrashClick={() => setTrashedCustomersOpen(true)}
             headerRight={
               <button
                 onClick={openCreate}
@@ -1502,6 +1522,15 @@ function AdminCustomersContent() {
         transactions={trashedTransactions}
         restoring={restoreTransactionMutation.isPending}
         onRestore={(txUlid) => { if (selectedCustomerUlid) restoreTransactionMutation.mutate({ customerUlid: selectedCustomerUlid, txUlid }); }}
+      />
+
+      <TrashedCustomersModal
+        open={trashedCustomersOpen}
+        onClose={() => setTrashedCustomersOpen(false)}
+        loading={trashedCustomersLoading}
+        customers={trashedCustomers}
+        restoring={restoreCustomerMutation.isPending}
+        onRestore={(customerUlid) => restoreCustomerMutation.mutate(customerUlid)}
       />
 
       <ConfirmDialog

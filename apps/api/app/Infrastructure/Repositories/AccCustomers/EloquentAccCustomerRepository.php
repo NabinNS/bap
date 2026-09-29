@@ -7,6 +7,7 @@ use App\Domain\AccCustomers\DTOs\AccCustomerFilterData;
 use App\Domain\AccCustomers\Repositories\AccCustomerRepositoryInterface;
 use App\Models\AccCustomer;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class EloquentAccCustomerRepository implements AccCustomerRepositoryInterface
 {
@@ -47,5 +48,25 @@ class EloquentAccCustomerRepository implements AccCustomerRepositoryInterface
     public function delete(AccCustomer $customer): void
     {
         $customer->delete();
+    }
+
+    public function trashed(int $tenantId): Collection
+    {
+        return AccCustomer::onlyTrashed()
+            ->where('tenant_id', $tenantId)
+            ->orderBy('deleted_at', 'desc')
+            ->get();
+    }
+
+    public function restore(int $tenantId, string $customerUlid): AccCustomer
+    {
+        $customer = AccCustomer::onlyTrashed()
+            ->where('ulid', $customerUlid)
+            ->where('tenant_id', $tenantId)
+            ->firstOrFail();
+
+        $customer->restore();
+
+        return $customer->fresh();
     }
 }

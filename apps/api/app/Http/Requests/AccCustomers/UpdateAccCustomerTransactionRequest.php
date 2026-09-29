@@ -19,6 +19,7 @@ class UpdateAccCustomerTransactionRequest extends FormRequest
             'cheque_no'  => ['nullable', 'string', 'max:100'],
             'debit'      => ['nullable', 'numeric', 'min:0'],
             'credit'     => ['nullable', 'numeric', 'min:0'],
+            'payment_type' => ['nullable', Rule::in(['cash', 'credit'])],
         ];
     }
 
@@ -35,6 +36,7 @@ class UpdateAccCustomerTransactionRequest extends FormRequest
             credit:          isset($v['credit']) ? (float) $v['credit'] : null,
             discountPercent: null,
             items:           [],
+            paymentType:     $v['payment_type'] ?? null,
         );
     }
 }

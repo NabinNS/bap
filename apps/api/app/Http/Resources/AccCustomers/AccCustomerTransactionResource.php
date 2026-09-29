@@ -16,7 +16,7 @@ class AccCustomerTransactionResource extends JsonResource
             'particular' => $this->particular,
             'voucher_no' => $this->voucher_no,
             'cheque_no'  => $this->cheque_no,
-            'type'             => $this->type,
+            'payment_type'     => $this->type,
             'debit'            => $this->debit,
             'credit'           => $this->credit,
             'discount_percent' => $this->discount_percent,

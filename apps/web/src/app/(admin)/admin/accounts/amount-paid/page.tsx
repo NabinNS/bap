@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ListOrdered } from "lucide-react";
+import { ArrowLeft, ListOrdered, Plus } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { BsDateInput, getTodayBs, isValidBsDate } from "@/components/ui/form/BsDateInput";
@@ -15,6 +15,8 @@ import { useImageGroup } from "@/hooks/useImageGroup";
 import { VendorSidebar } from "../_components/VendorSidebar";
 import { VendorInfoBlock } from "../_components/VendorInfoBlock";
 import { Vendor } from "../_components/types";
+import { VendorFormPanel, VendorFormState, VendorFormErrors } from "../_components/VendorFormPanel";
+import { TrashedVendorsModal } from "../_components/TrashedVendorsModal";
 
 type Meta = {
   total: number;
@@ -86,6 +88,60 @@ function AmountPaidContent() {
     staleTime: Infinity,
   });
   const fiscalYears = fiscalYearsData?.data ?? [];
+
+  const VENDOR_INITIAL_FORM: VendorFormState = { name: "", address: "", phone: "", telephone: "", vat_no: "", fiscal_year_id: "", opening_balance: "" };
+  const [vendorPanelOpen, setVendorPanelOpen] = useState(false);
+  const [vendorForm, setVendorForm] = useState<VendorFormState>(VENDOR_INITIAL_FORM);
+  const [vendorErrors, setVendorErrors] = useState<VendorFormErrors>({});
+  const [trashedVendorsOpen, setTrashedVendorsOpen] = useState(false);
+
+  const { data: trashedVendorsData, isLoading: trashedVendorsLoading } = useQuery({
+    queryKey: ["acc-vendors-trashed"],
+    queryFn: () => apiFetch<{ data: Vendor[] }>("/acc-vendors/trashed"),
+    enabled: trashedVendorsOpen,
+  });
+  const trashedVendors = trashedVendorsData?.data ?? [];
+
+  const restoreVendorMutation = useMutation({
+    mutationFn: (vendorUlid: string) => apiFetch(`/acc-vendors/${vendorUlid}/restore`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors-trashed"] });
+      toast.success("Vendor restored", "The vendor is back in the list.");
+    },
+    onError: () => toast.error("Failed to restore", "Something went wrong."),
+  });
+
+  const createVendorMutation = useMutation({
+    mutationFn: (payload: { name: string; address: string | null; phone: string | null; telephone: string | null; vat_no: string | null }) =>
+      apiFetch<{ data: Vendor }>("/acc-vendors", { method: "POST", body: JSON.stringify(payload) }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      toast.success("Vendor created", `"${res.data.name}" has been added.`);
+      setVendorPanelOpen(false);
+      setVendorForm(VENDOR_INITIAL_FORM);
+      selectVendor(res.data.ulid);
+    },
+    onError: (err: any) => {
+      if (err?.errors) {
+        setVendorErrors(err.errors);
+        toast.warning("Please fix the errors", "Check the highlighted fields.");
+      } else {
+        toast.error("Failed to create vendor", err?.message ?? "Something went wrong.");
+      }
+    },
+  });
+
+  function submitVendorForm() {
+    if (!vendorForm.name.trim()) { setVendorErrors({ name: "Name is required." }); return; }
+    createVendorMutation.mutate({
+      name: vendorForm.name,
+      address: vendorForm.address || null,
+      phone: vendorForm.phone || null,
+      telephone: vendorForm.telephone || null,
+      vat_no: vendorForm.vat_no || null,
+    });
+  }
 
   const vendors = vendorsData?.data ?? [];
   const selectedVendor = vendors.find((v) => v.ulid === selectedVendorUlid) ?? null;
@@ -324,6 +380,21 @@ function AmountPaidContent() {
             search={sideSearch}
             onSearchChange={setSideSearch}
             onSelect={(vendor) => selectVendor(vendor.ulid)}
+            onTrashClick={() => setTrashedVendorsOpen(true)}
+            headerRight={
+              <button
+                type="button"
+                onClick={() => {
+                  setVendorForm({ ...VENDOR_INITIAL_FORM, fiscal_year_id: activeFiscalYearId ? String(activeFiscalYearId) : "" });
+                  setVendorErrors({});
+                  setVendorPanelOpen(true);
+                }}
+                className="flex items-center gap-1.5 h-9 bg-black px-3 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </button>
+            }
           />
 
           {/* Right side: detail card + payment content */}
@@ -452,6 +523,32 @@ function AmountPaidContent() {
           </div>
         </div>
       </div>
+
+      <VendorFormPanel
+        open={vendorPanelOpen}
+        onClose={() => setVendorPanelOpen(false)}
+        isEditing={false}
+        saving={createVendorMutation.isPending}
+        form={vendorForm}
+        errors={vendorErrors}
+        fiscalYears={fiscalYears}
+        onFieldChange={(field, value) => {
+          setVendorForm((f) => ({ ...f, [field]: value }));
+          if (field === "name") setVendorErrors((prev) => ({ ...prev, name: undefined }));
+        }}
+        onFieldBlur={() => {}}
+        onOpeningBalanceBlur={() => {}}
+        onSubmit={submitVendorForm}
+      />
+
+      <TrashedVendorsModal
+        open={trashedVendorsOpen}
+        onClose={() => setTrashedVendorsOpen(false)}
+        loading={trashedVendorsLoading}
+        vendors={trashedVendors}
+        restoring={restoreVendorMutation.isPending}
+        onRestore={(vendorUlid) => restoreVendorMutation.mutate(vendorUlid)}
+      />
     </div>
   );
 }

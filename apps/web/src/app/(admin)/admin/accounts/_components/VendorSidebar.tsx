@@ -119,6 +119,20 @@ export function VendorSidebar({
             })
           )}
         </div>
+
+        {!vendorsLoading && filteredVendors.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-400 bg-slate-50 shrink-0">
+            <span className="text-sm font-bold text-text-default">Total</span>
+            <span className="text-sm font-bold text-text-default">
+              {filteredVendors
+                .reduce((sum, v) => {
+                  const balance = activeFiscalYearId && v.balances?.find((b) => b.fiscal_year_id === activeFiscalYearId);
+                  return sum + (balance ? Number(balance.remaining_balance) : 0);
+                }, 0)
+                .toLocaleString()}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
