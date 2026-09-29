@@ -6,6 +6,8 @@ use App\Application\AccVendors\Actions\AddAccVendorTransactionItemAction;
 use App\Application\AccVendors\Actions\DeleteAccVendorTransactionAction;
 use App\Application\AccVendors\Actions\DeleteAccVendorTransactionItemAction;
 use App\Application\AccVendors\Actions\ListAccVendorTransactionsAction;
+use App\Application\AccVendors\Actions\ListPurchaseBillsAction;
+use App\Application\AccVendors\Actions\ListTrashedPurchaseBillsAction;
 use App\Application\AccVendors\Actions\ListTrashedAccVendorTransactionItemsAction;
 use App\Application\AccVendors\Actions\ListTrashedAccVendorTransactionsAction;
 use App\Application\AccVendors\Actions\RecalculateAccVendorTransactionTotalsAction;
@@ -30,6 +32,23 @@ use Illuminate\Http\Request;
 
 class AccVendorTransactionController extends Controller
 {
+    public function purchaseBills(Request $request, ListPurchaseBillsAction $action): JsonResponse
+    {
+        return ApiResponse::paginated(
+            $action->execute($this->tenantId(), $request->integer('per_page', 50), $request->integer('fiscal_year_id') ?: null),
+            AccVendorTransactionResource::class,
+            'Purchase bills retrieved successfully'
+        );
+    }
+
+    public function trashedPurchaseBills(Request $request, ListTrashedPurchaseBillsAction $action): JsonResponse
+    {
+        return ApiResponse::success(
+            AccVendorTransactionResource::collection($action->execute($this->tenantId(), $request->integer('fiscal_year_id') ?: null)),
+            'Trashed purchase bills retrieved successfully'
+        );
+    }
+
     public function index(Request $request, AccVendor $accVendor, ListAccVendorTransactionsAction $action): JsonResponse
     {
         $this->authorize('view', $accVendor);

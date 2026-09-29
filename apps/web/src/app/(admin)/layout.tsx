@@ -23,6 +23,7 @@ import {
   BadgePercent,
   CircleUserRound,
   CalendarDays,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/AuthProvider";
@@ -43,6 +44,15 @@ const navItems: NavItem[] = [
     ],
   },
   { label: "Product/Stock", href: "/admin/products", icon: Package },
+  {
+    label: "Billing",
+    icon: Receipt,
+    children: [
+      { label: "Purchase", href: "/admin/billing/purchase" },
+      { label: "Sales", href: "/admin/billing/sales" },
+      { label: "Quotation/Estimate", href: "/admin/billing/quotation" },
+    ],
+  },
   { label: "Sliders", href: "/admin/sliders", icon: Images },
   { label: "Offers", href: "/admin/offers", icon: BadgePercent },
   { label: "Categories", href: "/admin/categories", icon: Tag },

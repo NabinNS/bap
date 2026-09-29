@@ -61,6 +61,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('products/{product}/stock-balance', [ProductStockBalanceController::class, 'upsert']);
     Route::apiResource('sliders', SliderController::class)->except(['index', 'show']);
     Route::apiResource('offers', OfferController::class)->except(['index', 'show']);
+    Route::get('acc-vendors/purchase-bills/trashed', [AccVendorTransactionController::class, 'trashedPurchaseBills']);
+    Route::get('acc-vendors/purchase-bills', [AccVendorTransactionController::class, 'purchaseBills']);
     Route::get('acc-vendors/trashed', [AccVendorController::class, 'trashed']);
     Route::post('acc-vendors/{vendorUlid}/restore', [AccVendorController::class, 'restore']);
     Route::apiResource('acc-vendors', AccVendorController::class);

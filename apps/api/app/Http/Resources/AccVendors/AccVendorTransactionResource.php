@@ -12,6 +12,12 @@ class AccVendorTransactionResource extends JsonResource
         return [
             'ulid'           => $this->ulid,
             'fiscal_year_id' => $this->fiscal_year_id,
+            'vendor'         => $this->whenLoaded('vendor', fn () => [
+                'ulid'    => $this->vendor->ulid,
+                'name'    => $this->vendor->name,
+                'address' => $this->vendor->address,
+                'vat_no'  => $this->vendor->vat_no,
+            ]),
             'date'       => $this->date,
             'particular' => $this->particular,
             'voucher_no' => $this->voucher_no,

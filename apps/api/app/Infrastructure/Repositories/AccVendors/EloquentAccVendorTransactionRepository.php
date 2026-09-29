@@ -25,6 +25,26 @@ class EloquentAccVendorTransactionRepository implements AccVendorTransactionRepo
             ->paginate($perPage);
     }
 
+    public function paginatePurchaseBills(int $tenantId, int $perPage, ?int $fiscalYearId = null): LengthAwarePaginator
+    {
+        return AccVendorTransaction::where('tenant_id', $tenantId)
+            ->whereHas('items')
+            ->when($fiscalYearId, fn ($query) => $query->where('fiscal_year_id', $fiscalYearId))
+            ->with(['vendor', 'items.product'])
+            ->orderBy('date', 'desc')
+            ->paginate($perPage);
+    }
+
+    public function trashedPurchaseBills(int $tenantId, ?int $fiscalYearId = null): Collection
+    {
+        return AccVendorTransaction::onlyTrashed()
+            ->where('tenant_id', $tenantId)
+            ->when($fiscalYearId, fn ($query) => $query->where('fiscal_year_id', $fiscalYearId))
+            ->with(['vendor', 'items.product'])
+            ->orderBy('deleted_at', 'desc')
+            ->get();
+    }
+
     public function trashed(AccVendor $vendor, ?int $fiscalYearId = null): Collection
     {
         return AccVendorTransaction::onlyTrashed()

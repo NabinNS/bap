@@ -1,7 +1,7 @@
 "use client";
 
-import { ReactNode } from "react";
-import { Search, MoreVertical } from "lucide-react";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { Search, MoreVertical, Trash2 } from "lucide-react";
 import { Vendor } from "./types";
 
 type VendorSidebarProps = {
@@ -39,6 +39,17 @@ export function VendorSidebar({
 }: VendorSidebarProps) {
   const filteredVendors = vendors.filter((v) => v.name.toLowerCase().includes(search.toLowerCase()));
 
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) setHeaderMenuOpen(false);
+    }
+    if (headerMenuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [headerMenuOpen]);
+
   return (
     <div className="w-80 shrink-0 flex flex-col h-full">
       <div className="flex items-center pb-3 shrink-0">
@@ -54,14 +65,27 @@ export function VendorSidebar({
         </div>
         {headerRight}
         {onTrashClick && (
-          <button
-            type="button"
-            onClick={onTrashClick}
-            title="More actions"
-            className="flex items-center justify-center h-9 w-7 bg-black border-l border-slate-500 text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
-          >
-            <MoreVertical className="h-3.5 w-3.5" />
-          </button>
+          <div className="relative" ref={headerMenuRef}>
+            <button
+              type="button"
+              onClick={() => setHeaderMenuOpen((v) => !v)}
+              title="More actions"
+              className="flex items-center justify-center h-9 w-7 bg-black border-l border-slate-500 text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
+            >
+              <MoreVertical className="h-3.5 w-3.5" />
+            </button>
+            {headerMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 shadow-md z-10">
+                <button
+                  type="button"
+                  onClick={() => { setHeaderMenuOpen(false); onTrashClick(); }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Recently Deleted
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

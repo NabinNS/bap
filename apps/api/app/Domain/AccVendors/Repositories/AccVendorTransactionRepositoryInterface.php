@@ -15,6 +15,15 @@ interface AccVendorTransactionRepositoryInterface
 {
     public function paginate(AccVendor $vendor, int $perPage, ?int $fiscalYearId = null): LengthAwarePaginator;
 
+    /**
+     * All purchase bills (transactions that have line items) across every vendor in the
+     * tenant, for the "Billing > Purchase" screen's bill list.
+     */
+    public function paginatePurchaseBills(int $tenantId, int $perPage, ?int $fiscalYearId = null): LengthAwarePaginator;
+
+    /** @return \Illuminate\Support\Collection<int, AccVendorTransaction> */
+    public function trashedPurchaseBills(int $tenantId, ?int $fiscalYearId = null): \Illuminate\Support\Collection;
+
     /** @return \Illuminate\Support\Collection<int, AccVendorTransaction> */
     public function trashed(AccVendor $vendor, ?int $fiscalYearId = null): \Illuminate\Support\Collection;
 

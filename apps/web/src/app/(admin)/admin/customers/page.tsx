@@ -955,7 +955,7 @@ function AdminCustomersContent() {
             headerRight={
               <button
                 onClick={openCreate}
-                className="flex items-center gap-1.5 bg-black px-3 py-2 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
+                className="flex items-center gap-1.5 h-9 bg-black px-3 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
                 Add
