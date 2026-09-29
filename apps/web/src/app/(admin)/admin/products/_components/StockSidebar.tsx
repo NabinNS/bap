@@ -55,6 +55,10 @@ export function StockSidebar<T extends StockSidebarProduct>({
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [headerMenuPos, setHeaderMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -65,6 +69,17 @@ export function StockSidebar<T extends StockSidebarProduct>({
     if (openMenuUlid) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openMenuUlid]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) {
+        setHeaderMenuOpen(false);
+        setHeaderMenuPos(null);
+      }
+    }
+    if (headerMenuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [headerMenuOpen]);
 
   const openMenuProduct = products.find((p) => p.ulid === openMenuUlid) ?? null;
 
@@ -81,21 +96,11 @@ export function StockSidebar<T extends StockSidebarProduct>({
             className="w-full pl-8 pr-3 py-2 text-sm border border-slate-400 focus:outline-none focus:border-slate-600"
           />
         </div>
-        {onTrashClick && (
-          <button
-            type="button"
-            onClick={onTrashClick}
-            title="Recently Deleted"
-            className="flex items-center justify-center border border-slate-300 px-2.5 py-2 text-text-muted hover:bg-slate-50 hover:text-text-default transition-colors shrink-0 cursor-pointer ml-2"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
         {onAddClick ? (
           <button
             type="button"
             onClick={onAddClick}
-            className="flex items-center gap-1.5 bg-black px-3 py-2 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer ml-2"
+            className="flex items-center gap-1.5 h-9 bg-black px-3 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             Add
@@ -103,11 +108,26 @@ export function StockSidebar<T extends StockSidebarProduct>({
         ) : (
           <Link
             href="/admin/products/create"
-            className="flex items-center gap-1.5 bg-black px-3 py-2 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer ml-2"
+            className="flex items-center gap-1.5 h-9 bg-black px-3 text-h4 font-semibold text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             Add
           </Link>
+        )}
+        {onTrashClick && (
+          <button
+            type="button"
+            onClick={(e) => {
+              if (headerMenuOpen) { setHeaderMenuOpen(false); setHeaderMenuPos(null); return; }
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setHeaderMenuPos({ top: rect.bottom + 4, left: rect.right - 176 });
+              setHeaderMenuOpen(true);
+            }}
+            title="More actions"
+            className="flex items-center justify-center h-9 w-7 bg-black border-l border-slate-500 text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
+          >
+            <MoreVertical className="h-3.5 w-3.5" />
+          </button>
         )}
       </div>
 
@@ -204,6 +224,27 @@ export function StockSidebar<T extends StockSidebarProduct>({
             className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
           >
             <Trash2 className="h-3.5 w-3.5" /> Delete
+          </button>
+        </div>,
+        document.body
+      )}
+
+      {headerMenuOpen && headerMenuPos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={headerMenuRef}
+          style={{ position: "fixed", top: headerMenuPos.top, left: headerMenuPos.left, zIndex: 9999 }}
+          className="w-44 bg-white border border-slate-200 shadow-md"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setHeaderMenuOpen(false);
+              setHeaderMenuPos(null);
+              onTrashClick?.();
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Recently Deleted
           </button>
         </div>,
         document.body

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Application\AccVendors\Actions\CreateAccVendorAction;
 use App\Application\AccVendors\Actions\DeleteAccVendorAction;
 use App\Application\AccVendors\Actions\ListAccVendorsAction;
+use App\Application\AccVendors\Actions\ListTrashedAccVendorsAction;
+use App\Application\AccVendors\Actions\RestoreAccVendorAction;
 use App\Application\AccVendors\Actions\UpdateAccVendorAction;
 use App\Domain\AccVendors\DTOs\AccVendorFilterData;
 use App\Http\Controllers\Controller;
@@ -59,5 +61,21 @@ class AccVendorController extends Controller
         $action->execute($accVendor);
 
         return ApiResponse::noContent('Vendor deleted successfully');
+    }
+
+    public function trashed(ListTrashedAccVendorsAction $action): JsonResponse
+    {
+        return ApiResponse::success(
+            AccVendorResource::collection($action->execute($this->tenantId())),
+            'Trashed vendors retrieved successfully'
+        );
+    }
+
+    public function restore(Request $request, string $vendorUlid, RestoreAccVendorAction $action): JsonResponse
+    {
+        return ApiResponse::success(
+            new AccVendorResource($action->execute($this->tenantId(), $vendorUlid)),
+            'Vendor restored successfully'
+        );
     }
 }

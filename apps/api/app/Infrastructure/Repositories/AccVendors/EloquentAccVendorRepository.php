@@ -7,6 +7,7 @@ use App\Domain\AccVendors\DTOs\AccVendorFilterData;
 use App\Domain\AccVendors\Repositories\AccVendorRepositoryInterface;
 use App\Models\AccVendor;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class EloquentAccVendorRepository implements AccVendorRepositoryInterface
 {
@@ -47,5 +48,25 @@ class EloquentAccVendorRepository implements AccVendorRepositoryInterface
     public function delete(AccVendor $vendor): void
     {
         $vendor->delete();
+    }
+
+    public function trashed(int $tenantId): Collection
+    {
+        return AccVendor::onlyTrashed()
+            ->where('tenant_id', $tenantId)
+            ->orderBy('deleted_at', 'desc')
+            ->get();
+    }
+
+    public function restore(int $tenantId, string $vendorUlid): AccVendor
+    {
+        $vendor = AccVendor::onlyTrashed()
+            ->where('ulid', $vendorUlid)
+            ->where('tenant_id', $tenantId)
+            ->firstOrFail();
+
+        $vendor->restore();
+
+        return $vendor->fresh();
     }
 }

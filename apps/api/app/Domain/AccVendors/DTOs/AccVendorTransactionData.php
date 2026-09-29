@@ -16,5 +16,7 @@ readonly class AccVendorTransactionData
         public array   $items,
         /** Falls back to the tenant's active fiscal year when omitted. */
         public ?int    $fiscalYearId = null,
+        /** 'cash' or 'credit'; defaults to 'credit' when omitted. */
+        public ?string $paymentType = null,
     ) {}
 }

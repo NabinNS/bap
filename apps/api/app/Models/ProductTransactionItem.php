@@ -17,6 +17,7 @@ class ProductTransactionItem extends Model
         'fiscal_year_id',
         'date',
         'type',
+        'payment_type',
         'purchase_quantity',
         'purchase_price',
         'sales_quantity',

@@ -18,5 +18,7 @@ readonly class ProductTransactionItemData
         // that sale stays accurate even after later purchases blend the product's wacc further.
         // Null for purchase rows.
         public ?int    $costPrice = null,
+        /** 'cash' or 'credit'; only meaningful for purchase/sale rows entered directly (not references). */
+        public ?string $paymentType = null,
     ) {}
 }

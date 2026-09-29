@@ -69,6 +69,7 @@ class EloquentAccVendorTransactionRepository implements AccVendorTransactionRepo
             'particular'     => $data->particular,
             'voucher_no'     => $data->voucherNo,
             'cheque_no'      => $data->chequeNo,
+            'type'           => $data->paymentType ?? 'credit',
             'debit'          => $data->debit,
             // When items are supplied, credit is derived from their amounts (via the totals
             // recalculation that runs as each item is recorded) since a purchase increases what's
@@ -134,6 +135,7 @@ class EloquentAccVendorTransactionRepository implements AccVendorTransactionRepo
             'cheque_no'  => $data->chequeNo,
             'debit'      => $data->debit,
             'credit'     => $data->credit,
+            'type'       => $data->paymentType ?? $transaction->type,
         ]);
 
         return $transaction->fresh();

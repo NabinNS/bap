@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { Search } from "lucide-react";
+import { Search, MoreVertical } from "lucide-react";
 import { Vendor } from "./types";
 
 type VendorSidebarProps = {
@@ -16,6 +16,8 @@ type VendorSidebarProps = {
   headerRight?: ReactNode;
   /** Rendered at the right edge of each row, e.g. a row action menu button. */
   renderRowAction?: (vendor: Vendor) => ReactNode;
+  /** When provided, renders a header three-dot button (e.g. "Recently Deleted") next to headerRight. */
+  onTrashClick?: () => void;
 };
 
 function vendorBalance(vendor: Vendor, activeFiscalYearId: number | null) {
@@ -33,6 +35,7 @@ export function VendorSidebar({
   onSelect,
   headerRight,
   renderRowAction,
+  onTrashClick,
 }: VendorSidebarProps) {
   const filteredVendors = vendors.filter((v) => v.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -50,6 +53,16 @@ export function VendorSidebar({
           />
         </div>
         {headerRight}
+        {onTrashClick && (
+          <button
+            type="button"
+            onClick={onTrashClick}
+            title="More actions"
+            className="flex items-center justify-center h-9 w-7 bg-black border-l border-slate-500 text-white hover:bg-black/80 transition-colors shrink-0 cursor-pointer"
+          >
+            <MoreVertical className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col flex-1 min-h-0 border border-slate-400 overflow-hidden">

@@ -26,6 +26,7 @@ type SavedTransactionItem = {
   ulid: string;
   date: string;
   type: "purchase" | "sale";
+  payment_type: string | null;
   fiscal_year_id: number | null;
   purchase_quantity: number | null;
   purchase_price: number | null;
@@ -70,6 +71,7 @@ export function ProductGoodsEntry({ type }: { type: "purchase" | "sale" }) {
   const [rows, setRows] = useState<LineItem[]>([emptyRow()]);
   const [entryDate, setEntryDate] = useState(getTodayBs);
   const [fiscalYearId, setFiscalYearId] = useState<number | null>(null);
+  const [paymentType, setPaymentType] = useState<"cash" | "credit">("credit");
   const savingKeysRef = useRef<Set<number>>(new Set());
 
   const { data: productsData, isLoading: productsLoading } = useQuery({
@@ -110,6 +112,7 @@ export function ProductGoodsEntry({ type }: { type: "purchase" | "sale" }) {
     if (isEditing) return;
     setRows([emptyRow()]);
     setEntryDate(getTodayBs());
+    setPaymentType("credit");
   }, [selectedProductUlid, isEditing]);
 
   // Load the specific entry being edited, once its data arrives.
@@ -120,6 +123,7 @@ export function ProductGoodsEntry({ type }: { type: "purchase" | "sale" }) {
     loadedItemRef.current = itemParam;
     setEntryDate(item.date);
     setFiscalYearId(item.fiscal_year_id);
+    setPaymentType(item.payment_type === "cash" ? "cash" : "credit");
     setRows([{
       key: nextKey++,
       quantity: String(type === "purchase" ? item.purchase_quantity ?? "" : item.sales_quantity ?? ""),
@@ -216,6 +220,7 @@ export function ProductGoodsEntry({ type }: { type: "purchase" | "sale" }) {
       purchase_price: type === "purchase" ? Number(row.rate) : null,
       sales_quantity: type === "sale" ? Number(row.quantity) : null,
       sales_price: type === "sale" ? Number(row.rate) : null,
+      payment_type: paymentType,
     };
 
     savingKeysRef.current.add(key);
@@ -318,6 +323,28 @@ export function ProductGoodsEntry({ type }: { type: "purchase" | "sale" }) {
                     </select>
                   )}
                   <BsDateInput value={entryDate} onChange={setEntryDate} />
+                  <div className="flex items-center gap-4 h-8">
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-black cursor-pointer">
+                      <input
+                        type="radio"
+                        name="payment-type"
+                        checked={paymentType === "cash"}
+                        onChange={() => setPaymentType("cash")}
+                        className="accent-black"
+                      />
+                      Cash
+                    </label>
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-black cursor-pointer">
+                      <input
+                        type="radio"
+                        name="payment-type"
+                        checked={paymentType === "credit"}
+                        onChange={() => setPaymentType("credit")}
+                        className="accent-black"
+                      />
+                      Credit
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

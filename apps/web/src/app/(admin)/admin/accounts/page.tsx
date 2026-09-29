@@ -23,6 +23,7 @@ import { VendorInfoBlock } from "./_components/VendorInfoBlock";
 import { FiscalYearModal } from "./_components/FiscalYearModal";
 import { FilterModal } from "./_components/FilterModal";
 import { TrashModal } from "./_components/TrashModal";
+import { TrashedVendorsModal } from "./_components/TrashedVendorsModal";
 import { VendorFormPanel, VendorFormState, VendorFormErrors } from "./_components/VendorFormPanel";
 import { useInvalidateVendorTransactions } from "./_components/useAccountingInvalidation";
 import { Vendor, FiscalYear } from "./_components/types";
@@ -404,6 +405,24 @@ function AdminAccountsContent() {
       toast.success("Vendor deleted", "The vendor has been removed.");
     },
     onError: () => toast.error("Failed to delete", "Something went wrong."),
+  });
+
+  const [trashedVendorsOpen, setTrashedVendorsOpen] = useState(false);
+  const { data: trashedVendorsData, isLoading: trashedVendorsLoading } = useQuery({
+    queryKey: ["acc-vendors-trashed"],
+    queryFn: () => apiFetch<{ data: Vendor[] }>("/acc-vendors/trashed"),
+    enabled: trashedVendorsOpen,
+  });
+  const trashedVendors = trashedVendorsData?.data ?? [];
+
+  const restoreVendorMutation = useMutation({
+    mutationFn: (vendorUlid: string) => apiFetch(`/acc-vendors/${vendorUlid}/restore`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors-trashed"] });
+      toast.success("Vendor restored", "The vendor is back in the list.");
+    },
+    onError: () => toast.error("Failed to restore", "Something went wrong."),
   });
 
   function openEdit(vendor: Vendor) {
@@ -950,6 +969,7 @@ function AdminAccountsContent() {
             search={sideSearch}
             onSearchChange={setSideSearch}
             onSelect={(vendor) => trySwitchVendor(vendor.ulid)}
+            onTrashClick={() => setTrashedVendorsOpen(true)}
             headerRight={
               <button
                 onClick={openCreate}
@@ -1499,6 +1519,15 @@ function AdminAccountsContent() {
         transactions={trashedTransactions}
         restoring={restoreTransactionMutation.isPending}
         onRestore={(txUlid) => { if (selectedVendorUlid) restoreTransactionMutation.mutate({ vendorUlid: selectedVendorUlid, txUlid }); }}
+      />
+
+      <TrashedVendorsModal
+        open={trashedVendorsOpen}
+        onClose={() => setTrashedVendorsOpen(false)}
+        loading={trashedVendorsLoading}
+        vendors={trashedVendors}
+        restoring={restoreVendorMutation.isPending}
+        onRestore={(vendorUlid) => restoreVendorMutation.mutate(vendorUlid)}
       />
 
       <ConfirmDialog

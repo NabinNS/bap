@@ -6,6 +6,7 @@ use App\Domain\AccVendors\DTOs\AccVendorData;
 use App\Domain\AccVendors\DTOs\AccVendorFilterData;
 use App\Models\AccVendor;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 interface AccVendorRepositoryInterface
 {
@@ -16,4 +17,8 @@ interface AccVendorRepositoryInterface
     public function update(AccVendor $vendor, AccVendorData $data): AccVendor;
 
     public function delete(AccVendor $vendor): void;
+
+    public function trashed(int $tenantId): Collection;
+
+    public function restore(int $tenantId, string $vendorUlid): AccVendor;
 }

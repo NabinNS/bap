@@ -38,12 +38,6 @@ type Meta = {
   to: number;
 };
 
-type FiscalYear = {
-  id: number;
-  ulid: string;
-  name: string;
-};
-
 type LineItem = {
   key: number;
   productUlid: string;
@@ -87,6 +81,7 @@ type SavedTransaction = {
   taxable_amount: number | null;
   vat_amount: number | null;
   grand_total: number | null;
+  payment_type: string | null;
   items: SavedItem[];
 };
 
@@ -122,6 +117,7 @@ function GoodsPurchasedContent() {
   // Which fiscal year this bill is recorded against — defaults to the tenant's active one
   // once it loads, but the user can pick a different year via the dropdown before saving.
   const [selectedFiscalYearId, setSelectedFiscalYearId] = useState<number | null>(null);
+  const [paymentType, setPaymentType] = useState<"cash" | "credit">("credit");
   // Mirrors transactionUlid but updates synchronously — ensureTransactionUlid needs the
   // fresh id right after awaiting the row save that creates the transaction.
   const transactionUlidRef = useRef<string | null>(null);
@@ -154,13 +150,6 @@ function GoodsPurchasedContent() {
   });
 
   const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
-
-  const { data: fiscalYearsData } = useQuery({
-    queryKey: ["fiscal-years"],
-    queryFn: () => apiFetch<{ data: FiscalYear[] }>("/fiscal-years"),
-    staleTime: Infinity,
-  });
-  const fiscalYears = fiscalYearsData?.data ?? [];
 
   const vendors = vendorsData?.data ?? [];
   const selectedVendor = vendors.find((v) => v.ulid === selectedVendorUlid) ?? null;
@@ -198,6 +187,7 @@ function GoodsPurchasedContent() {
     setDiscountAmountDraft(null);
     setBillTotals(null);
     setSelectedFiscalYearId(activeFiscalYearId);
+    setPaymentType("credit");
   }, [selectedVendorUlid]);
 
   // Settings load asynchronously — default to the active fiscal year once it arrives,
@@ -219,6 +209,7 @@ function GoodsPurchasedContent() {
     setSelectedFiscalYearId(tx.fiscal_year_id);
     setBillDate(tx.date);
     setBillNo(tx.voucher_no ?? "");
+    setPaymentType(tx.payment_type === "cash" ? "cash" : "credit");
     setDiscountPercent(String(tx.discount_percent ?? 0));
     setBillTotals({
       discountAmount: tx.discount_amount ?? 0,
@@ -407,12 +398,17 @@ function GoodsPurchasedContent() {
     onError: (err: any) => toast.error("Failed to restore item", err?.message ?? "Something went wrong."),
   });
 
-  function saveHeader() {
+  function saveHeader(overrides?: { paymentType?: "cash" | "credit" }) {
     if (!selectedVendorUlid || !transactionUlid || !isValidBsDate(billDate)) return;
     updateHeaderMutation.mutate({
       vendorUlid: selectedVendorUlid,
       txUlid: transactionUlid,
-      payload: { date: billDate, particular: "purchase", voucher_no: billNo || null },
+      payload: {
+        date: billDate,
+        particular: "purchase",
+        voucher_no: billNo || null,
+        payment_type: overrides?.paymentType ?? paymentType,
+      },
     });
   }
 
@@ -509,6 +505,7 @@ function GoodsPurchasedContent() {
             discount_percent: Math.max(0, Math.min(100, Number(discountPercent) || 0)),
             items: [itemPayload],
             fiscal_year_id: selectedFiscalYearId ?? undefined,
+            payment_type: paymentType,
           },
         });
         transactionUlidRef.current = res.data.ulid;
@@ -627,30 +624,37 @@ function GoodsPurchasedContent() {
                 />
 
                 <div className="flex flex-col gap-2 shrink-0 w-48">
-                  {fiscalYears.length > 0 && (
-                    <select
-                      value={selectedFiscalYearId ?? ""}
-                      onChange={(e) => setSelectedFiscalYearId(Number(e.target.value))}
-                      disabled={!!transactionUlid}
-                      title={transactionUlid ? "Fiscal year is locked once the bill has an item" : "Fiscal year this bill is recorded against"}
-                      className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
-                    >
-                      {fiscalYears.map((fy) => (
-                        <option key={fy.id} value={fy.id}>
-                          {fy.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
                   <input
                     type="text"
                     value={billNo}
                     onChange={(e) => setBillNo(e.target.value)}
-                    onBlur={saveHeader}
+                    onBlur={() => saveHeader()}
                     placeholder="Bill no..."
                     className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
                   />
-                  <BsDateInput value={billDate} onChange={setBillDate} onBlur={saveHeader} />
+                  <BsDateInput value={billDate} onChange={setBillDate} onBlur={() => saveHeader()} />
+                  <div className="flex items-center gap-4 h-8">
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-black cursor-pointer">
+                      <input
+                        type="radio"
+                        name="payment-type"
+                        checked={paymentType === "cash"}
+                        onChange={() => { setPaymentType("cash"); if (transactionUlid) saveHeader({ paymentType: "cash" }); }}
+                        className="accent-black"
+                      />
+                      Cash
+                    </label>
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-black cursor-pointer">
+                      <input
+                        type="radio"
+                        name="payment-type"
+                        checked={paymentType === "credit"}
+                        onChange={() => { setPaymentType("credit"); if (transactionUlid) saveHeader({ paymentType: "credit" }); }}
+                        className="accent-black"
+                      />
+                      Credit
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

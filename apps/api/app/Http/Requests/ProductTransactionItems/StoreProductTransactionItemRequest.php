@@ -18,6 +18,7 @@ class StoreProductTransactionItemRequest extends FormRequest
             'purchase_price'    => ['required_if:type,purchase', 'nullable', 'integer', 'min:0'],
             'sales_quantity'    => ['required_if:type,sale', 'nullable', 'integer', 'min:1'],
             'sales_price'       => ['required_if:type,sale', 'nullable', 'integer', 'min:0'],
+            'payment_type'      => ['nullable', Rule::in(['cash', 'credit'])],
         ];
     }
 
@@ -33,6 +34,7 @@ class StoreProductTransactionItemRequest extends FormRequest
             purchasePrice:    isset($v['purchase_price']) ? (int) $v['purchase_price'] : null,
             salesQuantity:    isset($v['sales_quantity']) ? (int) $v['sales_quantity'] : null,
             salesPrice:       isset($v['sales_price']) ? (int) $v['sales_price'] : null,
+            paymentType:      $v['payment_type'] ?? null,
         );
     }
 }

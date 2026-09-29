@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('fiscal_year_id')->constrained('fiscal_years')->cascadeOnDelete();
             $table->string('date');
             $table->string('type'); // purchase | sale
+            $table->string('payment_type')->nullable(); // cash | credit
             $table->unsignedInteger('purchase_quantity')->nullable();
             $table->unsignedInteger('purchase_price')->nullable();
             $table->unsignedInteger('sales_quantity')->nullable();

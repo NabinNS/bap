@@ -16,6 +16,7 @@ class ProductTransactionItemResource extends JsonResource
             'fiscal_year_id'    => $this->fiscal_year_id,
             'date'              => $this->date,
             'type'              => $this->type,
+            'payment_type'      => $this->payment_type,
             'purchase_quantity' => $this->purchase_quantity,
             'purchase_price'    => $this->purchase_price,
             'sales_quantity'    => $this->sales_quantity,
