@@ -107,12 +107,27 @@ export function ProductGoodsEntry({ type }: { type: "purchase" | "sale" }) {
     if (!selectedProductUlid && products.length > 0) setSelectedProductUlid(products[0].ulid);
   }, [products]);
 
-  // Starting a fresh entry whenever the product changes (unless we're loading a specific item to edit).
+  // Reacting to the product selection changing. First pick (prev === null) leaves whatever was
+  // already typed alone and tries to save it (trySaveRow couldn't fire without a product yet);
+  // swapping to a *different* already-selected product starts a fresh entry instead, since that
+  // product's draft doesn't carry over.
+  const prevProductUlidRef = useRef<string | null>(null);
   useEffect(() => {
-    if (isEditing) return;
+    const prev = prevProductUlidRef.current;
+    prevProductUlidRef.current = selectedProductUlid;
+    if (isEditing || prev === selectedProductUlid) return;
+
+    if (!prev) {
+      rows.forEach((row) => {
+        if (!row.saved && row.quantity && Number(row.quantity) > 0 && row.rate !== "") trySaveRow(row.key);
+      });
+      return;
+    }
+
     setRows([emptyRow()]);
     setEntryDate(getTodayBs());
     setPaymentType("credit");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to the product selection changing
   }, [selectedProductUlid, isEditing]);
 
   // Load the specific entry being edited, once its data arrives.

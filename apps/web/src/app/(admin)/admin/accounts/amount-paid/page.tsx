@@ -156,10 +156,18 @@ function AmountPaidContent() {
     if (!selectedVendorUlid && vendors.length > 0) setSelectedVendorUlid(vendors[0].ulid);
   }, [vendors]);
 
-  // Starting a fresh payment whenever the vendor changes — previous vendor's draft doesn't carry over.
+  // Reacting to the vendor selection changing. First pick (prev === null) leaves whatever was
+  // already typed alone and tries to save it (autosave couldn't fire without a vendor yet);
+  // swapping to a *different* already-selected vendor starts a fresh payment instead, since that
+  // vendor's draft doesn't carry over.
+  const prevVendorUlidRef = useRef<string | null>(null);
   useEffect(() => {
-    if (editTransactionParam) return;
+    const prev = prevVendorUlidRef.current;
+    prevVendorUlidRef.current = selectedVendorUlid;
+    if (editTransactionParam || prev === selectedVendorUlid) return;
+    if (!prev) { tryAutoSave(); return; }
     resetForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to the vendor selection changing
   }, [selectedVendorUlid]);
 
   // Load the existing transaction into the form once, when editing via ?transaction=.

@@ -238,9 +238,27 @@ function GoodsPurchasedContent() {
     if (!selectedVendorUlid && vendors.length > 0 && cameWithVendorRef.current) setSelectedVendorUlid(vendors[0].ulid);
   }, [vendors]);
 
-  // Starting a fresh bill whenever the vendor changes — previous vendor's draft/transaction doesn't carry over.
+  // Reacting to the vendor selection changing. Two distinct cases:
+  //  - First pick (prev === null): the user may have already filled in items before choosing a
+  //    vendor (trySaveRow couldn't save them yet without one) — save whatever's complete now,
+  //    and leave the draft otherwise untouched.
+  //  - Swapping to a *different* already-selected vendor: that other vendor's draft doesn't carry
+  //    over, so start a fresh bill instead.
+  const prevVendorUlidRef = useRef<string | null>(null);
   useEffect(() => {
-    if (editTransactionParam) return;
+    const prev = prevVendorUlidRef.current;
+    prevVendorUlidRef.current = selectedVendorUlid;
+    if (editTransactionParam || prev === selectedVendorUlid) return;
+
+    if (!prev) {
+      rows.forEach((row) => {
+        if (!row.saved && row.productUlid && row.quantity && Number(row.quantity) > 0 && row.rate !== "") {
+          trySaveRow(row.key);
+        }
+      });
+      return;
+    }
+
     setRows([emptyRow()]);
     transactionUlidRef.current = null;
     setTransactionUlid(null);
@@ -251,6 +269,7 @@ function GoodsPurchasedContent() {
     setBillTotals(null);
     setSelectedFiscalYearId(activeFiscalYearId);
     setPaymentType("credit");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to the vendor selection changing
   }, [selectedVendorUlid]);
 
   // Settings load asynchronously — default to the active fiscal year once it arrives,

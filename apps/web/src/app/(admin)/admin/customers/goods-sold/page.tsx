@@ -244,9 +244,27 @@ function GoodsSoldContent() {
     if (!selectedCustomerUlid && customers.length > 0 && cameWithCustomerRef.current) setSelectedCustomerUlid(customers[0].ulid);
   }, [customers]);
 
-  // Starting a fresh bill whenever the customer changes — previous customer's draft/transaction doesn't carry over.
+  // Reacting to the customer selection changing. Two distinct cases:
+  //  - First pick (prev === null): the user may have already filled in items before choosing a
+  //    customer (trySaveRow couldn't save them yet without one) — save whatever's complete now,
+  //    and leave the draft otherwise untouched.
+  //  - Swapping to a *different* already-selected customer: that other customer's draft doesn't
+  //    carry over, so start a fresh bill instead.
+  const prevCustomerUlidRef = useRef<string | null>(null);
   useEffect(() => {
-    if (editTransactionParam) return;
+    const prev = prevCustomerUlidRef.current;
+    prevCustomerUlidRef.current = selectedCustomerUlid;
+    if (editTransactionParam || prev === selectedCustomerUlid) return;
+
+    if (!prev) {
+      rows.forEach((row) => {
+        if (!row.saved && row.productUlid && row.quantity && Number(row.quantity) > 0 && row.rate !== "") {
+          trySaveRow(row.key);
+        }
+      });
+      return;
+    }
+
     setRows([emptyRow()]);
     transactionUlidRef.current = null;
     setTransactionUlid(null);
@@ -257,6 +275,7 @@ function GoodsSoldContent() {
     setBillTotals(null);
     setSelectedFiscalYearId(activeFiscalYearId);
     setPaymentType("credit");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to the customer selection changing
   }, [selectedCustomerUlid]);
 
   // Settings load asynchronously — default to the active fiscal year once it arrives,

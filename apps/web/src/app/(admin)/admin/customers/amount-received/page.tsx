@@ -156,10 +156,18 @@ function AmountReceivedContent() {
     if (!selectedCustomerUlid && customers.length > 0) setSelectedCustomerUlid(customers[0].ulid);
   }, [customers]);
 
-  // Starting a fresh receipt whenever the customer changes — previous customer's draft doesn't carry over.
+  // Reacting to the customer selection changing. First pick (prev === null) leaves whatever was
+  // already typed alone and tries to save it (autosave couldn't fire without a customer yet);
+  // swapping to a *different* already-selected customer starts a fresh receipt instead, since that
+  // customer's draft doesn't carry over.
+  const prevCustomerUlidRef = useRef<string | null>(null);
   useEffect(() => {
-    if (editTransactionParam) return;
+    const prev = prevCustomerUlidRef.current;
+    prevCustomerUlidRef.current = selectedCustomerUlid;
+    if (editTransactionParam || prev === selectedCustomerUlid) return;
+    if (!prev) { tryAutoSave(); return; }
     resetForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to the customer selection changing
   }, [selectedCustomerUlid]);
 
   // Load the existing transaction into the form once, when editing via ?transaction=.
