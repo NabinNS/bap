@@ -37,4 +37,9 @@ class AccCustomer extends Model
     {
         return $this->hasMany(AccCustomerTransaction::class, 'customer_id');
     }
+
+    public function quotations(): HasMany
+    {
+        return $this->hasMany(AccQuotation::class, 'customer_id');
+    }
 }

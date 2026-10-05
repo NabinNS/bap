@@ -9,9 +9,11 @@ type CustomerInfoBlockProps = {
   /** When provided (with onSelectCustomer), the name renders as a searchable combobox instead of static text. */
   customers?: Customer[];
   onSelectCustomer?: (ulid: string) => void;
+  /** Offers a "+ Add" option in the dropdown for a name that doesn't match an existing customer. */
+  onAddNewCustomer?: (query: string) => void;
 };
 
-export function CustomerInfoBlock({ customer, customers, onSelectCustomer }: CustomerInfoBlockProps) {
+export function CustomerInfoBlock({ customer, customers, onSelectCustomer, onAddNewCustomer }: CustomerInfoBlockProps) {
   const selectable = !!customers && !!onSelectCustomer;
 
   return (
@@ -26,6 +28,7 @@ export function CustomerInfoBlock({ customer, customers, onSelectCustomer }: Cus
               options={customers!.map((c) => ({ label: c.name, value: c.ulid }))}
               value={customer?.ulid ?? ""}
               onChange={(ulid) => onSelectCustomer!(ulid)}
+              onAddNew={onAddNewCustomer}
             />
           </div>
         </div>
