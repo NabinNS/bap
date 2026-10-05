@@ -25,6 +25,26 @@ class EloquentAccCustomerTransactionRepository implements AccCustomerTransaction
             ->paginate($perPage);
     }
 
+    public function paginateSalesBills(int $tenantId, int $perPage, ?int $fiscalYearId = null): LengthAwarePaginator
+    {
+        return AccCustomerTransaction::where('tenant_id', $tenantId)
+            ->whereHas('items')
+            ->when($fiscalYearId, fn ($query) => $query->where('fiscal_year_id', $fiscalYearId))
+            ->with(['customer', 'items.product'])
+            ->orderBy('date', 'desc')
+            ->paginate($perPage);
+    }
+
+    public function trashedSalesBills(int $tenantId, ?int $fiscalYearId = null): Collection
+    {
+        return AccCustomerTransaction::onlyTrashed()
+            ->where('tenant_id', $tenantId)
+            ->when($fiscalYearId, fn ($query) => $query->where('fiscal_year_id', $fiscalYearId))
+            ->with(['customer', 'items.product'])
+            ->orderBy('deleted_at', 'desc')
+            ->get();
+    }
+
     public function trashed(AccCustomer $customer, ?int $fiscalYearId = null): Collection
     {
         return AccCustomerTransaction::onlyTrashed()

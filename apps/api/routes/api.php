@@ -79,6 +79,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('acc-vendors/{accVendor}/transactions/{transaction}/items/{item}', [AccVendorTransactionController::class, 'destroyItem']);
     Route::get('acc-vendors/{accVendor}/transactions/{transaction}/items/trashed', [AccVendorTransactionController::class, 'trashedItems']);
     Route::post('acc-vendors/{accVendor}/transactions/{transaction}/items/{itemUlid}/restore', [AccVendorTransactionController::class, 'restoreItem']);
+    Route::get('acc-customers/sales-bills/trashed', [AccCustomerTransactionController::class, 'trashedSalesBills']);
+    Route::get('acc-customers/sales-bills', [AccCustomerTransactionController::class, 'salesBills']);
     Route::get('acc-customers/trashed', [AccCustomerController::class, 'trashed']);
     Route::post('acc-customers/{customerUlid}/restore', [AccCustomerController::class, 'restore']);
     Route::apiResource('acc-customers', AccCustomerController::class);

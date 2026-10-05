@@ -6,8 +6,10 @@ use App\Application\AccCustomers\Actions\AddAccCustomerTransactionItemAction;
 use App\Application\AccCustomers\Actions\DeleteAccCustomerTransactionAction;
 use App\Application\AccCustomers\Actions\DeleteAccCustomerTransactionItemAction;
 use App\Application\AccCustomers\Actions\ListAccCustomerTransactionsAction;
+use App\Application\AccCustomers\Actions\ListSalesBillsAction;
 use App\Application\AccCustomers\Actions\ListTrashedAccCustomerTransactionItemsAction;
 use App\Application\AccCustomers\Actions\ListTrashedAccCustomerTransactionsAction;
+use App\Application\AccCustomers\Actions\ListTrashedSalesBillsAction;
 use App\Application\AccCustomers\Actions\RecalculateAccCustomerTransactionTotalsAction;
 use App\Application\AccCustomers\Actions\RestoreAccCustomerTransactionAction;
 use App\Application\AccCustomers\Actions\RestoreAccCustomerTransactionItemAction;
@@ -30,6 +32,23 @@ use Illuminate\Http\Request;
 
 class AccCustomerTransactionController extends Controller
 {
+    public function salesBills(Request $request, ListSalesBillsAction $action): JsonResponse
+    {
+        return ApiResponse::paginated(
+            $action->execute($this->tenantId(), $request->integer('per_page', 50), $request->integer('fiscal_year_id') ?: null),
+            AccCustomerTransactionResource::class,
+            'Sales bills retrieved successfully'
+        );
+    }
+
+    public function trashedSalesBills(Request $request, ListTrashedSalesBillsAction $action): JsonResponse
+    {
+        return ApiResponse::success(
+            AccCustomerTransactionResource::collection($action->execute($this->tenantId(), $request->integer('fiscal_year_id') ?: null)),
+            'Trashed sales bills retrieved successfully'
+        );
+    }
+
     public function index(Request $request, AccCustomer $accCustomer, ListAccCustomerTransactionsAction $action): JsonResponse
     {
         $this->authorize('view', $accCustomer);

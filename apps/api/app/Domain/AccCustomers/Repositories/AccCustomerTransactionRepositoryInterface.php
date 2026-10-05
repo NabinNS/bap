@@ -15,6 +15,15 @@ interface AccCustomerTransactionRepositoryInterface
 {
     public function paginate(AccCustomer $customer, int $perPage, ?int $fiscalYearId = null): LengthAwarePaginator;
 
+    /**
+     * All sales bills (transactions that have line items) across every customer in the
+     * tenant, for the "Billing > Sales" screen's bill list.
+     */
+    public function paginateSalesBills(int $tenantId, int $perPage, ?int $fiscalYearId = null): LengthAwarePaginator;
+
+    /** @return \Illuminate\Support\Collection<int, AccCustomerTransaction> */
+    public function trashedSalesBills(int $tenantId, ?int $fiscalYearId = null): \Illuminate\Support\Collection;
+
     /** @return \Illuminate\Support\Collection<int, AccCustomerTransaction> */
     public function trashed(AccCustomer $customer, ?int $fiscalYearId = null): \Illuminate\Support\Collection;
 

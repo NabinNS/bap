@@ -12,6 +12,12 @@ class AccCustomerTransactionResource extends JsonResource
         return [
             'ulid'           => $this->ulid,
             'fiscal_year_id' => $this->fiscal_year_id,
+            'customer'       => $this->whenLoaded('customer', fn () => [
+                'ulid'    => $this->customer->ulid,
+                'name'    => $this->customer->name,
+                'address' => $this->customer->address,
+                'vat_no'  => $this->customer->vat_no,
+            ]),
             'date'       => $this->date,
             'particular' => $this->particular,
             'voucher_no' => $this->voucher_no,
