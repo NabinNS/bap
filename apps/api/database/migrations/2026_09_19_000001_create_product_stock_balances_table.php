@@ -13,8 +13,8 @@ return new class extends Migration
             $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
             $table->foreignId('product_id')->constrained('products')->cascadeOnDelete();
             $table->foreignId('fiscal_year_id')->constrained('fiscal_years')->cascadeOnDelete();
-            $table->unsignedInteger('opening_quantity')->default(0);
-            $table->unsignedInteger('remaining_quantity')->default(0);
+            $table->integer('opening_quantity')->default(0);
+            $table->integer('remaining_quantity')->default(0);
             $table->timestamps();
 
             $table->unique(['tenant_id', 'product_id', 'fiscal_year_id']);

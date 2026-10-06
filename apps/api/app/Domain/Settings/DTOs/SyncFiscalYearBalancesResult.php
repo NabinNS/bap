@@ -7,5 +7,6 @@ readonly class SyncFiscalYearBalancesResult
     public function __construct(
         public int $customersSynced,
         public int $vendorsSynced,
+        public int $productsSynced,
     ) {}
 }

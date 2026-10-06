@@ -14,6 +14,15 @@ interface ProductTransactionItemRepositoryInterface
 
     public function netQuantity(Product $product, int $fiscalYearId): int;
 
+    /**
+     * Net quantity (purchases - sales) per product for a tenant's fiscal year, in one query.
+     * Only products with at least one transaction item appear in the result — absence of a
+     * key means that product has no transaction items in this fiscal year.
+     *
+     * @return array<int, int> product_id => net quantity
+     */
+    public function netQuantitiesForFiscalYear(int $tenantId, int $fiscalYearId): array;
+
     /** @return Collection<int, ProductTransactionItem> */
     public function trashed(Product $product): Collection;
 

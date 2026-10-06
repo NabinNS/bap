@@ -4,6 +4,7 @@ namespace App\Application\Settings\Actions;
 
 use App\Application\AccCustomers\Actions\SyncCustomerFiscalYearBalancesAction;
 use App\Application\AccVendors\Actions\SyncVendorFiscalYearBalancesAction;
+use App\Application\ProductStockBalances\Actions\SyncProductFiscalYearStockBalancesAction;
 use App\Domain\Settings\DTOs\SyncFiscalYearBalancesResult;
 use App\Domain\Settings\DTOs\TenantSettingData;
 use App\Domain\Settings\Repositories\TenantSettingRepositoryInterface;
@@ -16,6 +17,7 @@ class SyncFiscalYearBalancesAction
         private TenantSettingRepositoryInterface $settings,
         private SyncCustomerFiscalYearBalancesAction $syncCustomers,
         private SyncVendorFiscalYearBalancesAction $syncVendors,
+        private SyncProductFiscalYearStockBalancesAction $syncProducts,
     ) {}
 
     /**
@@ -42,6 +44,7 @@ class SyncFiscalYearBalancesAction
         return DB::transaction(function () use ($tenantId, $fromFiscalYearId, $toFiscalYearId) {
             $customersSynced = $this->syncCustomers->execute($tenantId, $fromFiscalYearId, $toFiscalYearId);
             $vendorsSynced = $this->syncVendors->execute($tenantId, $fromFiscalYearId, $toFiscalYearId);
+            $productsSynced = $this->syncProducts->execute($tenantId, $fromFiscalYearId, $toFiscalYearId);
 
             // Syncing is meaningless unless the tenant is actually moving to the target year,
             // so the sync action also switches the active fiscal year pointer.
@@ -51,7 +54,7 @@ class SyncFiscalYearBalancesAction
                 new TenantSettingData(fiscalYearId: $toFiscalYearId, meta: $setting->meta),
             );
 
-            return new SyncFiscalYearBalancesResult($customersSynced, $vendorsSynced);
+            return new SyncFiscalYearBalancesResult($customersSynced, $vendorsSynced, $productsSynced);
         });
     }
 }

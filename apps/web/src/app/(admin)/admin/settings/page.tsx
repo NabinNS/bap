@@ -96,16 +96,16 @@ export default function AdminSettings() {
 
   const syncBalancesMutation = useMutation({
     mutationFn: (toFiscalYearId: number) =>
-      apiFetch<{ data: { customers_synced: number; vendors_synced: number } }>("/settings/sync-fiscal-year-balances", {
+      apiFetch<{ data: { customers_synced: number; vendors_synced: number; products_synced: number } }>("/settings/sync-fiscal-year-balances", {
         method: "POST",
         body: JSON.stringify({ to_fiscal_year_id: toFiscalYearId }),
       }),
     onSuccess: (res) => {
-      const { customers_synced, vendors_synced } = res.data;
+      const { customers_synced, vendors_synced, products_synced } = res.data;
       queryClient.invalidateQueries({ queryKey: ["settings-bootstrap"] });
       toast.success(
         "Fiscal year switched",
-        `Carried forward ${customers_synced} customer${customers_synced === 1 ? "" : "s"} and ${vendors_synced} vendor${vendors_synced === 1 ? "" : "s"}.`
+        `Carried forward ${customers_synced} customer${customers_synced === 1 ? "" : "s"}, ${vendors_synced} vendor${vendors_synced === 1 ? "" : "s"}, and ${products_synced} product${products_synced === 1 ? "" : "s"}.`
       );
     },
     onError: (err: any) => {

@@ -50,6 +50,17 @@ class EloquentProductTransactionItemRepository implements ProductTransactionItem
             ->value('net');
     }
 
+    public function netQuantitiesForFiscalYear(int $tenantId, int $fiscalYearId): array
+    {
+        return ProductTransactionItem::where('tenant_id', $tenantId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->selectRaw('product_id, COALESCE(SUM(purchase_quantity), 0) - COALESCE(SUM(sales_quantity), 0) as net')
+            ->groupBy('product_id')
+            ->pluck('net', 'product_id')
+            ->map(fn ($net) => (int) $net)
+            ->all();
+    }
+
     public function create(int $tenantId, Product $product, ProductTransactionItemData $data): ProductTransactionItem
     {
         return $product->productTransactionItems()->create([

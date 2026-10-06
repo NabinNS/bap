@@ -22,6 +22,32 @@ class EloquentProductStockBalanceRepository implements ProductStockBalanceReposi
         );
     }
 
+    public function allForFiscalYear(int $tenantId, int $fiscalYearId): \Illuminate\Support\Collection
+    {
+        return ProductStockBalance::where('tenant_id', $tenantId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->get();
+    }
+
+    public function bulkUpsertForFiscalYear(int $tenantId, int $fiscalYearId, array $rows): void
+    {
+        if (!$rows) {
+            return;
+        }
+
+        ProductStockBalance::upsert(
+            array_map(fn (array $row) => [
+                'tenant_id'          => $tenantId,
+                'fiscal_year_id'     => $fiscalYearId,
+                'product_id'         => $row['product_id'],
+                'opening_quantity'   => $row['opening_quantity'],
+                'remaining_quantity' => $row['remaining_quantity'],
+            ], $rows),
+            ['tenant_id', 'product_id', 'fiscal_year_id'],
+            ['opening_quantity', 'remaining_quantity'],
+        );
+    }
+
     public function lockForRecalculation(Product $product, int $fiscalYearId): ProductStockBalance
     {
         return ProductStockBalance::lockForUpdate()->firstOrCreate([

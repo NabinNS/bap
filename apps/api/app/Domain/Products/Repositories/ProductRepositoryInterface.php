@@ -34,6 +34,9 @@ interface ProductRepositoryInterface
     /** @return \Illuminate\Support\Collection<int, Product> */
     public function trashed(int $tenantId): \Illuminate\Support\Collection;
 
+    /** @param int[] $ids @return \Illuminate\Support\Collection<int, Product> */
+    public function findByIds(int $tenantId, array $ids): \Illuminate\Support\Collection;
+
     /**
      * Restore a soft-deleted product by ulid (implicit route-model-binding can't resolve a
      * trashed row, so this looks it up explicitly rather than taking a bound model).

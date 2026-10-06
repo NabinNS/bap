@@ -130,6 +130,13 @@ class EloquentProductRepository implements ProductRepositoryInterface
         $product->delete();
     }
 
+    public function findByIds(int $tenantId, array $ids): Collection
+    {
+        return Product::where('tenant_id', $tenantId)
+            ->whereIn('id', $ids)
+            ->get();
+    }
+
     public function trashed(int $tenantId): Collection
     {
         return Product::onlyTrashed()

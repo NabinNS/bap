@@ -60,6 +60,7 @@ class TenantSettingController extends Controller
             [
                 'customers_synced' => $result->customersSynced,
                 'vendors_synced'   => $result->vendorsSynced,
+                'products_synced'  => $result->productsSynced,
             ],
             'Fiscal year balances synced successfully'
         );
