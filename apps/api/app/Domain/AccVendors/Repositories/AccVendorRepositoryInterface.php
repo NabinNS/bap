@@ -20,5 +20,8 @@ interface AccVendorRepositoryInterface
 
     public function trashed(int $tenantId): Collection;
 
+    /** @param int[] $ids @return Collection<int, AccVendor> */
+    public function findByIds(int $tenantId, array $ids): Collection;
+
     public function restore(int $tenantId, string $vendorUlid): AccVendor;
 }

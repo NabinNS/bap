@@ -25,13 +25,19 @@ class FiscalYearSeeder extends Seeder
         ];
 
         foreach ($fiscalYears as $fy) {
-            DB::table('fiscal_years')->insertOrIgnore([
-                'ulid'       => Str::ulid(),
-                'name'       => $fy['name'],
-                'sort_order' => $fy['sort_order'],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            // Keep the existing row's ulid untouched on re-seed (it may already be referenced
+            // by the frontend/other records) — only set it when the row is first created.
+            $existing = DB::table('fiscal_years')->where('name', $fy['name'])->first();
+
+            DB::table('fiscal_years')->updateOrInsert(
+                ['name' => $fy['name']],
+                [
+                    'ulid'       => $existing->ulid ?? (string) Str::ulid(),
+                    'sort_order' => $fy['sort_order'],
+                    'updated_at' => now(),
+                    'created_at' => $existing->created_at ?? now(),
+                ],
+            );
         }
     }
 }

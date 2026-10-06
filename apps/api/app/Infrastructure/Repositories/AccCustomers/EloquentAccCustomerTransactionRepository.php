@@ -78,6 +78,17 @@ class EloquentAccCustomerTransactionRepository implements AccCustomerTransaction
             ->value('net');
     }
 
+    public function netTotalsForFiscalYear(int $tenantId, int $fiscalYearId): array
+    {
+        return AccCustomerTransaction::where('tenant_id', $tenantId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->selectRaw('customer_id, COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as net')
+            ->groupBy('customer_id')
+            ->pluck('net', 'customer_id')
+            ->map(fn ($net) => (float) $net)
+            ->all();
+    }
+
     public function create(int $tenantId, AccCustomer $customer, int $fiscalYearId, AccCustomerTransactionData $data): AccCustomerTransaction
     {
         $hasItems = (bool) $data->items;

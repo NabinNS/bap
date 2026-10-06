@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('fiscal_years', function (Blueprint $table) {
             $table->id();
             $table->ulid('ulid')->unique();
-            $table->string('name');
+            $table->string('name')->unique();
             $table->unsignedInteger('sort_order')->default(0);
             $table->timestamps();
             $table->softDeletes();

@@ -38,6 +38,15 @@ interface AccVendorTransactionRepositoryInterface
      */
     public function netTotal(AccVendor $vendor, int $fiscalYearId): float;
 
+    /**
+     * Net total (credit - debit) per vendor for a tenant's fiscal year, in one query.
+     * Only vendors with at least one transaction appear in the result — absence of a key
+     * means that vendor has no transactions in this fiscal year.
+     *
+     * @return array<int, float> vendor_id => net total
+     */
+    public function netTotalsForFiscalYear(int $tenantId, int $fiscalYearId): array;
+
     public function create(int $tenantId, AccVendor $vendor, int $fiscalYearId, AccVendorTransactionData $data): AccVendorTransaction;
 
     /**

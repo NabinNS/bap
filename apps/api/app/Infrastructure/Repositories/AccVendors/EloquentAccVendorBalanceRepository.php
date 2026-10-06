@@ -22,6 +22,32 @@ class EloquentAccVendorBalanceRepository implements AccVendorBalanceRepositoryIn
         );
     }
 
+    public function allForFiscalYear(int $tenantId, int $fiscalYearId): \Illuminate\Support\Collection
+    {
+        return AccVendorBalance::where('tenant_id', $tenantId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->get();
+    }
+
+    public function bulkUpsertForFiscalYear(int $tenantId, int $fiscalYearId, array $rows): void
+    {
+        if (!$rows) {
+            return;
+        }
+
+        AccVendorBalance::upsert(
+            array_map(fn (array $row) => [
+                'tenant_id'         => $tenantId,
+                'fiscal_year_id'    => $fiscalYearId,
+                'vendor_id'         => $row['vendor_id'],
+                'opening_balance'   => $row['opening_balance'],
+                'remaining_balance' => $row['remaining_balance'],
+            ], $rows),
+            ['tenant_id', 'vendor_id', 'fiscal_year_id'],
+            ['opening_balance', 'remaining_balance'],
+        );
+    }
+
     public function lockForRecalculation(AccVendor $vendor, int $fiscalYearId): AccVendorBalance
     {
         return AccVendorBalance::lockForUpdate()->firstOrCreate([

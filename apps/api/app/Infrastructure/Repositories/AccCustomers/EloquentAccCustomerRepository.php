@@ -20,6 +20,13 @@ class EloquentAccCustomerRepository implements AccCustomerRepositoryInterface
             ->paginate($perPage);
     }
 
+    public function findByIds(int $tenantId, array $ids): Collection
+    {
+        return AccCustomer::where('tenant_id', $tenantId)
+            ->whereIn('id', $ids)
+            ->get();
+    }
+
     public function create(int $tenantId, AccCustomerData $data): AccCustomer
     {
         return AccCustomer::create([

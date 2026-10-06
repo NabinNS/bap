@@ -78,6 +78,17 @@ class EloquentAccVendorTransactionRepository implements AccVendorTransactionRepo
             ->value('net');
     }
 
+    public function netTotalsForFiscalYear(int $tenantId, int $fiscalYearId): array
+    {
+        return AccVendorTransaction::where('tenant_id', $tenantId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->selectRaw('vendor_id, COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as net')
+            ->groupBy('vendor_id')
+            ->pluck('net', 'vendor_id')
+            ->map(fn ($net) => (float) $net)
+            ->all();
+    }
+
     public function create(int $tenantId, AccVendor $vendor, int $fiscalYearId, AccVendorTransactionData $data): AccVendorTransaction
     {
         $hasItems = (bool) $data->items;

@@ -38,6 +38,15 @@ interface AccCustomerTransactionRepositoryInterface
      */
     public function netTotal(AccCustomer $customer, int $fiscalYearId): float;
 
+    /**
+     * Net total (credit - debit) per customer for a tenant's fiscal year, in one query.
+     * Only customers with at least one transaction appear in the result — absence of a key
+     * means that customer has no transactions in this fiscal year.
+     *
+     * @return array<int, float> customer_id => net total
+     */
+    public function netTotalsForFiscalYear(int $tenantId, int $fiscalYearId): array;
+
     public function create(int $tenantId, AccCustomer $customer, int $fiscalYearId, AccCustomerTransactionData $data): AccCustomerTransaction;
 
     /**

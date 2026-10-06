@@ -20,6 +20,13 @@ class EloquentAccVendorRepository implements AccVendorRepositoryInterface
             ->paginate($perPage);
     }
 
+    public function findByIds(int $tenantId, array $ids): Collection
+    {
+        return AccVendor::where('tenant_id', $tenantId)
+            ->whereIn('id', $ids)
+            ->get();
+    }
+
     public function create(int $tenantId, AccVendorData $data): AccVendor
     {
         return AccVendor::create([

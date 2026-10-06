@@ -94,6 +94,25 @@ export default function AdminSettings() {
     },
   });
 
+  const syncBalancesMutation = useMutation({
+    mutationFn: (toFiscalYearId: number) =>
+      apiFetch<{ data: { customers_synced: number; vendors_synced: number } }>("/settings/sync-fiscal-year-balances", {
+        method: "POST",
+        body: JSON.stringify({ to_fiscal_year_id: toFiscalYearId }),
+      }),
+    onSuccess: (res) => {
+      const { customers_synced, vendors_synced } = res.data;
+      queryClient.invalidateQueries({ queryKey: ["settings-bootstrap"] });
+      toast.success(
+        "Fiscal year switched",
+        `Carried forward ${customers_synced} customer${customers_synced === 1 ? "" : "s"} and ${vendors_synced} vendor${vendors_synced === 1 ? "" : "s"}.`
+      );
+    },
+    onError: (err: any) => {
+      toast.error("Failed to sync", err?.message ?? "Something went wrong.");
+    },
+  });
+
   const updateTenantMutation = useMutation({
     mutationFn: (payload: TenantForm) =>
       apiFetch("/tenant", {
@@ -216,7 +235,21 @@ export default function AdminSettings() {
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-200 flex justify-end">
+        <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+          <button
+            onClick={() => syncBalancesMutation.mutate(parseInt(selectedFiscalYearId, 10))}
+            disabled={
+              syncBalancesMutation.isPending ||
+              isLoading ||
+              !selectedFiscalYearId ||
+              !settings?.fiscal_year_id ||
+              parseInt(selectedFiscalYearId, 10) === settings.fiscal_year_id
+            }
+            title="Carry forward customer/vendor balances from the current active fiscal year and switch to the selected one"
+            className="border border-slate-300 text-text-default px-4 py-2 text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {syncBalancesMutation.isPending ? "Syncing..." : "Sync & Switch Fiscal Year"}
+          </button>
           <button
             onClick={() => updateSettingsMutation.mutate(selectedFiscalYearId ? parseInt(selectedFiscalYearId, 10) : null)}
             disabled={updateSettingsMutation.isPending || isLoading}

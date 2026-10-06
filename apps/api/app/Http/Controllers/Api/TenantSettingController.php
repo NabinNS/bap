@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Application\Settings\Actions\BootstrapSettingsAction;
 use App\Application\Settings\Actions\GetTenantSettingsAction;
+use App\Application\Settings\Actions\SyncFiscalYearBalancesAction;
 use App\Application\Settings\Actions\UpdateTenantSettingsAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\SyncFiscalYearBalancesRequest;
 use App\Http\Requests\Settings\UpdateTenantSettingRequest;
 use App\Http\Resources\ApiResponse;
 use App\Http\Resources\Settings\FiscalYearResource;
@@ -47,6 +49,19 @@ class TenantSettingController extends Controller
         return ApiResponse::success(
             new TenantSettingResource($updated),
             'Settings updated successfully'
+        );
+    }
+
+    public function syncFiscalYearBalances(SyncFiscalYearBalancesRequest $request, SyncFiscalYearBalancesAction $action): JsonResponse
+    {
+        $result = $action->execute($this->tenantId(), $request->toFiscalYearId());
+
+        return ApiResponse::success(
+            [
+                'customers_synced' => $result->customersSynced,
+                'vendors_synced'   => $result->vendorsSynced,
+            ],
+            'Fiscal year balances synced successfully'
         );
     }
 }

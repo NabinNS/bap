@@ -22,6 +22,32 @@ class EloquentAccCustomerBalanceRepository implements AccCustomerBalanceReposito
         );
     }
 
+    public function allForFiscalYear(int $tenantId, int $fiscalYearId): \Illuminate\Support\Collection
+    {
+        return AccCustomerBalance::where('tenant_id', $tenantId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->get();
+    }
+
+    public function bulkUpsertForFiscalYear(int $tenantId, int $fiscalYearId, array $rows): void
+    {
+        if (!$rows) {
+            return;
+        }
+
+        AccCustomerBalance::upsert(
+            array_map(fn (array $row) => [
+                'tenant_id'         => $tenantId,
+                'fiscal_year_id'    => $fiscalYearId,
+                'customer_id'       => $row['customer_id'],
+                'opening_balance'   => $row['opening_balance'],
+                'remaining_balance' => $row['remaining_balance'],
+            ], $rows),
+            ['tenant_id', 'customer_id', 'fiscal_year_id'],
+            ['opening_balance', 'remaining_balance'],
+        );
+    }
+
     public function lockForRecalculation(AccCustomer $customer, int $fiscalYearId): AccCustomerBalance
     {
         return AccCustomerBalance::lockForUpdate()->firstOrCreate([

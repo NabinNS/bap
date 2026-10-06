@@ -117,6 +117,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('tenant', [TenantController::class, 'update']);
     Route::get('settings', [TenantSettingController::class, 'show']);
     Route::put('settings', [TenantSettingController::class, 'update']);
+    Route::post('settings/sync-fiscal-year-balances', [TenantSettingController::class, 'syncFiscalYearBalances']);
     Route::get('fiscal-years', [FiscalYearController::class, 'index']);
 });
 
