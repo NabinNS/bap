@@ -63,4 +63,29 @@ class EloquentAccVendorBalanceRepository implements AccVendorBalanceRepositoryIn
 
         return $balance;
     }
+
+    public function find(AccVendor $vendor, int $fiscalYearId): ?AccVendorBalance
+    {
+        return AccVendorBalance::where('tenant_id', $vendor->tenant_id)
+            ->where('vendor_id', $vendor->id)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->first();
+    }
+
+    public function nextFiscalYearBalance(AccVendor $vendor, int $fiscalYearId): ?AccVendorBalance
+    {
+        $sortOrder = \App\Models\FiscalYear::where('id', $fiscalYearId)->value('sort_order');
+
+        if ($sortOrder === null) {
+            return null;
+        }
+
+        return AccVendorBalance::where('tenant_id', $vendor->tenant_id)
+            ->where('vendor_id', $vendor->id)
+            ->whereHas('fiscalYear', fn ($q) => $q->where('sort_order', '>', $sortOrder))
+            ->with('fiscalYear')
+            ->get()
+            ->sortBy(fn (AccVendorBalance $b) => $b->fiscalYear->sort_order)
+            ->first();
+    }
 }

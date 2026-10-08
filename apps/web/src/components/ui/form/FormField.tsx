@@ -28,7 +28,14 @@ type SelectFieldProps = BaseProps & React.SelectHTMLAttributes<HTMLSelectElement
   options: { label: string; value: string }[];
 };
 
-type ComboboxOption = { label: string; value: string };
+type ComboboxOption = {
+  label: string;
+  value: string;
+  /** Small chip rendered next to the label, e.g. "Low stock". */
+  badge?: string;
+  /** Extra content rendered below the label, only while this option is highlighted. */
+  extra?: React.ReactNode;
+};
 
 type ComboboxFieldProps = BaseProps & {
   options: ComboboxOption[];
@@ -43,6 +50,8 @@ type ComboboxFieldProps = BaseProps & {
   onSearchChange?: (query: string) => void;
   /** Focuses the field on mount without opening the options dropdown (unlike a normal focus). */
   autoFocus?: boolean;
+  /** Called when an option becomes highlighted (hover or keyboard) — use to lazily load its `extra` content. */
+  onOptionHighlight?: (value: string | null) => void;
 };
 
 type FileUploadFieldProps = BaseProps & {
@@ -188,6 +197,7 @@ export function ComboboxField({
   onAddNew,
   onSearchChange,
   autoFocus,
+  onOptionHighlight,
 }: ComboboxFieldProps) {
   const listboxId = useId();
   const listRef = useRef<HTMLUListElement>(null);
@@ -230,6 +240,15 @@ export function ComboboxField({
   useEffect(() => {
     setActiveIndex(-1);
   }, [inputValue]);
+
+  useEffect(() => {
+    // While the dropdown is open with no explicit hover/keyboard highlight yet, report the
+    // first visible option so consumers (e.g. a price-preview panel) have something to show
+    // as soon as the field is active, not only once the user hovers or arrows onto a row.
+    const highlighted = activeIndex >= 0 ? filtered[activeIndex] : open ? filtered[0] : undefined;
+    onOptionHighlight?.(highlighted?.value ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `filtered` is derived fresh every render, only react to index/open changes
+  }, [activeIndex, open]);
 
   // Scroll highlighted item into view
   useEffect(() => {
@@ -377,7 +396,17 @@ export function ComboboxField({
                       : "hover:bg-slate-50"
                   }`}
                 >
-                  <span>{opt.label}</span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span>{opt.label}</span>
+                      {opt.badge && (
+                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 bg-amber-100 text-amber-700 shrink-0">
+                          {opt.badge}
+                        </span>
+                      )}
+                    </div>
+                    {i === activeIndex && opt.extra}
+                  </div>
                   {opt.value === value && (
                     <span className="text-xs text-slate-400 shrink-0 ml-2">selected</span>
                   )}

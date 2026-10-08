@@ -10,9 +10,10 @@ class FiscalYearResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'   => $this->id,
-            'ulid' => $this->ulid,
-            'name' => $this->name,
+            'id'         => $this->id,
+            'ulid'       => $this->ulid,
+            'name'       => $this->name,
+            'sort_order' => $this->sort_order,
         ];
     }
 }

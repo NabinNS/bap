@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { Plus, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon } from "lucide-react";
+import { Plus, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon, RefreshCw, AlertTriangle } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { TRANSACTION_PARTICULARS, getParticularLabel, getParticularDirection, ITEM_CAPABLE_PARTICULARS } from "./constants";
 import { toast } from "@/lib/toast";
@@ -27,6 +27,8 @@ import { TrashedVendorsModal } from "./_components/TrashedVendorsModal";
 import { VendorFormPanel, VendorFormState, VendorFormErrors } from "./_components/VendorFormPanel";
 import { useInvalidateVendorTransactions } from "./_components/useAccountingInvalidation";
 import { Vendor, FiscalYear } from "./_components/types";
+import { useViewingFiscalYear } from "@/features/fiscal-year/ViewingFiscalYearProvider";
+import { hasDownstreamDrift } from "@/lib/fiscalYearDrift";
 
 type Meta = {
   total: number;
@@ -116,9 +118,7 @@ function AdminAccountsContent() {
   const [showFullDetails, setShowFullDetails] = useState(false);
   const [fiscalYearModalOpen, setFiscalYearModalOpen] = useState(false);
   const [trashModalOpen, setTrashModalOpen] = useState(false);
-  // null = "follow the tenant's active fiscal year" (activeFiscalYearId); set once the user
-  // explicitly picks one from the modal, to browse a different year's ledger.
-  const [viewFiscalYearId, setViewFiscalYearId] = useState<number | null>(null);
+  const { viewingFiscalYearId, setViewingFiscalYearId } = useViewingFiscalYear();
   const [fiscalYearDraft, setFiscalYearDraft] = useState<string>("");
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
@@ -153,42 +153,41 @@ function AdminAccountsContent() {
     queryFn: () => apiFetch<{ data: Vendor[]; meta: Meta }>("/acc-vendors?per_page=100"),
   });
 
-  const { data: settingsData } = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => apiFetch<{ data: { fiscal_year_id: number | null; fiscal_year: { ulid: string; name: string } | null } }>("/settings"),
-  });
-
   const { data: fiscalYearsData } = useQuery({
     queryKey: ["fiscal-years"],
     queryFn: () => apiFetch<{ data: FiscalYear[] }>("/fiscal-years"),
     staleTime: Infinity,
   });
 
-  const activeFiscalYear = settingsData?.data?.fiscal_year ?? null;
-  const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
   const fiscalYears = fiscalYearsData?.data ?? [];
 
-  const viewedFiscalYearId = viewFiscalYearId ?? activeFiscalYearId;
-  const viewedFiscalYear = viewFiscalYearId
-    ? fiscalYears.find((fy) => fy.id === viewFiscalYearId) ?? null
-    : activeFiscalYear;
+  // Accounts shows/records data for whichever fiscal year is selected in the header — not
+  // necessarily the tenant's real active fiscal year (see ViewingFiscalYearProvider).
+  const viewedFiscalYearId = viewingFiscalYearId;
+  const viewedFiscalYear = fiscalYears.find((fy) => fy.id === viewingFiscalYearId) ?? null;
 
   const vendors = vendorsData?.data ?? [];
 
   // Always derived from live query data so it updates automatically after mutations
   const selectedVendor = vendors.find((v) => v.ulid === selectedVendorUlid) ?? null;
 
-  const activeBalance = activeFiscalYearId && selectedVendor
-    ? selectedVendor.balances?.find((b) => b.fiscal_year_id === activeFiscalYearId) ?? null
-    : null;
-
-  const activeOpeningBalance = activeBalance?.opening_balance ?? null;
-
-  // Stats shown against the vendor's ledger follow whichever fiscal year is being viewed,
-  // not necessarily the tenant's active one — same shape as activeBalance above.
   const viewedBalance = viewedFiscalYearId && selectedVendor
     ? selectedVendor.balances?.find((b) => b.fiscal_year_id === viewedFiscalYearId) ?? null
     : null;
+  const viewedOpeningBalance = viewedBalance?.opening_balance ?? null;
+
+  // Whether this vendor's balance chain has drifted downstream from the viewed year — i.e. a
+  // later year's opening_balance no longer matches the prior year's remaining_balance. Drives
+  // whether "Sync Balance" is shown, instead of just comparing viewed vs. active fiscal year.
+  const vendorHasDrift = !!(selectedVendor && viewedFiscalYearId && hasDownstreamDrift(
+    (selectedVendor.balances ?? []).map((b) => ({
+      fiscal_year_id: b.fiscal_year_id,
+      opening: Number(b.opening_balance),
+      remaining: Number(b.remaining_balance),
+    })),
+    fiscalYears,
+    viewedFiscalYearId,
+  ));
   const viewedRemainingBalance = viewedBalance?.remaining_balance ?? null;
 
   const { data: transactionsData, isLoading: transactionsLoading } = useQuery({
@@ -205,7 +204,6 @@ function AdminAccountsContent() {
 
   useEffect(() => {
     draftRef.current = { particular: "", voucher_no: "", debit: "", credit: "", date: "" };
-    setViewFiscalYearId(null); // back to the tenant's active fiscal year for the newly selected vendor
     setDateFrom("");
     setDateTo("");
   }, [selectedVendorUlid]);
@@ -330,6 +328,7 @@ function AdminAccountsContent() {
         voucher_no: draftRef.current.voucher_no || null,
         debit: debit ? parseFloat(debit) : null,
         credit: credit ? parseFloat(credit) : null,
+        fiscal_year_id: viewingFiscalYearId,
       },
     });
   }
@@ -362,6 +361,19 @@ function AdminAccountsContent() {
     onError: () => {
       toast.warning("Vendor saved", "But opening balance could not be saved — check if active fiscal year is set in Settings.");
     },
+  });
+
+  const syncBalanceMutation = useMutation({
+    mutationFn: ({ ulid, fiscal_year_id }: { ulid: string; fiscal_year_id: number }) =>
+      apiFetch(`/acc-vendors/${ulid}/balance/sync`, {
+        method: "POST",
+        body: JSON.stringify({ fiscal_year_id }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+      toast.success("Balance synced", "This vendor's balance has been recalculated forward through later fiscal years.");
+    },
+    onError: (err: any) => toast.error("Failed to sync", err?.message ?? "Something went wrong."),
   });
 
   const saveMutation = useMutation({
@@ -434,8 +446,8 @@ function AdminAccountsContent() {
       phone: vendor.phone ?? "",
       telephone: vendor.telephone ?? "",
       vat_no: vendor.vat_no ?? "",
-      fiscal_year_id: activeFiscalYearId ? String(activeFiscalYearId) : "",
-      opening_balance: vendor.balances?.find((b) => b.fiscal_year_id === activeFiscalYearId)?.opening_balance ?? "",
+      fiscal_year_id: viewingFiscalYearId ? String(viewingFiscalYearId) : "",
+      opening_balance: vendor.balances?.find((b) => b.fiscal_year_id === viewingFiscalYearId)?.opening_balance ?? "",
     });
     setErrors({});
     setDrawerOpen(true);
@@ -444,7 +456,7 @@ function AdminAccountsContent() {
 
   function openCreate() {
     setEditingVendor(null);
-    setForm({ ...INITIAL_FORM, fiscal_year_id: activeFiscalYearId ? String(activeFiscalYearId) : "" });
+    setForm({ ...INITIAL_FORM, fiscal_year_id: viewingFiscalYearId ? String(viewingFiscalYearId) : "" });
     setErrors({});
     setDrawerOpen(true);
   }
@@ -971,7 +983,7 @@ function AdminAccountsContent() {
           <VendorSidebar
             vendors={vendors}
             vendorsLoading={vendorsLoading}
-            activeFiscalYearId={activeFiscalYearId}
+            activeFiscalYearId={viewingFiscalYearId}
             selectedVendorUlid={selectedVendor?.ulid}
             search={sideSearch}
             onSearchChange={setSideSearch}
@@ -1010,6 +1022,18 @@ function AdminAccountsContent() {
               <div className="flex items-start justify-between">
                 <VendorInfoBlock vendor={selectedVendor} />
                 <div className="flex items-center shrink-0">
+                  {vendorHasDrift && selectedVendor && viewingFiscalYearId && (
+                    <button
+                      type="button"
+                      onClick={() => syncBalanceMutation.mutate({ ulid: selectedVendor.ulid, fiscal_year_id: viewingFiscalYearId })}
+                      disabled={syncBalanceMutation.isPending}
+                      title="Recalculate this vendor's balance for the viewed fiscal year and carry it forward through later years"
+                      className="flex items-center gap-2 border border-slate-300 px-4 py-2 text-sm font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${syncBalanceMutation.isPending ? "animate-spin" : ""}`} />
+                      {syncBalanceMutation.isPending ? "Syncing..." : "Sync Balance"}
+                    </button>
+                  )}
                   <Link
                     href={selectedVendor ? `/admin/accounts/goods-purchased?vendor=${selectedVendor.ulid}` : "/admin/accounts/goods-purchased"}
                     className="flex items-center gap-2 bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/80 transition-colors cursor-pointer"
@@ -1063,7 +1087,14 @@ function AdminAccountsContent() {
                     onClick={() => { setFiscalYearDraft(String(viewedFiscalYearId ?? "")); setFiscalYearModalOpen(true); }}
                     className="text-left cursor-pointer"
                   >
-                    <p className="text-sm-custom text-text-body">Fiscal Year</p>
+                    <p className="text-sm-custom text-text-body flex items-center gap-1">
+                      Fiscal Year
+                      {vendorHasDrift && (
+                        <span title="A later fiscal year's opening balance no longer matches this year's remaining balance. Use Sync Balance to fix it.">
+                          <AlertTriangle className="h-3 w-3 text-amber-500" />
+                        </span>
+                      )}
+                    </p>
                     <p className="text-sm-custom font-bold text-text-default mt-0.5 hover:underline">{viewedFiscalYear?.name ?? "—"}</p>
                   </button>
                 </div>
@@ -1111,8 +1142,8 @@ function AdminAccountsContent() {
                     if (row.ulid === "__new__") return;
                     if (row.ulid === "__opening_balance__") {
                       setSelectedTransactionUlid(null);
-                      setOpeningBalanceDraft(activeOpeningBalance ?? "");
-                      setOpeningBalanceFiscalYearId(activeFiscalYearId ? String(activeFiscalYearId) : "");
+                      setOpeningBalanceDraft(viewedOpeningBalance ?? "");
+                      setOpeningBalanceFiscalYearId(viewingFiscalYearId ? String(viewingFiscalYearId) : "");
                       setEditingOpeningBalance(true);
                       return;
                     }
@@ -1491,7 +1522,8 @@ function AdminAccountsContent() {
         draft={fiscalYearDraft}
         onDraftChange={setFiscalYearDraft}
         onApply={() => {
-          setViewFiscalYearId(fiscalYearDraft ? Number(fiscalYearDraft) : null);
+          if (!fiscalYearDraft) return;
+          setViewingFiscalYearId(Number(fiscalYearDraft));
           setFiscalYearModalOpen(false);
         }}
       />

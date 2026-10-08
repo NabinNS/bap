@@ -6,6 +6,8 @@ use App\Domain\AccVendors\DTOs\AccVendorData;
 use App\Domain\AccVendors\DTOs\AccVendorFilterData;
 use App\Domain\AccVendors\Repositories\AccVendorRepositoryInterface;
 use App\Models\AccVendor;
+use App\Models\AccVendorTransactionItem;
+use App\Models\Product;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
@@ -75,5 +77,39 @@ class EloquentAccVendorRepository implements AccVendorRepositoryInterface
         $vendor->restore();
 
         return $vendor->fresh();
+    }
+
+    public function findLowStockProductsPreviouslyPurchased(int $tenantId, AccVendor $vendor): Collection
+    {
+        $productIds = $vendor->transactionItems()
+            ->where('tenant_id', $tenantId)
+            ->distinct()
+            ->pluck('product_id');
+
+        return Product::where('tenant_id', $tenantId)
+            ->whereIn('id', $productIds)
+            ->whereNotNull('low_stock_quantity')
+            ->whereColumn('stock', '<=', 'low_stock_quantity')
+            ->get();
+    }
+
+    public function findLatestRatesForProducts(int $tenantId, AccVendor $vendor, array $productUlids): Collection
+    {
+        if (empty($productUlids)) {
+            return collect();
+        }
+
+        return AccVendorTransactionItem::query()
+            ->join('acc_vendor_transactions', 'acc_vendor_transactions.id', '=', 'acc_vendor_transaction_items.transaction_id')
+            ->join('products', 'products.id', '=', 'acc_vendor_transaction_items.product_id')
+            ->where('acc_vendor_transaction_items.tenant_id', $tenantId)
+            ->where('acc_vendor_transaction_items.vendor_id', $vendor->id)
+            ->whereIn('products.ulid', $productUlids)
+            ->selectRaw('DISTINCT ON (acc_vendor_transaction_items.product_id) products.ulid as product_ulid, acc_vendor_transaction_items.rate')
+            ->orderBy('acc_vendor_transaction_items.product_id')
+            ->orderByDesc('acc_vendor_transactions.date')
+            ->orderByDesc('acc_vendor_transaction_items.id')
+            ->get()
+            ->map(fn($row) => ['product_ulid' => $row->product_ulid, 'rate' => (int) $row->rate]);
     }
 }

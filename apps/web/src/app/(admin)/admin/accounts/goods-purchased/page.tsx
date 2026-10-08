@@ -21,6 +21,7 @@ import { Vendor, FiscalYear } from "../_components/types";
 import { VendorFormPanel, VendorFormState, VendorFormErrors } from "../_components/VendorFormPanel";
 import { TrashedVendorsModal } from "../_components/TrashedVendorsModal";
 import { StockSidebar } from "../../products/_components/StockSidebar";
+import { useViewingFiscalYear } from "@/features/fiscal-year/ViewingFiscalYearProvider";
 
 type SidebarProduct = {
   ulid: string;
@@ -207,12 +208,10 @@ function GoodsPurchasedContent() {
   });
   const sidebarProducts = sidebarProductsData?.data ?? [];
 
-  const { data: settingsData } = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => apiFetch<{ data: { fiscal_year_id: number | null; fiscal_year: { ulid: string; name: string } | null } }>("/settings"),
-  });
-
-  const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
+  // Named activeFiscalYearId below for a smaller diff, but this is actually the header's
+  // viewing fiscal year (see ViewingFiscalYearProvider) — may differ from the tenant's real
+  // active year in Settings.
+  const { viewingFiscalYearId: activeFiscalYearId } = useViewingFiscalYear();
 
   const vendors = vendorsData?.data ?? [];
   const selectedVendor = vendors.find((v) => v.ulid === selectedVendorUlid) ?? null;
@@ -222,6 +221,10 @@ function GoodsPurchasedContent() {
     queryFn: () => apiFetch<{ data: SavedTransaction[] }>(`/acc-vendors/${selectedVendor!.ulid}/transactions`),
     enabled: !!selectedVendor && !!editTransactionParam,
   });
+
+  useEffect(() => {
+    if (!selectedVendorUlid && vendors.length > 0 && cameWithVendorRef.current) setSelectedVendorUlid(vendors[0].ulid);
+  }, [vendors]);
 
   // Pre-fill the first row with the product we arrived from, once it's loaded.
   const prefilledProductRef = useRef(false);
@@ -233,10 +236,6 @@ function GoodsPurchasedContent() {
     selectSidebarProduct(product);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- selectSidebarProduct is stable enough for this one-time prefill
   }, [productParam, sidebarProducts]);
-
-  useEffect(() => {
-    if (!selectedVendorUlid && vendors.length > 0 && cameWithVendorRef.current) setSelectedVendorUlid(vendors[0].ulid);
-  }, [vendors]);
 
   // Reacting to the vendor selection changing. Two distinct cases:
   //  - First pick (prev === null): the user may have already filled in items before choosing a
@@ -330,7 +329,7 @@ function GoodsPurchasedContent() {
   // Picking a product from the (Product/Stock-origin) sidebar fills it into the first row
   // that doesn't have a product yet, or adds a new row for it.
   function selectSidebarProduct(product: SidebarProduct) {
-    const rate = product.wacc ?? product.cost_price ?? null;
+    const rate = product.cost_price ?? product.wacc ?? null;
     setRows((prev) => {
       const openIdx = prev.findIndex((r) => !r.saved && !r.productUlid);
       if (openIdx === -1) {
@@ -347,7 +346,7 @@ function GoodsPurchasedContent() {
   }
 
   function suggestedRate(product: ProductOption | null): number | null {
-    return product?.wacc ?? product?.cost_price ?? null;
+    return product?.cost_price ?? product?.wacc ?? null;
   }
 
   function selectProduct(key: number, ulid: string, product: ProductOption | null) {

@@ -17,6 +17,7 @@ import { VendorInfoBlock } from "../_components/VendorInfoBlock";
 import { Vendor } from "../_components/types";
 import { VendorFormPanel, VendorFormState, VendorFormErrors } from "../_components/VendorFormPanel";
 import { TrashedVendorsModal } from "../_components/TrashedVendorsModal";
+import { useViewingFiscalYear } from "@/features/fiscal-year/ViewingFiscalYearProvider";
 
 type Meta = {
   total: number;
@@ -42,6 +43,7 @@ type FiscalYear = {
   id: number;
   ulid: string;
   name: string;
+  sort_order: number;
 };
 
 function AmountPaidContent() {
@@ -75,12 +77,10 @@ function AmountPaidContent() {
     queryFn: () => apiFetch<{ data: Vendor[]; meta: Meta }>("/acc-vendors?per_page=100"),
   });
 
-  const { data: settingsData } = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => apiFetch<{ data: { fiscal_year_id: number | null; fiscal_year: { ulid: string; name: string } | null } }>("/settings"),
-  });
-
-  const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
+  // Named activeFiscalYearId below for a smaller diff, but this is actually the header's
+  // viewing fiscal year (see ViewingFiscalYearProvider) — may differ from the tenant's real
+  // active year in Settings.
+  const { viewingFiscalYearId: activeFiscalYearId } = useViewingFiscalYear();
 
   const { data: fiscalYearsData } = useQuery({
     queryKey: ["fiscal-years"],

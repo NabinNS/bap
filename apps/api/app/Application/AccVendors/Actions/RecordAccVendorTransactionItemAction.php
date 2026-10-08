@@ -3,6 +3,7 @@
 namespace App\Application\AccVendors\Actions;
 
 use App\Application\ProductTransactionItems\Actions\CreateProductTransactionItemAction;
+use App\Domain\AccPurchaseOrders\Repositories\AccPurchaseOrderRepositoryInterface;
 use App\Domain\AccVendors\DTOs\AccVendorTransactionItemData;
 use App\Domain\AccVendors\Repositories\AccVendorTransactionRepositoryInterface;
 use App\Domain\ProductTransactionItems\DTOs\ProductTransactionItemData;
@@ -19,6 +20,7 @@ class RecordAccVendorTransactionItemAction
         private ProductRepositoryInterface $products,
         private RecalculateAccVendorTransactionTotalsAction $recalculateTotals,
         private CreateProductTransactionItemAction $createProductTransactionItem,
+        private AccPurchaseOrderRepositoryInterface $purchaseOrders,
     ) {}
 
     /**
@@ -26,6 +28,9 @@ class RecordAccVendorTransactionItemAction
      * the product's stock/cost_price (via the product ledger, which owns the weighted-average
      * cost blend), then recompute the bill's overall discount/VAT breakdown from the resulting
      * line totals.
+     *
+     * Also clears this vendor+product off the Purchase Order list — the bill being recorded
+     * means it's been fulfilled, so any pending order for it is no longer relevant.
      */
     public function execute(int $tenantId, AccVendor $vendor, AccVendorTransaction $transaction, AccVendorTransactionItemData $item): AccVendorTransactionItem
     {
@@ -47,6 +52,8 @@ class RecordAccVendorTransactionItemAction
             ));
 
             $this->recalculateTotals->execute($vendor, $transaction);
+
+            $this->purchaseOrders->deleteItemsForVendorAndProduct($tenantId, $vendor, $product);
 
             return $transactionItem;
         });

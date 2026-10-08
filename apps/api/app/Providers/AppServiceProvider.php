@@ -10,6 +10,8 @@ use App\Domain\AccCustomers\Repositories\AccCustomerBalanceRepositoryInterface;
 use App\Domain\AccCustomers\Repositories\AccCustomerTransactionRepositoryInterface;
 use App\Domain\AccQuotations\Repositories\AccQuotationRepositoryInterface;
 use App\Infrastructure\Repositories\AccQuotations\EloquentAccQuotationRepository;
+use App\Domain\AccPurchaseOrders\Repositories\AccPurchaseOrderRepositoryInterface;
+use App\Infrastructure\Repositories\AccPurchaseOrders\EloquentAccPurchaseOrderRepository;
 use App\Domain\Settings\Repositories\TenantSettingRepositoryInterface;
 use App\Infrastructure\Repositories\Settings\EloquentTenantSettingRepository;
 use App\Domain\Brands\Repositories\BrandRepositoryInterface;
@@ -71,6 +73,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AccCustomerBalanceRepositoryInterface::class, EloquentAccCustomerBalanceRepository::class);
         $this->app->bind(AccCustomerTransactionRepositoryInterface::class, EloquentAccCustomerTransactionRepository::class);
         $this->app->bind(AccQuotationRepositoryInterface::class, EloquentAccQuotationRepository::class);
+        $this->app->bind(AccPurchaseOrderRepositoryInterface::class, EloquentAccPurchaseOrderRepository::class);
         $this->app->bind(BrandRepositoryInterface::class, EloquentBrandRepository::class);
         $this->app->bind(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
         $this->app->bind(ProductRepositoryInterface::class, EloquentProductRepository::class);

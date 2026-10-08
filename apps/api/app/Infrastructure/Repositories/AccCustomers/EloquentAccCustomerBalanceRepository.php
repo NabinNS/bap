@@ -63,4 +63,29 @@ class EloquentAccCustomerBalanceRepository implements AccCustomerBalanceReposito
 
         return $balance;
     }
+
+    public function find(AccCustomer $customer, int $fiscalYearId): ?AccCustomerBalance
+    {
+        return AccCustomerBalance::where('tenant_id', $customer->tenant_id)
+            ->where('customer_id', $customer->id)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->first();
+    }
+
+    public function nextFiscalYearBalance(AccCustomer $customer, int $fiscalYearId): ?AccCustomerBalance
+    {
+        $sortOrder = \App\Models\FiscalYear::where('id', $fiscalYearId)->value('sort_order');
+
+        if ($sortOrder === null) {
+            return null;
+        }
+
+        return AccCustomerBalance::where('tenant_id', $customer->tenant_id)
+            ->where('customer_id', $customer->id)
+            ->whereHas('fiscalYear', fn ($q) => $q->where('sort_order', '>', $sortOrder))
+            ->with('fiscalYear')
+            ->get()
+            ->sortBy(fn (AccCustomerBalance $b) => $b->fiscalYear->sort_order)
+            ->first();
+    }
 }

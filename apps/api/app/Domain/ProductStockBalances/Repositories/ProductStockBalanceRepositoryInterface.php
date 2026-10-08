@@ -26,4 +26,14 @@ interface ProductStockBalanceRepositoryInterface
     public function lockForRecalculation(Product $product, int $fiscalYearId): ProductStockBalance;
 
     public function updateRemainingQuantity(ProductStockBalance $balance, int $remainingQuantity): ProductStockBalance;
+
+    /**
+     * The product's stock balance row for the next fiscal year after the given one (by
+     * sort_order), if a row already exists there — used to cascade a stock change forward into
+     * a later year that already tracks this product.
+     */
+    public function nextFiscalYearBalance(Product $product, int $fiscalYearId): ?ProductStockBalance;
+
+    /** The product's stock balance row for a fiscal year, if one exists (no implicit create). */
+    public function find(Product $product, int $fiscalYearId): ?ProductStockBalance;
 }

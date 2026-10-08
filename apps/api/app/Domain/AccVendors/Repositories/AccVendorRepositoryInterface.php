@@ -24,4 +24,15 @@ interface AccVendorRepositoryInterface
     public function findByIds(int $tenantId, array $ids): Collection;
 
     public function restore(int $tenantId, string $vendorUlid): AccVendor;
+
+    /** Products this vendor has previously supplied that are currently at/below their low-stock threshold. */
+    public function findLowStockProductsPreviouslyPurchased(int $tenantId, AccVendor $vendor): Collection;
+
+    /**
+     * This vendor's most recent rate for each of the given products.
+     *
+     * @param string[] $productUlids
+     * @return Collection<int, array{product_ulid: string, rate: int}>
+     */
+    public function findLatestRatesForProducts(int $tenantId, AccVendor $vendor, array $productUlids): Collection;
 }

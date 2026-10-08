@@ -15,8 +15,10 @@ import { ProductDetailCard } from "./ProductDetailCard";
 import { StockLedger, StockLedgerHandle } from "./StockLedger";
 import { ProductTransactionItemPanel, TransactionItemPanelItem } from "./ProductTransactionItemPanel";
 import { ProductTrashModal } from "./ProductTrashModal";
+import { useViewingFiscalYear } from "@/features/fiscal-year/ViewingFiscalYearProvider";
+import { hasDownstreamDrift } from "@/lib/fiscalYearDrift";
 
-type FiscalYear = { id: number; ulid: string; name: string };
+type FiscalYear = { id: number; ulid: string; name: string; sort_order: number };
 
 type Meta = {
   total: number;
@@ -65,9 +67,7 @@ export function ProductsWorkspace({
   const [editingOpeningQuantity, setEditingOpeningQuantity] = useState(false);
   const [openingQuantityDraft, setOpeningQuantityDraft] = useState("");
   const [openingFiscalYearId, setOpeningFiscalYearId] = useState("");
-  // null = "follow the tenant's active fiscal year" (activeFiscalYearId); set once the user
-  // picks a different one via the Fiscal Year tile.
-  const [viewFiscalYearId, setViewFiscalYearId] = useState<number | null>(null);
+  const { viewingFiscalYearId, setViewingFiscalYearId } = useViewingFiscalYear();
   const [fiscalYearModalOpen, setFiscalYearModalOpen] = useState(false);
   const [fiscalYearDraft, setFiscalYearDraft] = useState("");
   const ledgerRef = useRef<StockLedgerHandle>(null);
@@ -77,27 +77,34 @@ export function ProductsWorkspace({
     queryFn: () => apiFetch<{ data: Product[]; meta: Meta }>("/products?per_page=200&sort_by=name&sort_dir=asc"),
   });
 
-  const { data: settingsData } = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => apiFetch<{ data: { fiscal_year_id: number | null; fiscal_year: { ulid: string; name: string } | null } }>("/settings"),
-  });
-
   const { data: fiscalYearsData } = useQuery({
     queryKey: ["fiscal-years"],
     queryFn: () => apiFetch<{ data: FiscalYear[] }>("/fiscal-years"),
     staleTime: Infinity,
   });
 
-  const activeFiscalYear = settingsData?.data?.fiscal_year ?? null;
-  const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
   const fiscalYears = fiscalYearsData?.data ?? [];
 
-  const viewedFiscalYearId = viewFiscalYearId ?? activeFiscalYearId;
-  const viewedFiscalYear = fiscalYears.find((fy) => fy.id === viewedFiscalYearId)
-    ?? (viewedFiscalYearId === activeFiscalYearId ? activeFiscalYear : null);
+  // Product/Stock shows/records data for whichever fiscal year is selected in the header —
+  // not necessarily the tenant's real active fiscal year (see ViewingFiscalYearProvider).
+  const viewedFiscalYearId = viewingFiscalYearId;
+  const viewedFiscalYear = fiscalYears.find((fy) => fy.id === viewingFiscalYearId) ?? null;
 
   const sidebarProducts = sidebarProductsData?.data ?? [];
   const selectedProduct = sidebarProducts.find((p) => p.ulid === selectedProductUlid) ?? null;
+
+  // Whether this product's stock chain has drifted downstream from the viewed year — i.e. a
+  // later year's opening_quantity no longer matches the prior year's remaining_quantity.
+  // Drives whether "Sync Balance" is shown, instead of just comparing viewed vs. active year.
+  const productHasDrift = !!(selectedProduct && viewedFiscalYearId && hasDownstreamDrift(
+    (selectedProduct.stock_balances ?? []).map((b) => ({
+      fiscal_year_id: b.fiscal_year_id,
+      opening: b.opening_quantity,
+      remaining: b.remaining_quantity,
+    })),
+    fiscalYears,
+    viewedFiscalYearId,
+  ));
 
   const viewedBalance = viewedFiscalYearId && selectedProduct
     ? selectedProduct.stock_balances?.find((b) => b.fiscal_year_id === viewedFiscalYearId) ?? null
@@ -118,6 +125,20 @@ export function ProductsWorkspace({
       toast.success("Opening quantity saved", "The stock balance has been updated.");
     },
     onError: () => toast.error("Failed to save", "Could not save the opening quantity."),
+  });
+
+  const syncStockBalanceMutation = useMutation({
+    mutationFn: ({ ulid, fiscal_year_id }: { ulid: string; fiscal_year_id: number }) =>
+      apiFetch(`/products/${ulid}/stock-balance/sync`, {
+        method: "POST",
+        body: JSON.stringify({ fiscal_year_id }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products-sidebar"] });
+      queryClient.invalidateQueries({ queryKey: ["product-transaction-items"] });
+      toast.success("Stock balance synced", "This product's stock has been recalculated forward through later fiscal years.");
+    },
+    onError: (err: any) => toast.error("Failed to sync", err?.message ?? "Something went wrong."),
   });
 
   useEffect(() => {
@@ -167,7 +188,7 @@ export function ProductsWorkspace({
           <StockSidebar
             products={sidebarProducts}
             loading={sidebarLoading}
-            activeFiscalYearId={activeFiscalYearId}
+            activeFiscalYearId={viewingFiscalYearId}
             selectedProductUlid={selectedProduct?.ulid}
             search={sideSearch}
             onSearchChange={setSideSearch}
@@ -184,11 +205,15 @@ export function ProductsWorkspace({
               product={selectedProduct}
               activeFiscalYearId={viewedFiscalYearId}
               fiscalYearName={viewedFiscalYear?.name}
+              hasDrift={productHasDrift}
               onFiscalYearClick={() => { setFiscalYearDraft(String(viewedFiscalYearId ?? "")); setFiscalYearModalOpen(true); }}
               onPurchaseClick={() => router.push(`/admin/accounts/goods-purchased?product=${selectedProduct?.ulid ?? ""}`)}
               onSalesClick={() => router.push(`/admin/customers/goods-sold?product=${selectedProduct?.ulid ?? ""}`)}
               onEditClick={() => { if (selectedProduct) setEditingProduct(selectedProduct); }}
               onDelete={() => { if (selectedProduct) deleteProduct.mutate(selectedProduct.ulid); }}
+              showSyncButton={productHasDrift}
+              onSyncClick={() => { if (selectedProduct && viewingFiscalYearId) syncStockBalanceMutation.mutate({ ulid: selectedProduct.ulid, fiscal_year_id: viewingFiscalYearId }); }}
+              syncing={syncStockBalanceMutation.isPending}
             />
 
             <div className="flex-1 min-h-0 min-w-0 flex gap-4">
@@ -289,7 +314,8 @@ export function ProductsWorkspace({
         draft={fiscalYearDraft}
         onDraftChange={setFiscalYearDraft}
         onApply={() => {
-          setViewFiscalYearId(fiscalYearDraft ? Number(fiscalYearDraft) : null);
+          if (!fiscalYearDraft) return;
+          setViewingFiscalYearId(Number(fiscalYearDraft));
           setFiscalYearModalOpen(false);
         }}
       />

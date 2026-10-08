@@ -63,4 +63,29 @@ class EloquentProductStockBalanceRepository implements ProductStockBalanceReposi
 
         return $balance;
     }
+
+    public function find(Product $product, int $fiscalYearId): ?ProductStockBalance
+    {
+        return ProductStockBalance::where('tenant_id', $product->tenant_id)
+            ->where('product_id', $product->id)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->first();
+    }
+
+    public function nextFiscalYearBalance(Product $product, int $fiscalYearId): ?ProductStockBalance
+    {
+        $sortOrder = \App\Models\FiscalYear::where('id', $fiscalYearId)->value('sort_order');
+
+        if ($sortOrder === null) {
+            return null;
+        }
+
+        return ProductStockBalance::where('tenant_id', $product->tenant_id)
+            ->where('product_id', $product->id)
+            ->whereHas('fiscalYear', fn ($q) => $q->where('sort_order', '>', $sortOrder))
+            ->with('fiscalYear')
+            ->get()
+            ->sortBy(fn (ProductStockBalance $b) => $b->fiscalYear->sort_order)
+            ->first();
+    }
 }

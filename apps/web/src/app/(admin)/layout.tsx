@@ -4,10 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { AuthProvider } from "@/features/auth/AuthProvider";
+import { ViewingFiscalYearProvider, useViewingFiscalYear } from "@/features/fiscal-year/ViewingFiscalYearProvider";
 import { FiscalYearModal } from "@/app/(admin)/admin/accounts/_components/FiscalYearModal";
-import { toast } from "@/lib/toast";
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -51,6 +51,7 @@ const navItems: NavItem[] = [
       { label: "Purchase", href: "/admin/billing/purchase" },
       { label: "Sales", href: "/admin/billing/sales" },
       { label: "Quotation/Estimate", href: "/admin/billing/quotation" },
+      { label: "Purchase Order", href: "/admin/billing/purchase-order" },
     ],
   },
   { label: "Sliders", href: "/admin/sliders", icon: Images },
@@ -63,9 +64,22 @@ const navItems: NavItem[] = [
 ];
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
+  const { data: settingsData } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => apiFetch<{ data: { fiscal_year_id: number | null; fiscal_year: { ulid: string; name: string } | null } }>("/settings"),
+  });
+  const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
+
+  return (
+    <ViewingFiscalYearProvider activeFiscalYearId={activeFiscalYearId}>
+      <AdminLayoutBody>{children}</AdminLayoutBody>
+    </ViewingFiscalYearProvider>
+  );
+}
+
+function AdminLayoutBody({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(
@@ -74,36 +88,15 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [fiscalYearModalOpen, setFiscalYearModalOpen] = useState(false);
   const [fiscalYearDraft, setFiscalYearDraft] = useState("");
 
-  const { data: settingsData } = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => apiFetch<{ data: { fiscal_year_id: number | null; fiscal_year: { ulid: string; name: string } | null } }>("/settings"),
-  });
-  const activeFiscalYear = settingsData?.data?.fiscal_year ?? null;
-  const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
+  const { viewingFiscalYearId, setViewingFiscalYearId } = useViewingFiscalYear();
 
   const { data: fiscalYearsData } = useQuery({
     queryKey: ["fiscal-years"],
-    queryFn: () => apiFetch<{ data: { id: number; ulid: string; name: string }[] }>("/fiscal-years"),
+    queryFn: () => apiFetch<{ data: { id: number; ulid: string; name: string; sort_order: number }[] }>("/fiscal-years"),
     staleTime: Infinity,
   });
   const fiscalYears = fiscalYearsData?.data ?? [];
-
-  const updateFiscalYearMutation = useMutation({
-    mutationFn: (fiscalYearId: number) =>
-      apiFetch<{ data: { fiscal_year_id: number | null; fiscal_year: { ulid: string; name: string } | null } }>(
-        "/settings",
-        { method: "PUT", body: JSON.stringify({ fiscal_year_id: fiscalYearId }) }
-      ),
-    onSuccess: (res) => {
-      // Write the response straight into the "settings" cache so the navbar badge (and
-      // everywhere else reading this key) updates immediately, without waiting on a refetch.
-      queryClient.setQueryData(["settings"], res);
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-      queryClient.invalidateQueries({ queryKey: ["settings-bootstrap"], refetchType: "all" });
-      toast.success("Fiscal year updated", "The active fiscal year has been changed.");
-    },
-    onError: () => toast.error("Failed to update", "Could not change the fiscal year."),
-  });
+  const viewingFiscalYear = fiscalYears.find((fy) => fy.id === viewingFiscalYearId) ?? null;
 
   async function handleLogout() {
     await logout();
@@ -201,7 +194,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                         href={child.href}
                         className={cn(
                           "flex items-center gap-3 pl-11 pr-4 py-2 text-sm font-semibold transition-all",
-                          pathname.startsWith(child.href)
+                          pathname === child.href || pathname.startsWith(child.href + "/")
                             ? "text-white bg-white/10"
                             : "text-white/70 hover:bg-white/10 hover:text-white"
                         )}
@@ -248,12 +241,12 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
           <span className="text-sm font-bold text-text-default">Best Auto Parts — Admin</span>
           <button
             type="button"
-            onClick={() => { setFiscalYearDraft(activeFiscalYearId ? String(activeFiscalYearId) : ""); setFiscalYearModalOpen(true); }}
-            title="Change the active fiscal year"
+            onClick={() => { setFiscalYearDraft(viewingFiscalYearId ? String(viewingFiscalYearId) : ""); setFiscalYearModalOpen(true); }}
+            title="Change which fiscal year Accounts and Product/Stock show data for and record new entries into"
             className="ml-auto flex items-center gap-1.5 border border-slate-300 px-3 py-1.5 text-xs font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer"
           >
             <CalendarDays className="h-3.5 w-3.5 text-text-muted" />
-            {activeFiscalYear?.name ?? "—"}
+            {viewingFiscalYear?.name ?? "—"}
           </button>
           <div className="h-8 w-8 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
             A
@@ -268,10 +261,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         fiscalYears={fiscalYears}
         draft={fiscalYearDraft}
         onDraftChange={setFiscalYearDraft}
-        description="Sets the tenant's active fiscal year — used as the default across Products and Accounts."
+        description="Changes which fiscal year Accounts and Product/Stock show data for, and which year new entries get recorded into. This does not change the tenant's active fiscal year — set that in Settings."
         onApply={() => {
           if (!fiscalYearDraft) return;
-          updateFiscalYearMutation.mutate(Number(fiscalYearDraft));
+          setViewingFiscalYearId(Number(fiscalYearDraft));
           setFiscalYearModalOpen(false);
         }}
       />

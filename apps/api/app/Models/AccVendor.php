@@ -37,4 +37,14 @@ class AccVendor extends Model
     {
         return $this->hasMany(AccVendorTransaction::class, 'vendor_id');
     }
+
+    public function purchaseOrders(): HasMany
+    {
+        return $this->hasMany(AccPurchaseOrder::class, 'vendor_id');
+    }
+
+    public function transactionItems(): HasMany
+    {
+        return $this->hasMany(AccVendorTransactionItem::class, 'vendor_id');
+    }
 }

@@ -26,6 +26,7 @@ type FiscalYear = {
   id: number;
   ulid: string;
   name: string;
+  sort_order: number;
 };
 
 type LineItem = {

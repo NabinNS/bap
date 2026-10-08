@@ -24,6 +24,13 @@ class RecalculateProductStockBalanceAction
      *
      * Locks the balance row for the duration so concurrent recalculations (e.g. two
      * transaction items being recorded at once) can't interleave their read-then-write.
+     *
+     * Only touches this one fiscal year — it does NOT cascade into later years. A transaction
+     * item recorded into a non-active (e.g. past) fiscal year can make later years'
+     * opening_quantity stale; that's resolved on demand via SyncProductStockBalanceAction
+     * ("Sync Balance" button), not automatically on every save, so a later year's
+     * manually-entered opening_quantity is never silently overwritten without the user
+     * explicitly asking for it.
      */
     public function execute(Product $product, int $fiscalYearId): void
     {

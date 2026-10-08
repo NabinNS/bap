@@ -14,7 +14,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
     public function searchLite(int $tenantId, ?string $search, int $limit): Collection
     {
         return Product::where('tenant_id', $tenantId)
-            ->select(['ulid', 'name', 'sku', 'cost_price', 'sales_price'])
+            ->select(['ulid', 'name', 'sku', 'cost_price', 'sales_price', 'stock', 'low_stock_quantity'])
             ->when($search, fn($q, $v) => $q->where(
                 fn($q) => $q->where('name', 'ilike', "%$v%")->orWhere('sku', 'ilike', "%$v%")
             ))

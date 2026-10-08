@@ -26,4 +26,14 @@ interface AccVendorBalanceRepositoryInterface
     public function lockForRecalculation(AccVendor $vendor, int $fiscalYearId): AccVendorBalance;
 
     public function updateRemainingBalance(AccVendorBalance $balance, float $remainingBalance): AccVendorBalance;
+
+    /**
+     * The vendor's balance row for the next fiscal year after the given one (by sort_order),
+     * if a row already exists there — used to cascade a balance change forward into a later
+     * year that already tracks this vendor.
+     */
+    public function nextFiscalYearBalance(AccVendor $vendor, int $fiscalYearId): ?AccVendorBalance;
+
+    /** The vendor's balance row for a fiscal year, if one exists (no implicit create). */
+    public function find(AccVendor $vendor, int $fiscalYearId): ?AccVendorBalance;
 }

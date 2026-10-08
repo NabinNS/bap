@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { BsDateInput, getTodayBs, isValidBsDate } from "@/components/ui/form/BsDateInput";
 import { StockSidebar } from "./StockSidebar";
+import { useViewingFiscalYear } from "@/features/fiscal-year/ViewingFiscalYearProvider";
 
 type Meta = { total: number; per_page: number; current_page: number; last_page: number; from: number; to: number };
 
@@ -79,11 +80,10 @@ export function ProductGoodsEntry({ type }: { type: "purchase" | "sale" }) {
     queryFn: () => apiFetch<{ data: Product[]; meta: Meta }>("/products?per_page=200&sort_by=name&sort_dir=asc"),
   });
 
-  const { data: settingsData } = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => apiFetch<{ data: { fiscal_year_id: number | null } }>("/settings"),
-  });
-  const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
+  // Named activeFiscalYearId below for a smaller diff, but this is actually the header's
+  // viewing fiscal year (see ViewingFiscalYearProvider) — may differ from the tenant's real
+  // active year in Settings.
+  const { viewingFiscalYearId: activeFiscalYearId } = useViewingFiscalYear();
 
   const { data: fiscalYearsData } = useQuery({
     queryKey: ["fiscal-years"],

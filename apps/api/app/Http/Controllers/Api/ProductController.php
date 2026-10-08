@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Application\Products\Actions\CreateProductAction;
 use App\Application\Products\Actions\DeleteProductAction;
+use App\Application\Products\Actions\GetProductVendorPriceHistoryAction;
 use App\Application\Products\Actions\ListProductsAction;
 use App\Application\Products\Actions\ListTrashedProductsAction;
 use App\Application\Products\Actions\RestoreProductAction;
@@ -40,6 +41,16 @@ class ProductController extends Controller
         return ApiResponse::success(
             ProductLiteResource::collection($action->execute($this->tenantId(), $request->string('search')->toString() ?: null, $limit)),
             'Products retrieved successfully'
+        );
+    }
+
+    public function vendorPrices(Product $product, GetProductVendorPriceHistoryAction $action): JsonResponse
+    {
+        $this->authorize('view', $product);
+
+        return ApiResponse::success(
+            $action->execute($this->tenantId(), $product),
+            'Vendor price history retrieved successfully'
         );
     }
 

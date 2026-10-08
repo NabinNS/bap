@@ -21,6 +21,7 @@ import { Customer } from "../_components/types";
 import { StockSidebar } from "../../products/_components/StockSidebar";
 import { CustomerFormPanel, CustomerFormState, CustomerFormErrors } from "../_components/CustomerFormPanel";
 import { TrashedCustomersModal } from "../_components/TrashedCustomersModal";
+import { useViewingFiscalYear } from "@/features/fiscal-year/ViewingFiscalYearProvider";
 
 type SidebarProduct = {
   ulid: string;
@@ -44,6 +45,7 @@ type FiscalYear = {
   id: number;
   ulid: string;
   name: string;
+  sort_order: number;
 };
 
 type LineItem = {
@@ -206,12 +208,10 @@ function GoodsSoldContent() {
   });
   const sidebarProducts = sidebarProductsData?.data ?? [];
 
-  const { data: settingsData } = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => apiFetch<{ data: { fiscal_year_id: number | null; fiscal_year: { ulid: string; name: string } | null } }>("/settings"),
-  });
-
-  const activeFiscalYearId = settingsData?.data?.fiscal_year_id ?? null;
+  // Named activeFiscalYearId below for a smaller diff, but this is actually the header's
+  // viewing fiscal year (see ViewingFiscalYearProvider) — may differ from the tenant's real
+  // active year in Settings.
+  const { viewingFiscalYearId: activeFiscalYearId } = useViewingFiscalYear();
 
   const { data: fiscalYearsData } = useQuery({
     queryKey: ["fiscal-years"],

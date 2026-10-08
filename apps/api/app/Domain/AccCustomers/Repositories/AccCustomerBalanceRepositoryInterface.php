@@ -26,4 +26,14 @@ interface AccCustomerBalanceRepositoryInterface
     public function lockForRecalculation(AccCustomer $customer, int $fiscalYearId): AccCustomerBalance;
 
     public function updateRemainingBalance(AccCustomerBalance $balance, float $remainingBalance): AccCustomerBalance;
+
+    /**
+     * The customer's balance row for the next fiscal year after the given one (by sort_order),
+     * if a row already exists there — used to cascade a balance change forward into a later
+     * year that already tracks this customer.
+     */
+    public function nextFiscalYearBalance(AccCustomer $customer, int $fiscalYearId): ?AccCustomerBalance;
+
+    /** The customer's balance row for a fiscal year, if one exists (no implicit create). */
+    public function find(AccCustomer $customer, int $fiscalYearId): ?AccCustomerBalance;
 }

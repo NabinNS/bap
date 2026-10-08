@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Plus, ShoppingCart, MoreVertical, Eye, Pencil, Trash2 } from "lucide-react";
+import { Plus, ShoppingCart, MoreVertical, Eye, Pencil, Trash2, RefreshCw, AlertTriangle } from "lucide-react";
 
 type DetailProduct = {
   ulid: string;
@@ -31,6 +31,10 @@ export function ProductDetailCard({
   onSalesClick,
   onEditClick,
   onDelete,
+  showSyncButton,
+  onSyncClick,
+  syncing,
+  hasDrift,
 }: {
   product: DetailProduct | null;
   activeFiscalYearId?: number | null;
@@ -41,6 +45,12 @@ export function ProductDetailCard({
   /** When provided, "Edit" opens the quick-edit side panel instead of navigating to the full edit page. */
   onEditClick?: (product: DetailProduct) => void;
   onDelete?: (product: DetailProduct) => void;
+  /** Shown when this product's balance chain has drifted downstream from the viewed year. */
+  showSyncButton?: boolean;
+  onSyncClick?: () => void;
+  syncing?: boolean;
+  /** Shows a warning badge next to the Fiscal Year tile. */
+  hasDrift?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -113,6 +123,18 @@ export function ProductDetailCard({
 
         {product && (
           <div className="flex items-center shrink-0">
+            {showSyncButton && (
+              <button
+                type="button"
+                onClick={onSyncClick}
+                disabled={syncing}
+                title="Recalculate this product's stock balance for the viewed fiscal year and carry it forward through later years"
+                className="flex items-center gap-2 border border-slate-300 px-4 py-2 text-sm font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Syncing..." : "Sync Balance"}
+              </button>
+            )}
             <button
               type="button"
               onClick={onPurchaseClick}
@@ -227,7 +249,14 @@ export function ProductDetailCard({
             onClick={onFiscalYearClick}
             className="text-left cursor-pointer group"
           >
-            <p className="text-sm-custom text-text-body">Fiscal Year</p>
+            <p className="text-sm-custom text-text-body flex items-center gap-1">
+              Fiscal Year
+              {hasDrift && (
+                <span title="A later fiscal year's opening quantity no longer matches this year's remaining quantity. Use Sync Balance to fix it.">
+                  <AlertTriangle className="h-3 w-3 text-amber-500" />
+                </span>
+              )}
+            </p>
             <p className="text-sm-custom font-bold text-text-default mt-0.5 group-hover:underline">
               {fiscalYearName ?? "—"}
             </p>

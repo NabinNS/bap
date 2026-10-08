@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Application\AccVendors\Actions\SyncAccVendorBalanceAction;
 use App\Application\AccVendors\Actions\UpsertAccVendorBalanceAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AccVendors\SyncAccVendorBalanceRequest;
 use App\Http\Requests\AccVendors\UpsertAccVendorBalanceRequest;
 use App\Http\Resources\AccVendors\AccVendorBalanceResource;
 use App\Http\Resources\ApiResponse;
@@ -19,6 +21,16 @@ class AccVendorBalanceController extends Controller
         return ApiResponse::success(
             new AccVendorBalanceResource($action->execute($this->tenantId(), $accVendor, $request->toDTO())),
             'Balance saved successfully'
+        );
+    }
+
+    public function sync(SyncAccVendorBalanceRequest $request, AccVendor $accVendor, SyncAccVendorBalanceAction $action): JsonResponse
+    {
+        $this->authorize('update', $accVendor);
+
+        return ApiResponse::success(
+            new AccVendorBalanceResource($action->execute($accVendor, $request->fiscalYearId())),
+            'Balance synced successfully'
         );
     }
 }
