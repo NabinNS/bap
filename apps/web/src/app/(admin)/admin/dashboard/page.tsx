@@ -511,7 +511,7 @@ export default function AdminDashboard() {
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-h3 font-bold text-text-default">Welcome back, Admin 👋</h2>
+          <h2 className="text-h3 font-bold text-text-default">Welcome back, Admin</h2>
           <p className="text-sm text-text-muted">Here&apos;s what&apos;s happening with your business today.</p>
         </div>
         <div className="inline-flex rounded-xl bg-slate-100 p-1">

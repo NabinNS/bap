@@ -261,7 +261,7 @@ function AdminLayoutBody({ children }: { children: React.ReactNode }) {
         fiscalYears={fiscalYears}
         draft={fiscalYearDraft}
         onDraftChange={setFiscalYearDraft}
-        description="Changes which fiscal year Accounts and Product/Stock show data for, and which year new entries get recorded into. This does not change the tenant's active fiscal year — set that in Settings."
+        description="Switches which fiscal year you're viewing and recording into."
         onApply={() => {
           if (!fiscalYearDraft) return;
           setViewingFiscalYearId(Number(fiscalYearDraft));
