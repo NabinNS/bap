@@ -63,7 +63,7 @@ export function VendorSidebar({
             placeholder="Search..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 text-sm border border-slate-400 focus:outline-none focus:border-slate-600"
+            className="w-full pl-8 pr-3 py-2 text-sm bg-white border border-slate-400 focus:outline-none focus:border-slate-600"
           />
         </div>
         {headerRight}
@@ -92,7 +92,7 @@ export function VendorSidebar({
         )}
       </div>
 
-      <div className="flex flex-col flex-1 min-h-0 border border-slate-400 overflow-hidden">
+      <div className="flex flex-col flex-1 min-h-0 bg-white border border-slate-400 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2.5 bg-black shrink-0">
           <span className="text-xs font-semibold text-white uppercase tracking-wide">Name</span>
           {showBalance && <span className="text-xs font-semibold text-white uppercase tracking-wide">Balance</span>}

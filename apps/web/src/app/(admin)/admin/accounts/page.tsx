@@ -63,6 +63,7 @@ type Transaction = {
   taxable_amount?: number | null;
   vat_amount?: number | null;
   grand_total?: number | null;
+  vat_exempt?: boolean | null;
   items?: TransactionItem[];
 };
 
@@ -304,6 +305,13 @@ function AdminAccountsContent() {
       toast.success("Item removed", "The line item has been deleted.");
     },
     onError: (err: any) => toast.error("Failed to delete item", err?.message ?? "Something went wrong."),
+  });
+
+  const updateTotalsMutation = useMutation({
+    mutationFn: ({ vendorUlid, txUlid, body }: { vendorUlid: string; txUlid: string; body: { vat_exempt: boolean } }) =>
+      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}/totals`, { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: (_data, variables) => invalidateVendorTransactions(variables.vendorUlid),
+    onError: (err: any) => toast.error("Failed to update VAT", err?.message ?? "Something went wrong."),
   });
 
   const addItemMutation = useMutation({
@@ -640,6 +648,50 @@ function AdminAccountsContent() {
         credit: direction === "credit" ? Number(txEdit.amount) || null : null,
       },
     });
+  }
+
+  async function saveVatExempt(exempt: boolean) {
+    if (!selectedVendorUlid || !selectedTransactionUlid || !selectedTransaction) return;
+
+    const queryKey = ["acc-vendor-transactions", selectedVendor?.ulid, viewedFiscalYearId];
+    const previousData = queryClient.getQueryData<{ data: Transaction[] }>(queryKey);
+
+    // Optimistic — flips the checkbox, zeroes/restores VAT, and relabels the particular
+    // immediately; reconciled with server-computed totals once both requests resolve.
+    queryClient.setQueryData<{ data: Transaction[] } | undefined>(queryKey, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        data: old.data.map((t) => {
+          if (t.ulid !== selectedTransactionUlid) return t;
+          const vatAmount = exempt ? 0 : Math.round((t.taxable_amount ?? 0) * 0.13);
+          return {
+            ...t,
+            vat_exempt: exempt,
+            vat_amount: vatAmount,
+            grand_total: (t.taxable_amount ?? 0) + vatAmount,
+            particular: exempt ? "purchase_non_vat" : "purchase",
+          };
+        }),
+      };
+    });
+
+    try {
+      await updateTotalsMutation.mutateAsync({ vendorUlid: selectedVendorUlid, txUlid: selectedTransactionUlid, body: { vat_exempt: exempt } });
+      // Keep the particular label in sync — "purchase" vs "purchase_non_vat" — with the VAT toggle.
+      await updateTransactionMutation.mutateAsync({
+        vendorUlid: selectedVendorUlid,
+        txUlid: selectedTransactionUlid,
+        payload: {
+          date: selectedTransaction.date,
+          particular: exempt ? "purchase_non_vat" : "purchase",
+          voucher_no: selectedTransaction.voucher_no || null,
+          cheque_no: selectedTransaction.cheque_no || null,
+        },
+      });
+    } catch {
+      queryClient.setQueryData(queryKey, previousData);
+    }
   }
 
   function suggestedRate(product: ProductOption | null): number | null {
@@ -1287,24 +1339,6 @@ function AdminAccountsContent() {
             )}
           </div>
 
-          {/* Receipt photo */}
-          <div>
-            <MultiImageUpload
-              label="Receipt Photo"
-              value={receiptImage.images}
-              onChange={receiptImage.setImages}
-              savedImages={receiptImage.savedImages}
-              groupName={receiptImage.groupName}
-              onGroupNameChange={receiptImage.setGroupName}
-              onGroupNameBlur={receiptImage.updateGroupName}
-              onSave={() => receiptImage.save(selectedTransaction.ulid)}
-              onRemoveSaved={receiptImage.removeSaved}
-              saving={receiptImage.saving}
-              uploadStates={receiptImage.uploadStates}
-              max={1}
-            />
-          </div>
-
           {/* Items */}
           {hasItems && (
             <div className="space-y-2">
@@ -1446,7 +1480,16 @@ function AdminAccountsContent() {
                   <span className="text-sm-custom text-text-default">{(selectedTransaction.taxable_amount ?? 0).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm-custom text-text-body">VAT (13%)</span>
+                  <span className="flex items-center gap-1.5 text-sm-custom text-text-body">
+                    VAT (13%)
+                    <input
+                      type="checkbox"
+                      checked={selectedTransaction.vat_exempt ?? false}
+                      onChange={(e) => saveVatExempt(e.target.checked)}
+                      disabled={updateTotalsMutation.isPending || updateTransactionMutation.isPending}
+                      className="h-3.5 w-3.5 accent-black cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                  </span>
                   <span className="text-sm-custom text-text-default">{(selectedTransaction.vat_amount ?? 0).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -1456,6 +1499,26 @@ function AdminAccountsContent() {
               </div>
             </div>
           )}
+
+          <hr className="border-slate-200" />
+
+          {/* Receipt photo */}
+          <div>
+            <MultiImageUpload
+              label="Receipt Photo"
+              value={receiptImage.images}
+              onChange={receiptImage.setImages}
+              savedImages={receiptImage.savedImages}
+              groupName={receiptImage.groupName}
+              onGroupNameChange={receiptImage.setGroupName}
+              onGroupNameBlur={receiptImage.updateGroupName}
+              onSave={() => receiptImage.save(selectedTransaction.ulid)}
+              onRemoveSaved={receiptImage.removeSaved}
+              saving={receiptImage.saving}
+              uploadStates={receiptImage.uploadStates}
+              max={1}
+            />
+          </div>
         </>}
       </SlidePanel>
 

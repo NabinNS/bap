@@ -61,6 +61,11 @@ class AccVendorTransaction extends Model
         return Attribute::get(fn () => $this->bill_details['grand_total'] ?? null);
     }
 
+    protected function vatExempt(): Attribute
+    {
+        return Attribute::get(fn () => $this->bill_details['vat_exempt'] ?? false);
+    }
+
     public function vendor(): BelongsTo
     {
         return $this->belongsTo(AccVendor::class, 'vendor_id');

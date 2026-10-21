@@ -165,14 +165,14 @@ export function DataTable<TData>({
                 ? table.getColumn(searchColumn)?.setFilterValue(e.target.value)
                 : setGlobalFilter(e.target.value)
             }
-            className="w-full h-10 pl-9 text-sm border border-slate-400 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-slate-500"
+            className="w-full h-10 pl-9 text-sm bg-white border border-slate-400 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-slate-500"
           />
         </div>
         {onPrint && (
           <button
             type="button"
             onClick={onPrint}
-            className="flex h-10 shrink-0 items-center gap-1.5 px-3 border border-l-0 border-slate-400 text-sm font-medium text-text-muted hover:bg-slate-50 hover:text-text-default cursor-pointer transition-colors"
+            className="flex h-10 shrink-0 items-center gap-1.5 px-3 bg-white border border-l-0 border-slate-400 text-sm font-medium text-text-default hover:bg-slate-50 cursor-pointer transition-colors"
           >
             <Printer className="h-4 w-4" />
             Print
@@ -182,7 +182,7 @@ export function DataTable<TData>({
           <button
             type="button"
             onClick={onExportCsv}
-            className="flex h-10 shrink-0 items-center gap-1.5 px-3 border border-l-0 border-slate-400 text-sm font-medium text-text-muted hover:bg-slate-50 hover:text-text-default cursor-pointer transition-colors"
+            className="flex h-10 shrink-0 items-center gap-1.5 px-3 bg-white border border-l-0 border-slate-400 text-sm font-medium text-emerald-700 hover:bg-emerald-50 cursor-pointer transition-colors"
           >
             <Sheet className="h-4 w-4" />
             Excel
@@ -193,7 +193,7 @@ export function DataTable<TData>({
             <button
               type="button"
               onClick={() => setMoreMenuOpen((v) => !v)}
-              className="flex h-10 items-center justify-center border border-l-0 border-slate-400 px-2 text-text-muted hover:bg-slate-50 hover:text-text-default cursor-pointer transition-colors"
+              className="flex h-10 items-center justify-center bg-white border border-l-0 border-slate-400 px-2 text-text-muted hover:bg-slate-50 hover:text-text-default cursor-pointer transition-colors"
             >
               <MoreVertical className="h-4 w-4" />
             </button>

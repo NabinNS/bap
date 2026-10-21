@@ -57,6 +57,7 @@ type BillTotals = {
   taxableAmount: number;
   vatAmount: number;
   grandTotal: number;
+  vatExempt: boolean;
 };
 
 type SavedItem = {
@@ -84,6 +85,7 @@ type SavedTransaction = {
   taxable_amount: number | null;
   vat_amount: number | null;
   grand_total: number | null;
+  vat_exempt: boolean | null;
   payment_type: string | null;
   items: SavedItem[];
 };
@@ -127,6 +129,9 @@ function GoodsPurchasedContent() {
   const [discountPercent, setDiscountPercent] = useState("0");
   const [discountAmountDraft, setDiscountAmountDraft] = useState<string | null>(null);
   const [billTotals, setBillTotals] = useState<BillTotals | null>(null);
+  // Checking "VAT 13%" before any line item is saved (no transaction exists yet to PATCH) —
+  // remembered here and applied right after the first item creates the transaction.
+  const [pendingVatExempt, setPendingVatExempt] = useState(false);
   const [createProductRowKey, setCreateProductRowKey] = useState<number | null>(null);
   const [createProductQuery, setCreateProductQuery] = useState("");
   const savingKeysRef = useRef<Set<number>>(new Set());
@@ -266,6 +271,7 @@ function GoodsPurchasedContent() {
     setDiscountPercent("0");
     setDiscountAmountDraft(null);
     setBillTotals(null);
+    setPendingVatExempt(false);
     setSelectedFiscalYearId(activeFiscalYearId);
     setPaymentType("credit");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to the vendor selection changing
@@ -297,6 +303,7 @@ function GoodsPurchasedContent() {
       taxableAmount: tx.taxable_amount ?? 0,
       vatAmount: tx.vat_amount ?? 0,
       grandTotal: tx.grand_total ?? 0,
+      vatExempt: tx.vat_exempt ?? false,
     });
     const savedRows: LineItem[] = tx.items.map((it) => ({
       key: nextKey++,
@@ -399,7 +406,7 @@ function GoodsPurchasedContent() {
   const discountAmountValue = discountAmountDraft
     ?? (billTotals ? String(billTotals.discountAmount) : (subtotal > 0 ? String(Math.round(calculatedDiscount * 100) / 100) : "0"));
 
-  type TotalsPayload = { discount_percent: number | null; discount_amount: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null };
+  type TotalsPayload = { discount_percent: number | null; discount_amount: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null; vat_exempt: boolean | null };
 
   // Every mutation that changes a transaction/item invalidates the vendor's transactions
   // cache — the global QueryClient uses a 30s staleTime, so without this a re-visit to this
@@ -435,7 +442,7 @@ function GoodsPurchasedContent() {
   });
 
   const updateTotalsMutation = useMutation({
-    mutationFn: ({ vendorUlid, txUlid, body }: { vendorUlid: string; txUlid: string; body: { discount_percent?: number; discount_amount?: number } }) =>
+    mutationFn: ({ vendorUlid, txUlid, body }: { vendorUlid: string; txUlid: string; body: { discount_percent?: number; discount_amount?: number; vat_exempt?: boolean } }) =>
       apiFetch<{ data: TotalsPayload }>(
         `/acc-vendors/${vendorUlid}/transactions/${txUlid}/totals`, { method: "PATCH", body: JSON.stringify(body) }
       ),
@@ -479,14 +486,15 @@ function GoodsPurchasedContent() {
     onError: (err: any) => toast.error("Failed to restore item", err?.message ?? "Something went wrong."),
   });
 
-  function saveHeader(overrides?: { paymentType?: "cash" | "credit" }) {
+  function saveHeader(overrides?: { paymentType?: "cash" | "credit"; vatExempt?: boolean }) {
     if (!selectedVendorUlid || !transactionUlid || !isValidBsDate(billDate)) return;
+    const vatExempt = overrides?.vatExempt ?? billTotals?.vatExempt ?? false;
     updateHeaderMutation.mutate({
       vendorUlid: selectedVendorUlid,
       txUlid: transactionUlid,
       payload: {
         date: billDate,
-        particular: "purchase",
+        particular: vatExempt ? "purchase_non_vat" : "purchase",
         voucher_no: billNo || null,
         payment_type: overrides?.paymentType ?? paymentType,
       },
@@ -504,6 +512,7 @@ function GoodsPurchasedContent() {
       taxableAmount: tx.taxable_amount ?? 0,
       vatAmount: tx.vat_amount ?? 0,
       grandTotal: tx.grand_total ?? 0,
+      vatExempt: tx.vat_exempt ?? false,
     });
   }, [transactionsData, editTransactionParam, transactionUlid]);
 
@@ -514,6 +523,7 @@ function GoodsPurchasedContent() {
       taxableAmount: res.taxable_amount ?? 0,
       vatAmount: res.vat_amount ?? 0,
       grandTotal: res.grand_total ?? 0,
+      vatExempt: res.vat_exempt ?? false,
     });
   }
 
@@ -540,6 +550,32 @@ function GoodsPurchasedContent() {
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
     } catch (err: any) {
       toast.error("Failed to update discount", err?.message ?? "Something went wrong.");
+    }
+  }
+
+  async function saveVatExempt(exempt: boolean) {
+    if (!transactionUlid) {
+      // No bill exists yet to PATCH — remember the choice and apply it once the first
+      // item creates the transaction.
+      setPendingVatExempt(exempt);
+      return;
+    }
+    if (!selectedVendorUlid) return;
+    // Optimistic — flips the checkbox and zeroes VAT immediately, reconciled with the
+    // server-computed totals once the request resolves.
+    setBillTotals((prev) =>
+      prev
+        ? { ...prev, vatExempt: exempt, vatAmount: exempt ? 0 : prev.vatAmount, grandTotal: exempt ? prev.taxableAmount : prev.grandTotal }
+        : prev
+    );
+    try {
+      const res = await updateTotalsMutation.mutateAsync({ vendorUlid: selectedVendorUlid, txUlid: transactionUlid, body: { vat_exempt: exempt } });
+      applyTotalsResult(res.data);
+      saveHeader({ vatExempt: exempt });
+      queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
+    } catch (err: any) {
+      setBillTotals((prev) => (prev ? { ...prev, vatExempt: !exempt } : prev));
+      toast.error("Failed to update VAT", err?.message ?? "Something went wrong.");
     }
   }
 
@@ -581,7 +617,7 @@ function GoodsPurchasedContent() {
           vendorUlid: selectedVendorUlid,
           payload: {
             date: billDate,
-            particular: "purchase",
+            particular: pendingVatExempt ? "purchase_non_vat" : "purchase",
             voucher_no: billNo || null,
             discount_percent: Math.max(0, Math.min(100, Number(discountPercent) || 0)),
             items: [itemPayload],
@@ -592,6 +628,11 @@ function GoodsPurchasedContent() {
         transactionUlidRef.current = res.data.ulid;
         setTransactionUlid(res.data.ulid);
         applyTotalsResult(res.data);
+        if (pendingVatExempt) {
+          const vatRes = await updateTotalsMutation.mutateAsync({ vendorUlid: selectedVendorUlid, txUlid: res.data.ulid, body: { vat_exempt: true } });
+          applyTotalsResult(vatRes.data);
+          setPendingVatExempt(false);
+        }
       } else {
         const res = await addItemMutation.mutateAsync({ vendorUlid: selectedVendorUlid, txUlid: transactionUlid, payload: itemPayload });
         itemUlid = res.data.ulid;
@@ -934,8 +975,15 @@ function GoodsPurchasedContent() {
                       <span className="text-sm-custom text-text-body">Taxable Amount</span>
                       <span className="text-sm-custom font-semibold text-text-default">{(billTotals?.taxableAmount ?? subtotal).toLocaleString()}</span>
                     </div>
-                    <div className="flex items-center justify-between px-4 py-1.5 border-b border-slate-100">
-                      <span className="text-sm-custom text-text-body">VAT 13%</span>
+                    <div className="relative flex items-center justify-between px-4 py-1.5 border-b border-slate-100">
+                      <input
+                        type="checkbox"
+                        checked={billTotals ? billTotals.vatExempt : pendingVatExempt}
+                        onChange={(e) => saveVatExempt(e.target.checked)}
+                        className="absolute -left-5 h-4 w-4 accent-black cursor-pointer"
+                        style={{ top: '10px' }}
+                      />
+                      <span className="text-sm-custom text-text-body whitespace-nowrap">VAT 13%</span>
                       <span className="text-sm-custom font-semibold text-text-default">{(billTotals?.vatAmount ?? 0).toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between px-4 py-2 bg-slate-50">

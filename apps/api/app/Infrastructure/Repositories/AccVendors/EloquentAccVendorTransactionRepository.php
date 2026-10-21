@@ -127,6 +127,7 @@ class EloquentAccVendorTransactionRepository implements AccVendorTransactionRepo
                 'taxable_amount'   => $totals->taxableAmount,
                 'vat_amount'       => $totals->vatAmount,
                 'grand_total'      => $totals->grandTotal,
+                'vat_exempt'       => $totals->vatExempt,
             ],
             // Kept in sync with grand_total so the vendor's ledger balance reflects the real amount owed.
             'credit' => $totals->grandTotal,

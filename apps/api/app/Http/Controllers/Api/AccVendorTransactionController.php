@@ -124,6 +124,7 @@ class AccVendorTransactionController extends Controller
             $transaction,
             $request->filled('discount_percent') ? $request->integer('discount_percent') : null,
             $request->filled('discount_amount') ? $request->integer('discount_amount') : null,
+            $request->has('vat_exempt') ? $request->boolean('vat_exempt') : null,
         );
 
         return ApiResponse::success(
