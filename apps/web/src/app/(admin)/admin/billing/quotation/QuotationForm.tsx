@@ -45,6 +45,7 @@ type QuoteTotals = {
   taxableAmount: number;
   vatAmount: number;
   grandTotal: number;
+  vatExempt: boolean;
 };
 
 type SavedItem = {
@@ -68,6 +69,7 @@ type SavedQuotation = {
   taxable_amount: number | null;
   vat_amount: number | null;
   grand_total: number | null;
+  vat_exempt: boolean | null;
   items: SavedItem[];
 };
 
@@ -99,6 +101,9 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
   const [discountPercent, setDiscountPercent] = useState("0");
   const [discountAmountDraft, setDiscountAmountDraft] = useState<string | null>(null);
   const [quoteTotals, setQuoteTotals] = useState<QuoteTotals | null>(null);
+  // Checking "VAT 13%" before any line item is saved (no quotation exists yet to PATCH) —
+  // remembered here and applied right after the first item creates the quotation.
+  const [pendingVatExempt, setPendingVatExempt] = useState(false);
   const [createProductRowKey, setCreateProductRowKey] = useState<number | null>(null);
   const [createProductQuery, setCreateProductQuery] = useState("");
   const savingKeysRef = useRef<Set<number>>(new Set());
@@ -197,6 +202,7 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
     setDiscountPercent("0");
     setDiscountAmountDraft(null);
     setQuoteTotals(null);
+    setPendingVatExempt(false);
     setSelectedFiscalYearId(activeFiscalYearId);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to the customer selection changing
   }, [selectedCustomerUlid]);
@@ -224,6 +230,7 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
       taxableAmount: q.taxable_amount ?? 0,
       vatAmount: q.vat_amount ?? 0,
       grandTotal: q.grand_total ?? 0,
+      vatExempt: q.vat_exempt ?? false,
     });
     const savedRows: LineItem[] = q.items.map((it) => ({
       key: nextKey++,
@@ -300,7 +307,7 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
   const discountAmountValue = discountAmountDraft
     ?? (quoteTotals ? String(quoteTotals.discountAmount) : (subtotal > 0 ? String(Math.round(calculatedDiscount * 100) / 100) : "0"));
 
-  type TotalsPayload = { discount_percent: number | null; discount_amount: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null };
+  type TotalsPayload = { discount_percent: number | null; discount_amount: number | null; taxable_amount: number | null; vat_amount: number | null; grand_total: number | null; vat_exempt: boolean | null };
 
   const createQuotationMutation = useMutation({
     mutationFn: ({ customerUlid, payload }: { customerUlid: string; payload: object }) =>
@@ -331,7 +338,7 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
   });
 
   const updateTotalsMutation = useMutation({
-    mutationFn: ({ customerUlid, quotationUlid, body }: { customerUlid: string; quotationUlid: string; body: { discount_percent?: number; discount_amount?: number } }) =>
+    mutationFn: ({ customerUlid, quotationUlid, body }: { customerUlid: string; quotationUlid: string; body: { discount_percent?: number; discount_amount?: number; vat_exempt?: boolean } }) =>
       apiFetch<{ data: TotalsPayload }>(
         `/acc-customers/${customerUlid}/quotations/${quotationUlid}/totals`, { method: "PATCH", body: JSON.stringify(body) }
       ),
@@ -374,6 +381,7 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
       taxableAmount: q.taxable_amount ?? 0,
       vatAmount: q.vat_amount ?? 0,
       grandTotal: q.grand_total ?? 0,
+      vatExempt: q.vat_exempt ?? false,
     });
   }, [quotationsData, initialQuotationUlid, quotationUlid]);
 
@@ -384,6 +392,7 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
       taxableAmount: res.taxable_amount ?? 0,
       vatAmount: res.vat_amount ?? 0,
       grandTotal: res.grand_total ?? 0,
+      vatExempt: res.vat_exempt ?? false,
     });
   }
 
@@ -408,6 +417,30 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
       setDiscountAmountDraft(null);
     } catch (err: any) {
       toast.error("Failed to update discount", err?.message ?? "Something went wrong.");
+    }
+  }
+
+  async function saveVatExempt(exempt: boolean) {
+    if (!quotationUlid) {
+      // No quotation exists yet to PATCH — remember the choice and apply it once the first
+      // item creates it.
+      setPendingVatExempt(exempt);
+      return;
+    }
+    if (!selectedCustomerUlid) return;
+    // Optimistic — flips the checkbox and zeroes VAT immediately, reconciled with the
+    // server-computed totals once the request resolves.
+    setQuoteTotals((prev) =>
+      prev
+        ? { ...prev, vatExempt: exempt, vatAmount: exempt ? 0 : prev.vatAmount, grandTotal: exempt ? prev.taxableAmount : prev.grandTotal }
+        : prev
+    );
+    try {
+      const res = await updateTotalsMutation.mutateAsync({ customerUlid: selectedCustomerUlid, quotationUlid, body: { vat_exempt: exempt } });
+      applyTotalsResult(res.data);
+    } catch (err: any) {
+      setQuoteTotals((prev) => (prev ? { ...prev, vatExempt: !exempt } : prev));
+      toast.error("Failed to update VAT", err?.message ?? "Something went wrong.");
     }
   }
 
@@ -458,6 +491,11 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
         quotationUlidRef.current = res.data.ulid;
         setQuotationUlid(res.data.ulid);
         applyTotalsResult(res.data);
+        if (pendingVatExempt) {
+          const vatRes = await updateTotalsMutation.mutateAsync({ customerUlid: selectedCustomerUlid, quotationUlid: res.data.ulid, body: { vat_exempt: true } });
+          applyTotalsResult(vatRes.data);
+          setPendingVatExempt(false);
+        }
       } else {
         const res = await addItemMutation.mutateAsync({ customerUlid: selectedCustomerUlid, quotationUlid, payload: itemPayload });
         itemUlid = res.ulid;
@@ -682,8 +720,15 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
                       <span className="text-sm-custom text-text-body">Taxable Amount</span>
                       <span className="text-sm-custom font-semibold text-text-default">{(quoteTotals?.taxableAmount ?? subtotal).toLocaleString()}</span>
                     </div>
-                    <div className="flex items-center justify-between px-4 py-1.5 border-b border-slate-100">
-                      <span className="text-sm-custom text-text-body">VAT 13%</span>
+                    <div className="relative flex items-center justify-between px-4 py-1.5 border-b border-slate-100">
+                      <input
+                        type="checkbox"
+                        checked={quoteTotals ? quoteTotals.vatExempt : pendingVatExempt}
+                        onChange={(e) => saveVatExempt(e.target.checked)}
+                        className="absolute -left-5 h-4 w-4 accent-black cursor-pointer"
+                        style={{ top: '10px' }}
+                      />
+                      <span className="text-sm-custom text-text-body whitespace-nowrap">VAT 13%</span>
                       <span className="text-sm-custom font-semibold text-text-default">{(quoteTotals?.vatAmount ?? 0).toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between px-4 py-2 bg-slate-50">

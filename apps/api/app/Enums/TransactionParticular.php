@@ -8,6 +8,7 @@ enum TransactionParticular: string
     case Cash           = 'cash';
     case Cheque         = 'cheque';
     case Sales          = 'sales';
+    case SalesNonVat    = 'sales_non_vat';
     case PurchaseNonVat = 'purchase_non_vat';
     case DebitNote      = 'debit_note';
     case CreditNote     = 'credit_note';

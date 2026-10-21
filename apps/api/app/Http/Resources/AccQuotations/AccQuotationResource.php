@@ -25,6 +25,7 @@ class AccQuotationResource extends JsonResource
             'taxable_amount'   => $this->taxable_amount,
             'vat_amount'       => $this->vat_amount,
             'grand_total'      => $this->grand_total,
+            'vat_exempt'       => $this->vat_exempt,
             'items'            => $this->whenLoaded('items', fn() => $this->items->map(fn($item) => [
                 'ulid'         => $item->ulid,
                 'product_ulid' => $item->product->ulid,

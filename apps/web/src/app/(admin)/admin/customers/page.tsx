@@ -63,6 +63,7 @@ type Transaction = {
   taxable_amount?: number | null;
   vat_amount?: number | null;
   grand_total?: number | null;
+  vat_exempt?: boolean | null;
   items?: TransactionItem[];
 };
 
@@ -307,6 +308,13 @@ function AdminCustomersContent() {
     onError: (err: any) => toast.error("Failed to update transaction", err?.message ?? "Something went wrong."),
   });
 
+  const updateTotalsMutation = useMutation({
+    mutationFn: ({ customerUlid, txUlid, body }: { customerUlid: string; txUlid: string; body: { vat_exempt: boolean } }) =>
+      apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}/totals`, { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: (_data, variables) => invalidateCustomerTransactions(variables.customerUlid),
+    onError: (err: any) => toast.error("Failed to update VAT", err?.message ?? "Something went wrong."),
+  });
+
   const updateItemMutation = useMutation({
     mutationFn: ({ customerUlid, txUlid, itemUlid, payload }: { customerUlid: string; txUlid: string; itemUlid: string; payload: object }) =>
       apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
@@ -504,7 +512,7 @@ function AdminCustomersContent() {
     ? rawTransactions.filter((t) => (!dateFrom || t.date >= dateFrom) && (!dateTo || t.date <= dateTo))
     : rawTransactions;
 
-  const SALES_PARTICULARS = ["sales"];
+  const SALES_PARTICULARS = ["sales", "sales_non_vat"];
   const PAYMENT_PARTICULARS = ["cash", "cheque"];
 
   const totalSales = dateFilteredTransactions
@@ -642,6 +650,50 @@ function AdminCustomersContent() {
         credit: direction === "credit" ? Number(txEdit.amount) || null : null,
       },
     });
+  }
+
+  async function saveVatExempt(exempt: boolean) {
+    if (!selectedCustomerUlid || !selectedTransactionUlid || !selectedTransaction) return;
+
+    const queryKey = ["acc-customer-transactions", selectedCustomer?.ulid, viewedFiscalYearId];
+    const previousData = queryClient.getQueryData<{ data: Transaction[] }>(queryKey);
+
+    // Optimistic — flips the checkbox, zeroes/restores VAT, and relabels the particular
+    // immediately; reconciled with server-computed totals once both requests resolve.
+    queryClient.setQueryData<{ data: Transaction[] } | undefined>(queryKey, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        data: old.data.map((t) => {
+          if (t.ulid !== selectedTransactionUlid) return t;
+          const vatAmount = exempt ? 0 : Math.round((t.taxable_amount ?? 0) * 0.13);
+          return {
+            ...t,
+            vat_exempt: exempt,
+            vat_amount: vatAmount,
+            grand_total: (t.taxable_amount ?? 0) + vatAmount,
+            particular: exempt ? "sales_non_vat" : "sales",
+          };
+        }),
+      };
+    });
+
+    try {
+      await updateTotalsMutation.mutateAsync({ customerUlid: selectedCustomerUlid, txUlid: selectedTransactionUlid, body: { vat_exempt: exempt } });
+      // Keep the particular label in sync — "sales" vs "sales_non_vat" — with the VAT toggle.
+      await updateTransactionMutation.mutateAsync({
+        customerUlid: selectedCustomerUlid,
+        txUlid: selectedTransactionUlid,
+        payload: {
+          date: selectedTransaction.date,
+          particular: exempt ? "sales_non_vat" : "sales",
+          voucher_no: selectedTransaction.voucher_no || null,
+          cheque_no: selectedTransaction.cheque_no || null,
+        },
+      });
+    } catch {
+      queryClient.setQueryData(queryKey, previousData);
+    }
   }
 
   function suggestedRate(product: ProductOption | null): number | null {
@@ -1448,7 +1500,16 @@ function AdminCustomersContent() {
                   <span className="text-sm-custom text-text-default">{(selectedTransaction.taxable_amount ?? 0).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm-custom text-text-body">VAT (13%)</span>
+                  <span className="flex items-center gap-1.5 text-sm-custom text-text-body">
+                    VAT (13%)
+                    <input
+                      type="checkbox"
+                      checked={selectedTransaction.vat_exempt ?? false}
+                      onChange={(e) => saveVatExempt(e.target.checked)}
+                      disabled={updateTotalsMutation.isPending || updateTransactionMutation.isPending}
+                      className="h-3.5 w-3.5 accent-black cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                  </span>
                   <span className="text-sm-custom text-text-default">{(selectedTransaction.vat_amount ?? 0).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between">

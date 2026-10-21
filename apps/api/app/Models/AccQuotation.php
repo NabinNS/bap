@@ -54,6 +54,11 @@ class AccQuotation extends Model
         return Attribute::get(fn () => $this->bill_details['grand_total'] ?? null);
     }
 
+    protected function vatExempt(): Attribute
+    {
+        return Attribute::get(fn () => $this->bill_details['vat_exempt'] ?? false);
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(AccCustomer::class, 'customer_id');

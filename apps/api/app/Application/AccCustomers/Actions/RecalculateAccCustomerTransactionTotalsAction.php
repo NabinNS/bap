@@ -25,9 +25,9 @@ class RecalculateAccCustomerTransactionTotalsAction
      * Idempotent: always derives from the current sum of item amounts, so it's safe to call
      * again after adding more items or changing the discount.
      */
-    public function execute(AccCustomer $customer, AccCustomerTransaction $transaction, ?int $discountPercent = null, ?int $discountAmount = null): AccCustomerTransaction
+    public function execute(AccCustomer $customer, AccCustomerTransaction $transaction, ?int $discountPercent = null, ?int $discountAmount = null, ?bool $vatExempt = null): AccCustomerTransaction
     {
-        return DB::transaction(function () use ($customer, $transaction, $discountPercent, $discountAmount) {
+        return DB::transaction(function () use ($customer, $transaction, $discountPercent, $discountAmount, $vatExempt) {
             $transaction = $this->transactions->lockForRecalculation($transaction);
 
             // Each line's amount net of its own per-row discount.
@@ -43,8 +43,10 @@ class RecalculateAccCustomerTransactionTotalsAction
                 $discountAmount = (int) round($subtotal * $discountPercent / 100);
             }
 
+            $vatExempt ??= $transaction->vat_exempt ?? false;
+
             $taxableAmount = $subtotal - $discountAmount;
-            $vatAmount     = (int) round($taxableAmount * self::VAT_RATE);
+            $vatAmount     = $vatExempt ? 0 : (int) round($taxableAmount * self::VAT_RATE);
             $grandTotal    = $taxableAmount + $vatAmount;
 
             $updated = $this->transactions->updateTotals($transaction, new AccCustomerTransactionTotalsData(
@@ -53,6 +55,7 @@ class RecalculateAccCustomerTransactionTotalsAction
                 taxableAmount:   $taxableAmount,
                 vatAmount:       $vatAmount,
                 grandTotal:      $grandTotal,
+                vatExempt:       $vatExempt,
             ));
 
             $this->recalculateBalance->execute($customer, $updated->fiscal_year_id);

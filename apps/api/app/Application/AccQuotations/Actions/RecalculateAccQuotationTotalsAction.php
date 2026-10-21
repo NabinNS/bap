@@ -22,9 +22,9 @@ class RecalculateAccQuotationTotalsAction
      * Idempotent: always derives from the current sum of item amounts, so it's safe to call
      * again after adding more items or changing the discount.
      */
-    public function execute(AccQuotation $quotation, ?int $discountPercent = null, ?int $discountAmount = null): AccQuotation
+    public function execute(AccQuotation $quotation, ?int $discountPercent = null, ?int $discountAmount = null, ?bool $vatExempt = null): AccQuotation
     {
-        return DB::transaction(function () use ($quotation, $discountPercent, $discountAmount) {
+        return DB::transaction(function () use ($quotation, $discountPercent, $discountAmount, $vatExempt) {
             $quotation = $this->quotations->lockForRecalculation($quotation);
 
             // Each line's amount net of its own per-row discount.
@@ -40,8 +40,10 @@ class RecalculateAccQuotationTotalsAction
                 $discountAmount = (int) round($subtotal * $discountPercent / 100);
             }
 
+            $vatExempt ??= $quotation->vat_exempt ?? false;
+
             $taxableAmount = $subtotal - $discountAmount;
-            $vatAmount     = (int) round($taxableAmount * self::VAT_RATE);
+            $vatAmount     = $vatExempt ? 0 : (int) round($taxableAmount * self::VAT_RATE);
             $grandTotal    = $taxableAmount + $vatAmount;
 
             return $this->quotations->updateTotals($quotation, new AccQuotationTotalsData(
@@ -50,6 +52,7 @@ class RecalculateAccQuotationTotalsAction
                 taxableAmount:   $taxableAmount,
                 vatAmount:       $vatAmount,
                 grandTotal:      $grandTotal,
+                vatExempt:       $vatExempt,
             ));
         });
     }

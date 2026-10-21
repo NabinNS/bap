@@ -10,5 +10,6 @@ readonly class AccQuotationTotalsData
         public int $taxableAmount,
         public int $vatAmount,
         public int $grandTotal,
+        public bool $vatExempt,
     ) {}
 }

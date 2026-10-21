@@ -14,7 +14,7 @@ class UpdateAccCustomerTransactionRequest extends FormRequest
             'date'       => ['required', 'string', 'max:20'],
             // Customers never have "purchase" or "purchase_non_vat" — restricted to the
             // particulars that make sense on a customer ledger.
-            'particular' => ['required', Rule::in(['sales', 'cash', 'cheque', 'debit_note', 'credit_note'])],
+            'particular' => ['required', Rule::in(['sales', 'sales_non_vat', 'cash', 'cheque', 'debit_note', 'credit_note'])],
             'voucher_no' => ['nullable', 'string', 'max:100'],
             'cheque_no'  => ['nullable', 'string', 'max:100'],
             'debit'      => ['nullable', 'numeric', 'min:0'],

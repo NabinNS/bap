@@ -19,6 +19,7 @@ class AccCustomerTransactionItemResource extends JsonResource
                 'taxable_amount'   => $this->transaction->taxable_amount,
                 'vat_amount'       => $this->transaction->vat_amount,
                 'grand_total'      => $this->transaction->grand_total,
+                'vat_exempt'       => $this->transaction->vat_exempt,
             ],
             'product_ulid'  => $this->product->ulid,
             'product_name'  => $this->product->name,

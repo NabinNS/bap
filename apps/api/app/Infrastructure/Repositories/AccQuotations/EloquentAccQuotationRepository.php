@@ -94,6 +94,7 @@ class EloquentAccQuotationRepository implements AccQuotationRepositoryInterface
                 'taxable_amount'   => $totals->taxableAmount,
                 'vat_amount'       => $totals->vatAmount,
                 'grand_total'      => $totals->grandTotal,
+                'vat_exempt'       => $totals->vatExempt,
             ],
         ]);
 
