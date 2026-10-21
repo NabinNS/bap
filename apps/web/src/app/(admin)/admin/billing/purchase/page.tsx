@@ -241,7 +241,17 @@ export default function PurchasePage() {
               <div className="bg-white px-5 py-4">
                 <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm items-center">
                   <p className="text-text-default"><span className="text-text-muted">Name:</span> <span className="font-bold">{selectedBill.vendor?.name ?? "—"}</span></p>
-                  <div className="relative justify-self-end" ref={menuRef}>
+                  <div className="flex items-center justify-self-end">
+                    {selectedBill.vendor && (
+                      <Link
+                        href={`/admin/accounts/goods-purchased?vendor=${selectedBill.vendor.ulid}`}
+                        className="flex items-center gap-1.5 h-8 px-3 bg-black text-sm font-semibold text-white hover:bg-black/80 transition-colors"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Goods Purchased
+                      </Link>
+                    )}
+                    <div className="relative" ref={menuRef}>
                     <button
                       type="button"
                       onClick={() => setMenuOpen((v) => !v)}
@@ -260,6 +270,7 @@ export default function PurchasePage() {
                         </Link>
                       </div>
                     )}
+                    </div>
                   </div>
 
                   <p className="text-text-default"><span className="text-text-muted">Address:</span> <span className="font-semibold">{selectedBill.vendor?.address || "—"}</span></p>

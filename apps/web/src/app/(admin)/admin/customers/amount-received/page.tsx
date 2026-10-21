@@ -12,6 +12,7 @@ import { SelectField } from "@/components/ui/form/FormField";
 import { TRANSACTION_PARTICULARS, getParticularDirection } from "../constants";
 import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
 import { useImageGroup } from "@/hooks/useImageGroup";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { CustomerSidebar } from "../_components/CustomerSidebar";
 import { CustomerInfoBlock } from "../_components/CustomerInfoBlock";
 import { Customer } from "../_components/types";
@@ -72,9 +73,14 @@ function AmountReceivedContent() {
 
   const receiptImage = useImageGroup("acc_customer_transaction", "acc-customer-transactions", "receipt");
 
+  const debouncedSideSearch = useDebouncedValue(sideSearch, 300);
+
   const { data: customersData, isLoading: customersLoading } = useQuery({
-    queryKey: ["acc-customers"],
-    queryFn: () => apiFetch<{ data: Customer[]; meta: Meta }>("/acc-customers?per_page=100"),
+    queryKey: ["acc-customers", debouncedSideSearch],
+    queryFn: () =>
+      apiFetch<{ data: Customer[]; meta: Meta }>(
+        `/acc-customers?per_page=100${debouncedSideSearch ? `&search=${encodeURIComponent(debouncedSideSearch)}` : ""}`
+      ),
   });
 
   // Named activeFiscalYearId below for a smaller diff, but this is actually the header's

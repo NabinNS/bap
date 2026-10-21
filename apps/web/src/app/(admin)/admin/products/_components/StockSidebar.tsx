@@ -10,6 +10,7 @@ type StockSidebarProduct = {
   ulid: string;
   name: string;
   stock: number;
+  thumbnail?: string | null;
   stock_balances?: { fiscal_year_id: number; opening_quantity: number; remaining_quantity: number }[];
 };
 
@@ -153,6 +154,15 @@ export function StockSidebar<T extends StockSidebarProduct>({
                   onDoubleClick={() => router.push(`/admin/products/${product.ulid}/view`)}
                   className={`flex items-center py-3.5 border-b border-slate-400 cursor-pointer transition-colors ${isSelected ? "bg-slate-200 border-l-2 border-l-slate-700 pl-[14px] pr-1" : "pl-4 pr-1 hover:bg-slate-50"}`}
                 >
+                  {product.thumbnail ? (
+                    <img
+                      src={product.thumbnail}
+                      alt=""
+                      className="h-8 w-8 object-cover border border-slate-200 shrink-0 mr-2"
+                    />
+                  ) : (
+                    <span className="h-8 w-8 shrink-0 mr-2 border border-slate-200 bg-slate-50" aria-hidden />
+                  )}
                   <span
                     title={product.name}
                     className={`text-sm truncate flex-1 min-w-0 mr-2 ${isSelected ? "font-semibold text-text-default" : "font-medium text-text-default"}`}

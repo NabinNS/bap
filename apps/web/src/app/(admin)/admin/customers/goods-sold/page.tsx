@@ -717,45 +717,58 @@ function GoodsSoldContent() {
           {/* Right side: detail card + line item table */}
           <div className="flex-1 min-w-0 flex flex-col gap-4 h-full min-h-0">
             {/* Account detail card */}
-            <div className="bg-white px-5 py-4 space-y-3">
-              <div className="flex items-start justify-between gap-4">
-                <CustomerInfoBlock
-                  customer={selectedCustomer}
-                  customers={cameWithCustomerRef.current ? undefined : customers}
-                  onSelectCustomer={cameWithCustomerRef.current ? undefined : selectCustomer}
-                />
-
-                <div className="flex flex-col gap-2 shrink-0 w-48">
-                  <input
-                    type="text"
-                    value={billNo}
-                    onChange={(e) => setBillNo(e.target.value)}
-                    onBlur={() => saveHeader()}
-                    placeholder="Bill no..."
-                    className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
+            <div className="bg-white px-5 py-4 space-y-3 min-w-0">
+              <div className="flex items-start justify-between gap-4 flex-wrap min-w-0">
+                <div className="min-w-0 flex-1">
+                  <CustomerInfoBlock
+                    customer={selectedCustomer}
+                    customers={cameWithCustomerRef.current ? undefined : customers}
+                    onSelectCustomer={cameWithCustomerRef.current ? undefined : selectCustomer}
                   />
-                  <BsDateInput value={billDate} onChange={setBillDate} onBlur={() => saveHeader()} />
-                  <div className="flex items-center gap-4 h-8">
-                    <label className="flex items-center gap-1.5 text-sm font-medium text-black cursor-pointer">
-                      <input
-                        type="radio"
-                        name="payment-type"
-                        checked={paymentType === "cash"}
-                        onChange={() => { setPaymentType("cash"); if (transactionUlid) saveHeader({ paymentType: "cash" }); }}
-                        className="accent-black"
-                      />
-                      Cash
-                    </label>
-                    <label className="flex items-center gap-1.5 text-sm font-medium text-black cursor-pointer">
-                      <input
-                        type="radio"
-                        name="payment-type"
-                        checked={paymentType === "credit"}
-                        onChange={() => { setPaymentType("credit"); if (transactionUlid) saveHeader({ paymentType: "credit" }); }}
-                        className="accent-black"
-                      />
-                      Credit
-                    </label>
+                </div>
+
+                <div className="flex flex-col gap-2 min-w-0 w-full max-w-64">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <label className="w-28 shrink-0 text-sm font-semibold text-slate-700 whitespace-nowrap">Bill No</label>
+                    <input
+                      type="text"
+                      value={billNo}
+                      onChange={(e) => setBillNo(e.target.value)}
+                      onBlur={() => saveHeader()}
+                      placeholder="Bill no..."
+                      className="flex-1 min-w-0 h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <label className="w-28 shrink-0 text-sm font-semibold text-slate-700 whitespace-nowrap">Bill Date</label>
+                    <div className="flex-1 min-w-0">
+                      <BsDateInput value={billDate} onChange={setBillDate} onBlur={() => saveHeader()} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="w-28 shrink-0 text-sm font-semibold text-slate-700 whitespace-nowrap">Payment Type</label>
+                    <div className="flex items-center gap-4 h-8">
+                      <label className="flex items-center gap-1.5 text-sm font-medium text-black cursor-pointer">
+                        <input
+                          type="radio"
+                          name="payment-type"
+                          checked={paymentType === "cash"}
+                          onChange={() => { setPaymentType("cash"); if (transactionUlid) saveHeader({ paymentType: "cash" }); }}
+                          className="accent-black"
+                        />
+                        Cash
+                      </label>
+                      <label className="flex items-center gap-1.5 text-sm font-medium text-black cursor-pointer">
+                        <input
+                          type="radio"
+                          name="payment-type"
+                          checked={paymentType === "credit"}
+                          onChange={() => { setPaymentType("credit"); if (transactionUlid) saveHeader({ paymentType: "credit" }); }}
+                          className="accent-black"
+                        />
+                        Credit
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>

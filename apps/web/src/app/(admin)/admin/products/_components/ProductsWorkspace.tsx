@@ -17,6 +17,7 @@ import { ProductTransactionItemPanel, TransactionItemPanelItem } from "./Product
 import { ProductTrashModal } from "./ProductTrashModal";
 import { useViewingFiscalYear } from "@/features/fiscal-year/ViewingFiscalYearProvider";
 import { hasDownstreamDrift } from "@/lib/fiscalYearDrift";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 type FiscalYear = { id: number; ulid: string; name: string; sort_order: number };
 
@@ -72,9 +73,14 @@ export function ProductsWorkspace({
   const [fiscalYearDraft, setFiscalYearDraft] = useState("");
   const ledgerRef = useRef<StockLedgerHandle>(null);
 
+  const debouncedSideSearch = useDebouncedValue(sideSearch, 300);
+
   const { data: sidebarProductsData, isLoading: sidebarLoading } = useQuery({
-    queryKey: ["products-sidebar"],
-    queryFn: () => apiFetch<{ data: Product[]; meta: Meta }>("/products?per_page=200&sort_by=name&sort_dir=asc"),
+    queryKey: ["products-sidebar", debouncedSideSearch],
+    queryFn: () =>
+      apiFetch<{ data: Product[]; meta: Meta }>(
+        `/products?per_page=200&sort_by=name&sort_dir=asc${debouncedSideSearch ? `&search=${encodeURIComponent(debouncedSideSearch)}` : ""}`
+      ),
   });
 
   const { data: fiscalYearsData } = useQuery({

@@ -533,7 +533,7 @@ export function PurchaseOrderForm({ initialVendorUlid = null, initialPurchaseOrd
           </div>
 
           <div className="flex-1 min-h-0 border border-slate-300 bg-white flex flex-col overflow-auto">
-            <div className="grid grid-cols-[36px_50px_1fr_120px_120px_50px] min-w-[690px] bg-black">
+            <div className="grid grid-cols-[36px_50px_1fr_120px_120px_120px_50px] min-w-[810px] bg-black">
               <span className="flex items-center justify-center">
                 {selectableKeys.length > 0 && (
                   <input
@@ -548,6 +548,7 @@ export function PurchaseOrderForm({ initialVendorUlid = null, initialPurchaseOrd
               <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide border-l border-white/20">Particulars (Name of Stock)</span>
               <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide border-l border-white/20">Quantity</span>
               <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide border-l border-white/20">Rate</span>
+              <span className="px-3 py-2.5 text-xs font-semibold text-white uppercase tracking-wide border-l border-white/20">Amount</span>
               <span></span>
             </div>
 
@@ -566,7 +567,7 @@ export function PurchaseOrderForm({ initialVendorUlid = null, initialPurchaseOrd
                     activeRowKeyRef.current = null;
                   }
                 }}
-                className="grid grid-cols-[36px_50px_1fr_120px_120px_50px] min-w-[690px] border-b border-[#b0bccc] items-stretch"
+                className="grid grid-cols-[36px_50px_1fr_120px_120px_120px_50px] min-w-[810px] border-b border-[#b0bccc] items-stretch"
               >
                 <span className="flex items-center justify-center">
                   {row.productUlid && (
@@ -629,6 +630,13 @@ export function PurchaseOrderForm({ initialVendorUlid = null, initialPurchaseOrd
                     className={inputCls}
                   />
                 </div>
+                <span className="px-3 py-2 text-sm font-medium text-black flex items-center border-l border-[#b0bccc]">
+                  {(() => {
+                    const rate = effectiveRate(row);
+                    const qty = parseFloat(row.quantity) || 0;
+                    return rate != null && qty ? `Rs ${(qty * rate).toLocaleString()}` : "—";
+                  })()}
+                </span>
 
                 <button
                   onMouseDown={(e) => e.preventDefault()}
@@ -641,7 +649,7 @@ export function PurchaseOrderForm({ initialVendorUlid = null, initialPurchaseOrd
               </div>
             ))}
 
-            <div className="px-4 py-2.5 flex items-center justify-between min-w-[690px]">
+            <div className="px-4 py-2.5 flex items-center justify-between min-w-[810px]">
               <div className="flex items-center gap-4">
                 <button
                   onClick={addRow}

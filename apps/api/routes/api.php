@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccVendorController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\AccVendorBalanceController;
 use App\Http\Controllers\Api\ProductStockBalanceController;
 use App\Http\Controllers\Api\AccVendorTransactionController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\Api\UploadController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('resolve.tenant')->group(function () {
+    Route::get('dashboard/summary', [DashboardController::class, 'summary']);
     Route::get('brands', [BrandController::class, 'index']);
     Route::get('brands/{brand}', [BrandController::class, 'show']);
     Route::get('categories', [CategoryController::class, 'index']);

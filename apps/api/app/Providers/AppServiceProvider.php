@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Domain\Dashboard\Repositories\DashboardRepositoryInterface;
+use App\Infrastructure\Repositories\Dashboard\EloquentDashboardRepository;
 use App\Domain\AccVendors\Repositories\AccVendorRepositoryInterface;
 use App\Domain\AccVendors\Repositories\AccVendorBalanceRepositoryInterface;
 use App\Domain\AccVendors\Repositories\AccVendorTransactionRepositoryInterface;
@@ -66,6 +68,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->bind(DashboardRepositoryInterface::class, EloquentDashboardRepository::class);
         $this->app->bind(AccVendorRepositoryInterface::class, EloquentAccVendorRepository::class);
         $this->app->bind(AccVendorBalanceRepositoryInterface::class, EloquentAccVendorBalanceRepository::class);
         $this->app->bind(AccVendorTransactionRepositoryInterface::class, EloquentAccVendorTransactionRepository::class);
