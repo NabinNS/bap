@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { Plus, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon, RefreshCw, AlertTriangle } from "lucide-react";
+import { Plus, CreditCard, X, MoreVertical, Pencil, Trash2, Maximize2, Calendar, Filter as FilterIcon, RefreshCw, AlertTriangle, History } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { TRANSACTION_PARTICULARS, getParticularLabel, getParticularDirection, ITEM_CAPABLE_PARTICULARS } from "./constants";
 import { toast } from "@/lib/toast";
@@ -20,6 +20,7 @@ import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
 import { useImageGroup } from "@/hooks/useImageGroup";
 import { VendorSidebar } from "./_components/VendorSidebar";
 import { VendorInfoBlock } from "./_components/VendorInfoBlock";
+import { ActivityLogPanel } from "./_components/ActivityLogPanel";
 import { FiscalYearModal } from "./_components/FiscalYearModal";
 import { FilterModal } from "./_components/FilterModal";
 import { TrashModal } from "./_components/TrashModal";
@@ -107,6 +108,10 @@ function AdminAccountsContent() {
   const [sideSearch, setSideSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  // Set when the create-drawer's autosave silently creates a vendor row (first field blur)
+  // before the user has clicked the real Save button. If the drawer is closed before that
+  // happens, this half-filled row is discarded rather than left behind as an orphan.
+  const [draftVendorUlid, setDraftVendorUlid] = useState<string | null>(null);
   const [selectedVendorUlid, setSelectedVendorUlid] = useState<string | null>(searchParams.get("vendor"));
   const [selectedTransactionUlid, setSelectedTransactionUlid] = useState<string | null>(null);
   const [openMenuUlid, setOpenMenuUlid] = useState<string | null>(null);
@@ -114,6 +119,8 @@ function AdminAccountsContent() {
   const menuRef = useRef<HTMLDivElement>(null);
   const [cardMenuOpen, setCardMenuOpen] = useState(false);
   const [cardMenuPos, setCardMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
+  const [activityLogVendor, setActivityLogVendor] = useState<Vendor | null>(null);
   const cardMenuRef = useRef<HTMLDivElement>(null);
   const [txMenuUlid, setTxMenuUlid] = useState<string | null>(null);
   const [showFullDetails, setShowFullDetails] = useState(false);
@@ -342,13 +349,18 @@ function AdminAccountsContent() {
   }
 
   const autoSaveMutation = useMutation({
+    // Tagged as a draft save — the backend persists it but doesn't write an activity log
+    // entry for it, since this fires once per field blur while the form is still being
+    // filled out. The eventual explicit Save is what gets logged.
     mutationFn: ({ ulid, payload }: { ulid?: string; payload: ReturnType<typeof buildPayload> }) =>
       ulid
-        ? apiFetch(`/acc-vendors/${ulid}`, { method: "PUT", body: JSON.stringify(payload) })
-        : apiFetch<{ data: Vendor }>("/acc-vendors", { method: "POST", body: JSON.stringify(payload) }),
+        ? apiFetch(`/acc-vendors/${ulid}`, { method: "PUT", body: JSON.stringify(payload), headers: { "X-Activity-Draft": "1" } })
+        : apiFetch<{ data: Vendor }>("/acc-vendors", { method: "POST", body: JSON.stringify(payload), headers: { "X-Activity-Draft": "1" } }),
     onSuccess: (data, variables) => {
       if (!variables.ulid) {
-        setEditingVendor((data as { data: Vendor }).data);
+        const vendor = (data as { data: Vendor }).data;
+        setEditingVendor(vendor);
+        setDraftVendorUlid(vendor.ulid);
         queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
       }
     },
@@ -393,6 +405,8 @@ function AdminAccountsContent() {
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
       const vendor = variables.ulid ? editingVendor : (data as { data: Vendor }).data;
       if (!variables.ulid) setEditingVendor((data as { data: Vendor }).data);
+      // A real Save succeeded — this vendor is no longer an abandonable draft.
+      setDraftVendorUlid(null);
 
       if (vendor && form.opening_balance) {
         await saveBalanceMutation.mutateAsync({ ulid: vendor.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });
@@ -428,6 +442,14 @@ function AdminAccountsContent() {
     onError: () => toast.error("Failed to delete", "Something went wrong."),
   });
 
+  // Silently removes a vendor row that autosave created while the create-drawer was open,
+  // but which the user abandoned before clicking the real Save button — no toast, since the
+  // user never knowingly created anything to begin with.
+  const discardDraftMutation = useMutation({
+    mutationFn: (ulid: string) => apiFetch(`/acc-vendors/${ulid}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["acc-vendors"] }),
+  });
+
   const [trashedVendorsOpen, setTrashedVendorsOpen] = useState(false);
   const { data: trashedVendorsData, isLoading: trashedVendorsLoading } = useQuery({
     queryKey: ["acc-vendors-trashed"],
@@ -448,6 +470,7 @@ function AdminAccountsContent() {
 
   function openEdit(vendor: Vendor) {
     setEditingVendor(vendor);
+    setDraftVendorUlid(null);
     setForm({
       name: vendor.name,
       address: vendor.address ?? "",
@@ -464,12 +487,17 @@ function AdminAccountsContent() {
 
   function openCreate() {
     setEditingVendor(null);
+    setDraftVendorUlid(null);
     setForm({ ...INITIAL_FORM, fiscal_year_id: viewingFiscalYearId ? String(viewingFiscalYearId) : "" });
     setErrors({});
     setDrawerOpen(true);
   }
 
   function closeDrawer() {
+    if (draftVendorUlid) {
+      discardDraftMutation.mutate(draftVendorUlid);
+      setDraftVendorUlid(null);
+    }
     setDrawerOpen(false);
     setEditingVendor(null);
     setForm(INITIAL_FORM);
@@ -1532,12 +1560,6 @@ function AdminAccountsContent() {
           {vendors.filter(v => v.ulid === openMenuUlid).map(vendor => (
             <div key={vendor.ulid}>
               <button
-                onClick={(e) => { e.stopPropagation(); trySwitchVendor(vendor.ulid); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
-              >
-                <Eye className="h-3.5 w-3.5" /> View
-              </button>
-              <button
                 onClick={(e) => { e.stopPropagation(); openEdit(vendor); }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
               >
@@ -1548,6 +1570,12 @@ function AdminAccountsContent() {
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
               >
                 <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setActivityLogVendor(vendor); setActivityLogOpen(true); setOpenMenuUlid(null); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+              >
+                <History className="h-3.5 w-3.5" /> Activity Log
               </button>
             </div>
           ))}
@@ -1574,9 +1602,23 @@ function AdminAccountsContent() {
           >
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </button>
+          <button
+            onClick={() => { setActivityLogVendor(selectedVendor); setActivityLogOpen(true); setCardMenuOpen(false); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+          >
+            <History className="h-3.5 w-3.5" /> Activity Log
+          </button>
         </div>,
         document.body
       )}
+
+      <ActivityLogPanel
+        open={activityLogOpen}
+        onClose={() => setActivityLogOpen(false)}
+        subjectType="acc_vendor"
+        subjectUlid={activityLogVendor?.ulid ?? null}
+        title={activityLogVendor ? `Activity Log — ${activityLogVendor.name}` : "Activity Log"}
+      />
 
       <FiscalYearModal
         open={fiscalYearModalOpen}
