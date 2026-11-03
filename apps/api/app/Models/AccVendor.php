@@ -47,4 +47,9 @@ class AccVendor extends Model
     {
         return $this->hasMany(AccVendorTransactionItem::class, 'vendor_id');
     }
+
+    public function activityLogLabel(): string
+    {
+        return "vendor account {$this->name}";
+    }
 }

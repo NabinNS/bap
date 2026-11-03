@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Domain\ActivityLogs\Repositories\ActivityLogRepositoryInterface;
+use App\Infrastructure\Repositories\ActivityLogs\EloquentActivityLogRepository;
 use App\Domain\Dashboard\Repositories\DashboardRepositoryInterface;
 use App\Infrastructure\Repositories\Dashboard\EloquentDashboardRepository;
 use App\Domain\AccVendors\Repositories\AccVendorRepositoryInterface;
@@ -52,6 +54,9 @@ use App\Models\AccVendor;
 use App\Models\AccVendorTransaction;
 use App\Models\AccCustomer;
 use App\Models\AccCustomerTransaction;
+use App\Models\AccQuotation;
+use App\Models\ProductTransactionItem;
+use App\Observers\ActivityLogObserver;
 use App\Policies\AccVendorPolicy;
 use App\Policies\AccCustomerPolicy;
 use App\Policies\BrandPolicy;
@@ -69,6 +74,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(DashboardRepositoryInterface::class, EloquentDashboardRepository::class);
+        $this->app->bind(ActivityLogRepositoryInterface::class, EloquentActivityLogRepository::class);
         $this->app->bind(AccVendorRepositoryInterface::class, EloquentAccVendorRepository::class);
         $this->app->bind(AccVendorBalanceRepositoryInterface::class, EloquentAccVendorBalanceRepository::class);
         $this->app->bind(AccVendorTransactionRepositoryInterface::class, EloquentAccVendorTransactionRepository::class);
@@ -104,11 +110,23 @@ class AppServiceProvider extends ServiceProvider
             'tenant'   => Tenant::class,
             'acc_vendor_transaction' => AccVendorTransaction::class,
             'acc_customer_transaction' => AccCustomerTransaction::class,
+            'acc_quotation' => AccQuotation::class,
+            'product_transaction_item' => ProductTransactionItem::class,
+            'acc_customer' => AccCustomer::class,
+            'acc_vendor' => AccVendor::class,
         ]);
 
         // Mitigation 3 — delete the R2 file whenever an ImageItem row is deleted.
         // cascadeOnDelete on the FK handles the DB rows; the observer handles the file.
         ImageItem::observe(ImageItemObserver::class);
+
+        // Record an ActivityLog row for every create/update/delete on these transaction-like models.
+        AccCustomerTransaction::observe(ActivityLogObserver::class);
+        AccVendorTransaction::observe(ActivityLogObserver::class);
+        AccQuotation::observe(ActivityLogObserver::class);
+        ProductTransactionItem::observe(ActivityLogObserver::class);
+        AccCustomer::observe(ActivityLogObserver::class);
+        AccVendor::observe(ActivityLogObserver::class);
 
         Gate::policy(AccVendor::class, AccVendorPolicy::class);
         Gate::policy(AccCustomer::class, AccCustomerPolicy::class);

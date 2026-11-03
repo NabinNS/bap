@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductDiscountController;
 use App\Http\Controllers\Api\ProductTransactionItemController;
+use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\ImageGroupController;
 use App\Http\Controllers\Api\OfferController;
 use App\Http\Controllers\Api\SliderController;
@@ -49,6 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('image-groups/{ulid}', [ImageGroupController::class, 'update']);
     Route::post('image-groups/{ulid}/items', [ImageGroupController::class, 'storeItems']);
     Route::delete('image-items/{ulid}', [ImageGroupController::class, 'destroyItem']);
+    Route::get('activity-logs', [ActivityLogController::class, 'index']);
     Route::apiResource('brands', BrandController::class)->except(['index', 'show']);
     Route::apiResource('categories', CategoryController::class)->except(['index', 'show']);
     Route::apiResource('products', ProductController::class)->except(['index', 'show']);

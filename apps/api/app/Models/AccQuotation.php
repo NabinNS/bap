@@ -73,4 +73,11 @@ class AccQuotation extends Model
     {
         return $this->hasMany(AccQuotationItem::class, 'quotation_id');
     }
+
+    public function activityLogLabel(): string
+    {
+        $amount = number_format((float) ($this->grand_total ?? 0), 2);
+
+        return "quotation {$this->voucher_no} for {$this->customer?->name} — {$this->date} — {$amount}";
+    }
 }

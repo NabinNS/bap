@@ -80,4 +80,11 @@ class AccCustomerTransaction extends Model
     {
         return $this->hasMany(AccCustomerTransactionItem::class, 'transaction_id');
     }
+
+    public function activityLogLabel(): string
+    {
+        $amount = number_format((float) ($this->debit ?: $this->credit), 2);
+
+        return "transaction {$this->voucher_no} for {$this->customer?->name} — {$this->date} — {$amount}";
+    }
 }

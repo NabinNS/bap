@@ -42,4 +42,9 @@ class AccCustomer extends Model
     {
         return $this->hasMany(AccQuotation::class, 'customer_id');
     }
+
+    public function activityLogLabel(): string
+    {
+        return "customer account {$this->name}";
+    }
 }

@@ -44,4 +44,11 @@ class ProductTransactionItem extends Model
     {
         return $this->belongsTo(FiscalYear::class);
     }
+
+    public function activityLogLabel(): string
+    {
+        $quantity = $this->purchase_quantity ?: $this->sales_quantity;
+
+        return "stock {$this->type} of {$this->product?->name} — {$this->date} — qty {$quantity}";
+    }
 }
