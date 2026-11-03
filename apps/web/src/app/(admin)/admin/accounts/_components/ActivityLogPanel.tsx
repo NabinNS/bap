@@ -7,11 +7,24 @@ import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 
 type ActivityLog = {
   ulid: string;
+  subject_type: string;
+  label: string | null;
   event: "created" | "updated" | "deleted" | string;
   description: string | null;
   changes: Record<string, unknown> | null;
   user: string | null;
   created_at: string;
+};
+
+const SUBJECT_TYPE_LABELS: Record<string, string> = {
+  acc_vendor: "Vendor",
+  acc_customer: "Customer",
+  acc_vendor_transaction: "Transaction",
+  acc_customer_transaction: "Transaction",
+  acc_vendor_transaction_item: "Item",
+  acc_customer_transaction_item: "Item",
+  acc_quotation: "Quotation",
+  acc_quotation_item: "Item",
 };
 
 const EVENT_STYLES: Record<string, string> = {
@@ -114,15 +127,24 @@ export function ActivityLogPanel({
             />
 
             <div className="flex items-center justify-between gap-2">
-              <span
-                className={`px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide rounded ${
-                  EVENT_STYLES[log.event] ?? "bg-slate-100 text-text-muted"
-                }`}
-              >
-                {EVENT_LABELS[log.event] ?? log.event}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide rounded ${
+                    EVENT_STYLES[log.event] ?? "bg-slate-100 text-text-muted"
+                  }`}
+                >
+                  {EVENT_LABELS[log.event] ?? log.event}
+                </span>
+                <span className="px-1.5 py-0.5 text-xs font-medium bg-slate-100 text-text-muted rounded">
+                  {SUBJECT_TYPE_LABELS[log.subject_type] ?? log.subject_type}
+                </span>
+              </div>
               <span className="text-xs text-text-muted">{formatBsDateTime(log.created_at)}</span>
             </div>
+
+            {log.label && (
+              <p className="text-sm font-semibold text-text-default mt-2 capitalize">{log.label}</p>
+            )}
 
             {log.event === "updated" && log.changes ? (
               <>
@@ -130,7 +152,7 @@ export function ActivityLogPanel({
                 <ChangeList changes={log.changes} />
               </>
             ) : (
-              <p className="text-sm text-text-default mt-2 leading-relaxed">{log.description}</p>
+              <p className="text-sm text-text-muted mt-1 leading-relaxed">{log.description}</p>
             )}
 
             {log.user && (

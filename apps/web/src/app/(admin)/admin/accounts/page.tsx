@@ -117,6 +117,8 @@ function AdminAccountsContent() {
   const [cardMenuPos, setCardMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [activityLogOpen, setActivityLogOpen] = useState(false);
   const [activityLogVendor, setActivityLogVendor] = useState<Vendor | null>(null);
+  const [txActivityLogOpen, setTxActivityLogOpen] = useState(false);
+  const [txActivityLogTarget, setTxActivityLogTarget] = useState<{ ulid: string; label: string } | null>(null);
   const cardMenuRef = useRef<HTMLDivElement>(null);
   const [txMenuUlid, setTxMenuUlid] = useState<string | null>(null);
   const [showFullDetails, setShowFullDetails] = useState(false);
@@ -135,6 +137,10 @@ function AdminAccountsContent() {
   const [confirmDeleteTxUlid, setConfirmDeleteTxUlid] = useState<string | null>(null);
   const [confirmDeleteItemUlid, setConfirmDeleteItemUlid] = useState<string | null>(null);
   const loadedReceiptForRef = useRef<string | null>(null);
+  // A fresh id per transaction-panel-open — tags every autosave call made while the panel
+  // stays open for this transaction, so the backend can merge them into one log entry
+  // instead of one row per field blur.
+  const txEditSessionRef = useRef<string | null>(null);
   const receiptImage = useImageGroup("acc_vendor_transaction", "acc-vendor-transactions", "receipt");
   const [txMenuPos, setTxMenuPos] = useState<{ top: number; left: number } | null>(null);
   const txMenuRef = useRef<HTMLDivElement>(null);
@@ -285,7 +291,11 @@ function AdminAccountsContent() {
 
   const updateTransactionMutation = useMutation({
     mutationFn: ({ vendorUlid, txUlid, payload }: { vendorUlid: string; txUlid: string; payload: object }) =>
-      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
+      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+        headers: txEditSessionRef.current ? { "X-Activity-Session": txEditSessionRef.current } : undefined,
+      }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", variables.vendorUlid] });
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
@@ -295,7 +305,11 @@ function AdminAccountsContent() {
 
   const updateItemMutation = useMutation({
     mutationFn: ({ vendorUlid, txUlid, itemUlid, payload }: { vendorUlid: string; txUlid: string; itemUlid: string; payload: object }) =>
-      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
+      apiFetch(`/acc-vendors/${vendorUlid}/transactions/${txUlid}/items/${itemUlid}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+        headers: txEditSessionRef.current ? { "X-Activity-Session": txEditSessionRef.current } : undefined,
+      }),
     onSuccess: (_data, variables) => invalidateVendorTransactions(variables.vendorUlid),
     onError: (err: any) => toast.error("Failed to update item", err?.message ?? "Something went wrong."),
   });
@@ -320,7 +334,12 @@ function AdminAccountsContent() {
   const addItemMutation = useMutation({
     mutationFn: ({ vendorUlid, txUlid, payload }: { vendorUlid: string; txUlid: string; payload: object }) =>
       apiFetch<{ data: { ulid: string; product_ulid: string; quantity: number; rate: number; discount: number; total: number } }>(
-        `/acc-vendors/${vendorUlid}/transactions/${txUlid}/items`, { method: "POST", body: JSON.stringify(payload) }
+        `/acc-vendors/${vendorUlid}/transactions/${txUlid}/items`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+          headers: txEditSessionRef.current ? { "X-Activity-Session": txEditSessionRef.current } : undefined,
+        }
       ),
     onSuccess: (_data, variables) => invalidateVendorTransactions(variables.vendorUlid),
     onError: (err: any) => toast.error("Failed to add item", err?.message ?? "Something went wrong."),
@@ -592,6 +611,7 @@ function AdminAccountsContent() {
     : null;
 
   useEffect(() => {
+    txEditSessionRef.current = selectedTransactionUlid ? crypto.randomUUID() : null;
     setNewItem(EMPTY_NEW_ITEM);
     setAddingItem(false);
     if (!selectedTransaction) { setTxEdit(null); setItemEdits({}); return; }
@@ -979,28 +999,33 @@ function AdminAccountsContent() {
     {
       id: "balance",
       header: "Balance",
+      size: 100,
       meta: { borderLeft: true },
       cell: ({ row }) => {
         const balance = runningBalancesRef.current[row.index];
-        const isSpecial = row.original.ulid === "__opening_balance__" || row.original.ulid === "__new__";
+        return <span className="text-sm font-medium text-black">{balance ? balance.toLocaleString() : null}</span>;
+      },
+    },
+    {
+      id: "actions",
+      header: "",
+      size: 40,
+      meta: { borderLeft: true },
+      cell: ({ row }) => {
+        if (row.original.ulid === "__opening_balance__" || row.original.ulid === "__new__") return null;
         return (
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-black">{balance ? balance.toLocaleString() : null}</span>
-            {!isSpecial && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (txMenuUlidRef.current === row.original.ulid) { setTxMenuUlid(null); setTxMenuPos(null); return; }
-                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  setTxMenuPos({ top: rect.bottom + 4, left: rect.right - 144 });
-                  setTxMenuUlid(row.original.ulid);
-                }}
-                className="p-1 rounded hover:bg-slate-100 transition-colors text-text-muted hover:text-text-default cursor-pointer"
-              >
-                <MoreVertical className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (txMenuUlidRef.current === row.original.ulid) { setTxMenuUlid(null); setTxMenuPos(null); return; }
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setTxMenuPos({ top: rect.bottom + 4, left: rect.right - 144 });
+              setTxMenuUlid(row.original.ulid);
+            }}
+            className="p-1 rounded hover:bg-slate-200 transition-colors text-text-muted hover:text-text-default cursor-pointer"
+          >
+            <MoreVertical className="h-3.5 w-3.5" />
+          </button>
         );
       },
     },
@@ -1686,9 +1711,28 @@ function AdminAccountsContent() {
           >
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </button>
+          <button
+            onClick={() => {
+              const tx = rawTransactions.find((t) => t.ulid === txMenuUlid);
+              if (tx) setTxActivityLogTarget({ ulid: tx.ulid, label: getParticularLabel(tx.particular) });
+              setTxMenuUlid(null); setTxMenuPos(null);
+              setTxActivityLogOpen(true);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+          >
+            <History className="h-3.5 w-3.5" /> Activity Log
+          </button>
         </div>,
         document.body
       )}
+
+      <ActivityLogPanel
+        open={txActivityLogOpen}
+        onClose={() => setTxActivityLogOpen(false)}
+        subjectType="acc_vendor_transaction"
+        subjectUlid={txActivityLogTarget?.ulid ?? null}
+        title={txActivityLogTarget ? `Activity Log — ${txActivityLogTarget.label}` : "Activity Log"}
+      />
 
       {/* Add Vendor slide panel */}
       <VendorFormPanel
