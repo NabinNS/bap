@@ -1076,7 +1076,6 @@ function GoodsPurchasedContent() {
           setVendorForm((f) => ({ ...f, [field]: value }));
           if (field === "name") setVendorErrors((prev) => ({ ...prev, name: undefined }));
         }}
-        onFieldBlur={() => {}}
         onOpeningBalanceBlur={() => {}}
         onSubmit={submitVendorForm}
       />

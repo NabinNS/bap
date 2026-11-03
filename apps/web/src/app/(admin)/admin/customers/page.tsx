@@ -107,10 +107,6 @@ function AdminCustomersContent() {
   const [sideSearch, setSideSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  // Set when the create-drawer's autosave silently creates a customer row (first field blur)
-  // before the user has clicked the real Save button. If the drawer is closed before that
-  // happens, this half-filled row is discarded rather than left behind as an orphan.
-  const [draftCustomerUlid, setDraftCustomerUlid] = useState<string | null>(null);
   const [selectedCustomerUlid, setSelectedCustomerUlid] = useState<string | null>(searchParams.get("customer"));
   const [selectedTransactionUlid, setSelectedTransactionUlid] = useState<string | null>(null);
   const [openMenuUlid, setOpenMenuUlid] = useState<string | null>(null);
@@ -365,24 +361,6 @@ function AdminCustomersContent() {
     });
   }
 
-  const autoSaveMutation = useMutation({
-    // Tagged as a draft save — the backend persists it but doesn't write an activity log
-    // entry for it, since this fires once per field blur while the form is still being
-    // filled out. The eventual explicit Save is what gets logged.
-    mutationFn: ({ ulid, payload }: { ulid?: string; payload: ReturnType<typeof buildPayload> }) =>
-      ulid
-        ? apiFetch(`/acc-customers/${ulid}`, { method: "PUT", body: JSON.stringify(payload), headers: { "X-Activity-Draft": "1" } })
-        : apiFetch<{ data: Customer }>("/acc-customers", { method: "POST", body: JSON.stringify(payload), headers: { "X-Activity-Draft": "1" } }),
-    onSuccess: (data, variables) => {
-      if (!variables.ulid) {
-        const customer = (data as { data: Customer }).data;
-        setEditingCustomer(customer);
-        setDraftCustomerUlid(customer.ulid);
-        queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
-      }
-    },
-  });
-
   const saveBalanceMutation = useMutation({
     mutationFn: ({ ulid, opening_balance, fiscal_year_id }: { ulid: string; opening_balance: string; fiscal_year_id?: string }) =>
       apiFetch(`/acc-customers/${ulid}/balance`, {
@@ -422,8 +400,6 @@ function AdminCustomersContent() {
       queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
       const customer = variables.ulid ? editingCustomer : (data as { data: Customer }).data;
       if (!variables.ulid) setEditingCustomer((data as { data: Customer }).data);
-      // A real Save succeeded — this customer is no longer an abandonable draft.
-      setDraftCustomerUlid(null);
 
       if (customer && form.opening_balance) {
         await saveBalanceMutation.mutateAsync({ ulid: customer.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });
@@ -431,6 +407,8 @@ function AdminCustomersContent() {
 
       if (!variables.ulid) {
         toast.success("Customer created", `"${form.name}" has been added.`);
+        if (customer) setSelectedCustomerUlid(customer.ulid);
+        closeDrawer();
       } else {
         toast.success("Customer updated", `"${form.name}" has been updated.`);
         closeDrawer();
@@ -459,17 +437,8 @@ function AdminCustomersContent() {
     onError: () => toast.error("Failed to delete", "Something went wrong."),
   });
 
-  // Silently removes a customer row that autosave created while the create-drawer was open,
-  // but which the user abandoned before clicking the real Save button — no toast, since the
-  // user never knowingly created anything to begin with.
-  const discardDraftMutation = useMutation({
-    mutationFn: (ulid: string) => apiFetch(`/acc-customers/${ulid}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["acc-customers"] }),
-  });
-
   function openEdit(customer: Customer) {
     setEditingCustomer(customer);
-    setDraftCustomerUlid(null);
     setForm({
       name: customer.name,
       address: customer.address ?? "",
@@ -486,17 +455,12 @@ function AdminCustomersContent() {
 
   function openCreate() {
     setEditingCustomer(null);
-    setDraftCustomerUlid(null);
     setForm({ ...INITIAL_FORM, fiscal_year_id: viewingFiscalYearId ? String(viewingFiscalYearId) : "" });
     setErrors({});
     setDrawerOpen(true);
   }
 
   function closeDrawer() {
-    if (draftCustomerUlid) {
-      discardDraftMutation.mutate(draftCustomerUlid);
-      setDraftCustomerUlid(null);
-    }
     setDrawerOpen(false);
     setEditingCustomer(null);
     setForm(INITIAL_FORM);
@@ -511,11 +475,6 @@ function AdminCustomersContent() {
       telephone: f.telephone || null,
       vat_no: f.vat_no || null,
     };
-  }
-
-  function autoSave(currentForm: FormState = form) {
-    if (!currentForm.name.trim()) return;
-    autoSaveMutation.mutate({ ulid: editingCustomer?.ulid, payload: buildPayload(currentForm) });
   }
 
   function validate(): boolean {
@@ -1728,7 +1687,6 @@ function AdminCustomersContent() {
           setForm((f) => ({ ...f, [field]: value }));
           if (field === "name") setErrors((prev) => ({ ...prev, name: undefined }));
         }}
-        onFieldBlur={() => autoSave()}
         onOpeningBalanceBlur={() => {
           if (editingCustomer?.ulid && form.opening_balance) {
             saveBalanceMutation.mutate({ ulid: editingCustomer.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });

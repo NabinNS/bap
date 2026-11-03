@@ -108,10 +108,6 @@ function AdminAccountsContent() {
   const [sideSearch, setSideSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
-  // Set when the create-drawer's autosave silently creates a vendor row (first field blur)
-  // before the user has clicked the real Save button. If the drawer is closed before that
-  // happens, this half-filled row is discarded rather than left behind as an orphan.
-  const [draftVendorUlid, setDraftVendorUlid] = useState<string | null>(null);
   const [selectedVendorUlid, setSelectedVendorUlid] = useState<string | null>(searchParams.get("vendor"));
   const [selectedTransactionUlid, setSelectedTransactionUlid] = useState<string | null>(null);
   const [openMenuUlid, setOpenMenuUlid] = useState<string | null>(null);
@@ -348,24 +344,6 @@ function AdminAccountsContent() {
     });
   }
 
-  const autoSaveMutation = useMutation({
-    // Tagged as a draft save — the backend persists it but doesn't write an activity log
-    // entry for it, since this fires once per field blur while the form is still being
-    // filled out. The eventual explicit Save is what gets logged.
-    mutationFn: ({ ulid, payload }: { ulid?: string; payload: ReturnType<typeof buildPayload> }) =>
-      ulid
-        ? apiFetch(`/acc-vendors/${ulid}`, { method: "PUT", body: JSON.stringify(payload), headers: { "X-Activity-Draft": "1" } })
-        : apiFetch<{ data: Vendor }>("/acc-vendors", { method: "POST", body: JSON.stringify(payload), headers: { "X-Activity-Draft": "1" } }),
-    onSuccess: (data, variables) => {
-      if (!variables.ulid) {
-        const vendor = (data as { data: Vendor }).data;
-        setEditingVendor(vendor);
-        setDraftVendorUlid(vendor.ulid);
-        queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
-      }
-    },
-  });
-
   const saveBalanceMutation = useMutation({
     mutationFn: ({ ulid, opening_balance, fiscal_year_id }: { ulid: string; opening_balance: string; fiscal_year_id?: string }) =>
       apiFetch(`/acc-vendors/${ulid}/balance`, {
@@ -405,8 +383,6 @@ function AdminAccountsContent() {
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
       const vendor = variables.ulid ? editingVendor : (data as { data: Vendor }).data;
       if (!variables.ulid) setEditingVendor((data as { data: Vendor }).data);
-      // A real Save succeeded — this vendor is no longer an abandonable draft.
-      setDraftVendorUlid(null);
 
       if (vendor && form.opening_balance) {
         await saveBalanceMutation.mutateAsync({ ulid: vendor.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });
@@ -414,6 +390,8 @@ function AdminAccountsContent() {
 
       if (!variables.ulid) {
         toast.success("Vendor created", `"${form.name}" has been added.`);
+        if (vendor) setSelectedVendorUlid(vendor.ulid);
+        closeDrawer();
       } else {
         toast.success("Vendor updated", `"${form.name}" has been updated.`);
         closeDrawer();
@@ -442,14 +420,6 @@ function AdminAccountsContent() {
     onError: () => toast.error("Failed to delete", "Something went wrong."),
   });
 
-  // Silently removes a vendor row that autosave created while the create-drawer was open,
-  // but which the user abandoned before clicking the real Save button — no toast, since the
-  // user never knowingly created anything to begin with.
-  const discardDraftMutation = useMutation({
-    mutationFn: (ulid: string) => apiFetch(`/acc-vendors/${ulid}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["acc-vendors"] }),
-  });
-
   const [trashedVendorsOpen, setTrashedVendorsOpen] = useState(false);
   const { data: trashedVendorsData, isLoading: trashedVendorsLoading } = useQuery({
     queryKey: ["acc-vendors-trashed"],
@@ -470,7 +440,6 @@ function AdminAccountsContent() {
 
   function openEdit(vendor: Vendor) {
     setEditingVendor(vendor);
-    setDraftVendorUlid(null);
     setForm({
       name: vendor.name,
       address: vendor.address ?? "",
@@ -487,17 +456,12 @@ function AdminAccountsContent() {
 
   function openCreate() {
     setEditingVendor(null);
-    setDraftVendorUlid(null);
     setForm({ ...INITIAL_FORM, fiscal_year_id: viewingFiscalYearId ? String(viewingFiscalYearId) : "" });
     setErrors({});
     setDrawerOpen(true);
   }
 
   function closeDrawer() {
-    if (draftVendorUlid) {
-      discardDraftMutation.mutate(draftVendorUlid);
-      setDraftVendorUlid(null);
-    }
     setDrawerOpen(false);
     setEditingVendor(null);
     setForm(INITIAL_FORM);
@@ -512,11 +476,6 @@ function AdminAccountsContent() {
       telephone: f.telephone || null,
       vat_no: f.vat_no || null,
     };
-  }
-
-  function autoSave(currentForm: FormState = form) {
-    if (!currentForm.name.trim()) return;
-    autoSaveMutation.mutate({ ulid: editingVendor?.ulid, payload: buildPayload(currentForm) });
   }
 
   function validate(): boolean {
@@ -1744,7 +1703,6 @@ function AdminAccountsContent() {
           setForm((f) => ({ ...f, [field]: value }));
           if (field === "name") setErrors((prev) => ({ ...prev, name: undefined }));
         }}
-        onFieldBlur={() => autoSave()}
         onOpeningBalanceBlur={() => {
           if (editingVendor?.ulid && form.opening_balance) {
             saveBalanceMutation.mutate({ ulid: editingVendor.ulid, opening_balance: form.opening_balance, fiscal_year_id: form.fiscal_year_id });

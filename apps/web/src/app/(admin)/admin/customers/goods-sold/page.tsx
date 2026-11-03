@@ -1083,7 +1083,6 @@ function GoodsSoldContent() {
           setCustomerForm((f) => ({ ...f, [field]: value }));
           if (field === "name") setCustomerErrors((prev) => ({ ...prev, name: undefined }));
         }}
-        onFieldBlur={() => {}}
         onOpeningBalanceBlur={() => {}}
         onSubmit={submitCustomerForm}
       />

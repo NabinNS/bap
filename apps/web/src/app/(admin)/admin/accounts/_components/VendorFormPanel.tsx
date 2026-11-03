@@ -25,7 +25,6 @@ type VendorFormPanelProps = {
   errors: VendorFormErrors;
   fiscalYears: FiscalYear[];
   onFieldChange: <K extends keyof VendorFormState>(field: K, value: VendorFormState[K]) => void;
-  onFieldBlur: () => void;
   onOpeningBalanceBlur: () => void;
   onSubmit: () => void;
 };
@@ -39,7 +38,6 @@ export function VendorFormPanel({
   errors,
   fiscalYears,
   onFieldChange,
-  onFieldBlur,
   onOpeningBalanceBlur,
   onSubmit,
 }: VendorFormPanelProps) {
@@ -58,7 +56,6 @@ export function VendorFormPanel({
         placeholder="e.g. Nepal Traders Pvt. Ltd."
         value={form.name}
         onChange={(e) => onFieldChange("name", e.target.value)}
-        onBlur={onFieldBlur}
         error={errors.name}
       />
       <InputField
@@ -66,28 +63,24 @@ export function VendorFormPanel({
         placeholder="e.g. Kathmandu, Nepal"
         value={form.address}
         onChange={(e) => onFieldChange("address", e.target.value)}
-        onBlur={onFieldBlur}
       />
       <InputField
         label="Phone"
         placeholder="e.g. 9801234567"
         value={form.phone}
         onChange={(e) => onFieldChange("phone", e.target.value)}
-        onBlur={onFieldBlur}
       />
       <InputField
         label="Telephone"
         placeholder="e.g. 01-4123456"
         value={form.telephone}
         onChange={(e) => onFieldChange("telephone", e.target.value)}
-        onBlur={onFieldBlur}
       />
       <InputField
         label="VAT No"
         placeholder="e.g. 123456789"
         value={form.vat_no}
         onChange={(e) => onFieldChange("vat_no", e.target.value)}
-        onBlur={onFieldBlur}
       />
       <SelectField
         label="Fiscal Year"
