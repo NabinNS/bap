@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { Plus, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon, RefreshCw, AlertTriangle } from "lucide-react";
+import { Plus, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon, RefreshCw, AlertTriangle, History } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { TRANSACTION_PARTICULARS, getParticularLabel, getParticularDirection, ITEM_CAPABLE_PARTICULARS } from "./constants";
 import { toast } from "@/lib/toast";
@@ -20,6 +20,7 @@ import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
 import { useImageGroup } from "@/hooks/useImageGroup";
 import { CustomerSidebar } from "./_components/CustomerSidebar";
 import { CustomerInfoBlock } from "./_components/CustomerInfoBlock";
+import { ActivityLogPanel } from "./_components/ActivityLogPanel";
 import { TrashedCustomersModal } from "./_components/TrashedCustomersModal";
 import { FiscalYearModal } from "../accounts/_components/FiscalYearModal";
 import { FilterModal } from "./_components/FilterModal";
@@ -115,6 +116,8 @@ function AdminCustomersContent() {
   const [cardMenuOpen, setCardMenuOpen] = useState(false);
   const [cardMenuPos, setCardMenuPos] = useState<{ top: number; left: number } | null>(null);
   const cardMenuRef = useRef<HTMLDivElement>(null);
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
+  const [activityLogCustomer, setActivityLogCustomer] = useState<Customer | null>(null);
   const [txMenuUlid, setTxMenuUlid] = useState<string | null>(null);
   const [showFullDetails, setShowFullDetails] = useState(false);
   const [fiscalYearModalOpen, setFiscalYearModalOpen] = useState(false);
@@ -1533,6 +1536,12 @@ function AdminCustomersContent() {
               >
                 <Trash2 className="h-3.5 w-3.5" /> Delete
               </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setActivityLogCustomer(customer); setActivityLogOpen(true); setOpenMenuUlid(null); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+              >
+                <History className="h-3.5 w-3.5" /> Activity Log
+              </button>
             </div>
           ))}
         </div>,
@@ -1558,9 +1567,23 @@ function AdminCustomersContent() {
           >
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </button>
+          <button
+            onClick={() => { setActivityLogCustomer(selectedCustomer); setActivityLogOpen(true); setCardMenuOpen(false); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+          >
+            <History className="h-3.5 w-3.5" /> Activity Log
+          </button>
         </div>,
         document.body
       )}
+
+      <ActivityLogPanel
+        open={activityLogOpen}
+        onClose={() => setActivityLogOpen(false)}
+        subjectType="acc_customer"
+        subjectUlid={activityLogCustomer?.ulid ?? null}
+        title={activityLogCustomer ? `Activity Log — ${activityLogCustomer.name}` : "Activity Log"}
+      />
 
       <FiscalYearModal
         open={fiscalYearModalOpen}

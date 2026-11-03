@@ -5,9 +5,12 @@ namespace App\Infrastructure\Repositories\ActivityLogs;
 use App\Domain\ActivityLogs\Repositories\ActivityLogRepositoryInterface;
 use App\Models\AccCustomer;
 use App\Models\AccCustomerTransaction;
+use App\Models\AccCustomerTransactionItem;
 use App\Models\AccQuotation;
+use App\Models\AccQuotationItem;
 use App\Models\AccVendor;
 use App\Models\AccVendorTransaction;
+use App\Models\AccVendorTransactionItem;
 use App\Models\ActivityLog;
 use App\Models\ProductTransactionItem;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -23,6 +26,9 @@ class EloquentActivityLogRepository implements ActivityLogRepositoryInterface
             'product_transaction_item' => ProductTransactionItem::where('ulid', $subjectUlid)->where('tenant_id', $tenantId)->firstOrFail()->id,
             'acc_customer'             => AccCustomer::where('ulid', $subjectUlid)->where('tenant_id', $tenantId)->firstOrFail()->id,
             'acc_vendor'               => AccVendor::where('ulid', $subjectUlid)->where('tenant_id', $tenantId)->firstOrFail()->id,
+            'acc_vendor_transaction_item'   => AccVendorTransactionItem::where('ulid', $subjectUlid)->where('tenant_id', $tenantId)->firstOrFail()->id,
+            'acc_customer_transaction_item' => AccCustomerTransactionItem::where('ulid', $subjectUlid)->where('tenant_id', $tenantId)->firstOrFail()->id,
+            'acc_quotation_item'            => AccQuotationItem::where('ulid', $subjectUlid)->where('tenant_id', $tenantId)->firstOrFail()->id,
             default                    => abort(422, 'Unsupported activity log subject type.'),
         };
     }

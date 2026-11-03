@@ -47,4 +47,9 @@ class AccCustomerTransactionItem extends Model
     {
         return $this->belongsTo(AccCustomer::class, 'customer_id');
     }
+
+    public function activityLogLabel(): string
+    {
+        return "item {$this->product?->name} on {$this->customer?->name}'s bill";
+    }
 }

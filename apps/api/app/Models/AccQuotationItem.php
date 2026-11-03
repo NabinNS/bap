@@ -41,4 +41,9 @@ class AccQuotationItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    public function activityLogLabel(): string
+    {
+        return "item {$this->product?->name} on quotation #{$this->quotation_id}";
+    }
 }

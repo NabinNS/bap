@@ -47,4 +47,9 @@ class AccVendorTransactionItem extends Model
     {
         return $this->belongsTo(AccVendor::class, 'vendor_id');
     }
+
+    public function activityLogLabel(): string
+    {
+        return "item {$this->product?->name} on {$this->vendor?->name}'s bill";
+    }
 }

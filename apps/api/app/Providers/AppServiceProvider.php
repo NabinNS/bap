@@ -52,9 +52,12 @@ use App\Models\Tenant;
 use App\Observers\ImageItemObserver;
 use App\Models\AccVendor;
 use App\Models\AccVendorTransaction;
+use App\Models\AccVendorTransactionItem;
 use App\Models\AccCustomer;
 use App\Models\AccCustomerTransaction;
+use App\Models\AccCustomerTransactionItem;
 use App\Models\AccQuotation;
+use App\Models\AccQuotationItem;
 use App\Models\ProductTransactionItem;
 use App\Observers\ActivityLogObserver;
 use App\Policies\AccVendorPolicy;
@@ -114,6 +117,9 @@ class AppServiceProvider extends ServiceProvider
             'product_transaction_item' => ProductTransactionItem::class,
             'acc_customer' => AccCustomer::class,
             'acc_vendor' => AccVendor::class,
+            'acc_vendor_transaction_item' => AccVendorTransactionItem::class,
+            'acc_customer_transaction_item' => AccCustomerTransactionItem::class,
+            'acc_quotation_item' => AccQuotationItem::class,
         ]);
 
         // Mitigation 3 — delete the R2 file whenever an ImageItem row is deleted.
@@ -127,6 +133,9 @@ class AppServiceProvider extends ServiceProvider
         ProductTransactionItem::observe(ActivityLogObserver::class);
         AccCustomer::observe(ActivityLogObserver::class);
         AccVendor::observe(ActivityLogObserver::class);
+        AccVendorTransactionItem::observe(ActivityLogObserver::class);
+        AccCustomerTransactionItem::observe(ActivityLogObserver::class);
+        AccQuotationItem::observe(ActivityLogObserver::class);
 
         Gate::policy(AccVendor::class, AccVendorPolicy::class);
         Gate::policy(AccCustomer::class, AccCustomerPolicy::class);
