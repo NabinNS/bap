@@ -80,6 +80,30 @@ function ChangeList({ changes }: { changes: Record<string, unknown> }) {
   );
 }
 
+/** Renders a flat snapshot object (field => value) as compact wrapped tags — used for
+ *  "Created"/"Deleted" entries instead of the long prose description. */
+function SnapshotChips({ snapshot }: { snapshot: Record<string, unknown> }) {
+  const entries = Object.entries(snapshot).filter(
+    (entry): entry is [string, string | number] => {
+      const v = entry[1];
+      return typeof v === "string" || typeof v === "number";
+    }
+  );
+
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {entries.map(([field, value]) => (
+        <span key={field} className="px-1.5 py-0.5 text-xs bg-slate-100 text-text-default rounded">
+          <span className="text-text-muted capitalize">{field.replace(/_/g, " ")}: </span>
+          {String(value)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function ActivityLogPanel({
   open,
   onClose,
@@ -146,14 +170,8 @@ export function ActivityLogPanel({
               <p className="text-sm font-semibold text-text-default mt-2 capitalize">{log.label}</p>
             )}
 
-            {log.event === "updated" && log.changes ? (
-              <>
-                <p className="text-xs text-text-muted mt-2">Fields changed:</p>
-                <ChangeList changes={log.changes} />
-              </>
-            ) : (
-              <p className="text-sm text-text-muted mt-1 leading-relaxed">{log.description}</p>
-            )}
+            {log.event === "updated" && log.changes && <ChangeList changes={log.changes} />}
+            {log.event !== "updated" && log.changes && <SnapshotChips snapshot={log.changes} />}
 
             {log.user && (
               <p className="text-xs text-text-muted mt-2">by {log.user}</p>
