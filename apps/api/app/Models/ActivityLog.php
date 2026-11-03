@@ -16,9 +16,11 @@ class ActivityLog extends Model
         'user_id',
         'subject_type',
         'subject_id',
+        'label',
         'event',
         'description',
         'changes',
+        'session_id',
     ];
 
     protected $casts = [

@@ -35,10 +35,44 @@ class EloquentActivityLogRepository implements ActivityLogRepositoryInterface
 
     public function listForSubject(string $subjectType, int $subjectId, int $tenantId): LengthAwarePaginator
     {
+        return match ($subjectType) {
+            'acc_vendor'   => $this->listForOwner($tenantId, [
+                'acc_vendor'                  => [$subjectId],
+                'acc_vendor_transaction'      => AccVendorTransaction::withTrashed()->where('vendor_id', $subjectId)->pluck('id')->all(),
+                'acc_vendor_transaction_item' => AccVendorTransactionItem::withTrashed()->where('vendor_id', $subjectId)->pluck('id')->all(),
+            ]),
+            'acc_customer' => $this->listForOwner($tenantId, [
+                'acc_customer'                  => [$subjectId],
+                'acc_customer_transaction'      => AccCustomerTransaction::withTrashed()->where('customer_id', $subjectId)->pluck('id')->all(),
+                'acc_customer_transaction_item' => AccCustomerTransactionItem::withTrashed()->where('customer_id', $subjectId)->pluck('id')->all(),
+            ]),
+            default => ActivityLog::with('user')
+                ->where('tenant_id', $tenantId)
+                ->where('subject_type', $subjectType)
+                ->where('subject_id', $subjectId)
+                ->latest()
+                ->paginate(25),
+        };
+    }
+
+    /** Aggregates a vendor/customer's own log rows with those of everything that belongs to
+     *  it (its transactions, its transactions' line items) so the one panel shows the full
+     *  history, not just direct edits to the vendor/customer record itself.
+     *  $idsBySubjectType: subject_type => [subject_id, ...] to include. */
+    private function listForOwner(int $tenantId, array $idsBySubjectType): LengthAwarePaginator
+    {
         return ActivityLog::with('user')
             ->where('tenant_id', $tenantId)
-            ->where('subject_type', $subjectType)
-            ->where('subject_id', $subjectId)
+            ->where(function ($query) use ($idsBySubjectType) {
+                foreach ($idsBySubjectType as $subjectType => $ids) {
+                    if (empty($ids)) {
+                        continue;
+                    }
+                    $query->orWhere(
+                        fn ($q) => $q->where('subject_type', $subjectType)->whereIn('subject_id', $ids)
+                    );
+                }
+            })
             ->latest()
             ->paginate(25);
     }

@@ -10,12 +10,14 @@ class ActivityLogResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'ulid'        => $this->ulid,
-            'event'       => $this->event,
-            'description' => $this->description,
-            'changes'     => $this->changes,
-            'user'        => $this->whenLoaded('user', fn () => $this->user?->name),
-            'created_at'  => $this->created_at,
+            'ulid'         => $this->ulid,
+            'subject_type' => $this->subject_type,
+            'label'        => $this->label,
+            'event'        => $this->event,
+            'description'  => $this->description,
+            'changes'      => $this->changes,
+            'user'         => $this->whenLoaded('user', fn () => $this->user?->name),
+            'created_at'   => $this->created_at,
         ];
     }
 }

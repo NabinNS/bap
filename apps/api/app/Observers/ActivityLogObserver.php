@@ -2,7 +2,11 @@
 
 namespace App\Observers;
 
+use App\Models\AccCustomer;
+use App\Models\AccVendor;
 use App\Models\ActivityLog;
+use App\Models\FiscalYear;
+use App\Models\Product;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request as RequestFacade;
@@ -19,6 +23,12 @@ use Illuminate\Support\Facades\Request as RequestFacade;
  * (full snapshot) regardless of whether it technically hit the created or updated Eloquent
  * event, since that's the moment the record becomes "real" from an audit standpoint. Every
  * non-draft save after that logs as a normal 'updated' diff.
+ *
+ * A request can also carry a `X-Activity-Session` header — a client-generated id scoped to
+ * one continuous editing session (e.g. a transaction detail panel left open while the user
+ * tabs through several fields, each one genuinely autosaving, not a draft). All writes
+ * sharing that session id for the same subject merge into a single log row instead of
+ * producing one row per field blur, so the session's net before/after is what gets recorded.
  */
 class ActivityLogObserver
 {
@@ -86,6 +96,23 @@ class ActivityLogObserver
             ? $model->activityLogLabel()
             : class_basename($model).' #'.$model->getKey();
 
+        $sessionId = $this->sessionId();
+
+        if ($sessionId && $event !== 'deleted') {
+            $recent = ActivityLog::where('tenant_id', $model->tenant_id)
+                ->where('subject_type', $model->getMorphClass())
+                ->where('subject_id', $model->getKey())
+                ->where('session_id', $sessionId)
+                ->latest()
+                ->first();
+
+            if ($recent) {
+                $this->mergeIntoRecent($recent, $changes, $actor, $label);
+
+                return;
+            }
+        }
+
         $description = match ($event) {
             'created' => "{$actor} created {$label} — ".$this->describeSnapshot($changes),
             'updated' => "{$actor} updated {$label} — {$detail}",
@@ -98,20 +125,78 @@ class ActivityLogObserver
             'user_id'      => Auth::id(),
             'subject_type' => $model->getMorphClass(),
             'subject_id'   => $model->getKey(),
+            'label'        => $label,
             'event'        => $event,
             'description'  => $description,
             'changes'      => $changes,
+            'session_id'   => $sessionId,
         ]);
     }
 
-    /** "debit: 1500.00, date: 2026-10-28, particular: Cash sale" */
+    private function sessionId(): ?string
+    {
+        return RequestFacade::header('X-Activity-Session');
+    }
+
+    /** $changes here is always diff-format (field => ['old' => ..., 'new' => ...]) — the
+     *  model can only be truly created once, so anything merging into an existing row within
+     *  a session is a follow-up 'updated' event. */
+    private function mergeIntoRecent(ActivityLog $recent, array $changes, string $actor, string $label): void
+    {
+        $recent->label = $label;
+
+        if ($recent->event === 'created') {
+            $snapshot = $recent->changes ?? [];
+            foreach ($changes as $field => $pair) {
+                $snapshot[$field] = $pair['new'];
+            }
+
+            $recent->changes = $snapshot;
+            $recent->description = "{$actor} created {$label} — ".$this->describeSnapshot($snapshot);
+        } else {
+            $diff = $recent->changes ?? [];
+            foreach ($changes as $field => $pair) {
+                $diff[$field] = ['old' => $diff[$field]['old'] ?? $pair['old'], 'new' => $pair['new']];
+            }
+            $diff = array_filter($diff, fn ($pair) => $pair['old'] !== $pair['new']);
+
+            if (empty($diff)) {
+                return;
+            }
+
+            $recent->changes = $diff;
+            $recent->description = "{$actor} updated {$label} — ".$this->describeChanges($diff);
+        }
+
+        $recent->save();
+    }
+
+    /** Known foreign-key columns, mapped to [Model class, display attribute] — lets a raw id
+     *  like fiscal_year_id: 11 render as "fiscal year: 2083/84" instead of the bare number. */
+    private const FK_LOOKUPS = [
+        'vendor_id'      => [AccVendor::class, 'name'],
+        'customer_id'    => [AccCustomer::class, 'name'],
+        'fiscal_year_id' => [FiscalYear::class, 'name'],
+        'product_id'     => [Product::class, 'name'],
+    ];
+
+    /** "debit: 1500.00, date: 2026-10-28, fiscal year: 2083/84" — skips null fields (mostly
+     *  unset at creation time) and resolves known foreign keys to their actual name; any other
+     *  id column (e.g. transaction_id, reference_id — internal linkage, not user-meaningful) is
+     *  skipped rather than shown as a bare number. */
     private function describeSnapshot(array $attributes): string
     {
-        $skip = ['id', 'tenant_id', 'ulid', 'created_at', 'updated_at', 'deleted_at'];
-
         $parts = [];
         foreach ($attributes as $field => $value) {
-            if (in_array($field, $skip, true)) {
+            if ($this->isAlwaysSkipped($field) || $value === null) {
+                continue;
+            }
+            if (str_ends_with($field, '_id')) {
+                $resolved = $this->resolveForeignKey($field, $value);
+                if ($resolved === null) {
+                    continue;
+                }
+                $parts[] = $resolved;
                 continue;
             }
             $parts[] = "{$field}: ".$this->formatValue($value);
@@ -120,15 +205,65 @@ class ActivityLogObserver
         return implode(', ', $parts);
     }
 
-    /** "debit changed from 1000.00 to 1500.00; date changed from 2026-10-01 to 2026-10-28" */
+    /** "fiscal year changed from 2082/83 to 2083/84; debit changed from 1000.00 to 1500.00" */
     private function describeChanges(array $diff): string
     {
         $parts = [];
         foreach ($diff as $field => $pair) {
+            if ($this->isAlwaysSkipped($field)) {
+                continue;
+            }
+            if (str_ends_with($field, '_id')) {
+                $label = $this->fkLabel($field);
+                if ($label === null) {
+                    continue;
+                }
+                $old = $this->resolveForeignKeyName($field, $pair['old']) ?? 'none';
+                $new = $this->resolveForeignKeyName($field, $pair['new']) ?? 'none';
+                $parts[] = "{$label} changed from {$old} to {$new}";
+                continue;
+            }
             $parts[] = "{$field} changed from ".$this->formatValue($pair['old']).' to '.$this->formatValue($pair['new']);
         }
 
         return implode('; ', $parts);
+    }
+
+    private function isAlwaysSkipped(string $field): bool
+    {
+        return in_array($field, ['id', 'tenant_id', 'ulid', 'created_at', 'updated_at', 'deleted_at'], true);
+    }
+
+    /** "fiscal year: 2083/84", or null if this id field isn't in FK_LOOKUPS (internal linkage). */
+    private function resolveForeignKey(string $field, mixed $id): ?string
+    {
+        $label = $this->fkLabel($field);
+        if ($label === null) {
+            return null;
+        }
+
+        $name = $this->resolveForeignKeyName($field, $id);
+
+        return $name !== null ? "{$label}: {$name}" : null;
+    }
+
+    private function resolveForeignKeyName(string $field, mixed $id): ?string
+    {
+        if ($id === null || !isset(self::FK_LOOKUPS[$field])) {
+            return null;
+        }
+
+        [$class, $attribute] = self::FK_LOOKUPS[$field];
+
+        return $class::find($id)?->{$attribute};
+    }
+
+    /** "fiscal_year_id" -> "fiscal year" */
+    private function fkLabel(string $field): ?string
+    {
+        return isset(self::FK_LOOKUPS[$field])
+            ? str_replace('_', ' ', substr($field, 0, -3))
+            : null;
     }
 
     private function formatValue(mixed $value): string
