@@ -34,7 +34,10 @@ class ActivityLogObserver
 {
     public function created(Model $model): void
     {
-        $this->log($model, 'created', $model->getAttributes());
+        // attributesToArray() (not getAttributes()) applies the model's casts, so a JSON
+        // column like bill_details comes back as a real PHP array instead of its raw,
+        // still-encoded string form.
+        $this->log($model, 'created', $model->attributesToArray());
     }
 
     public function updated(Model $model): void
@@ -53,14 +56,29 @@ class ActivityLogObserver
         }
 
         if (!$hasExistingLog) {
-            $this->log($model, 'created', $model->getAttributes());
+            $this->log($model, 'created', $model->attributesToArray());
 
             return;
         }
 
         $diff = [];
-        foreach ($changes as $field => $new) {
-            $diff[$field] = ['old' => $model->getOriginal($field), 'new' => $new];
+        foreach ($changes as $field => $rawNew) {
+            $rawOld = $model->getOriginal($field);
+
+            // A JSON/array column (e.g. bill_details holding discount/VAT/grand-total) is
+            // diffed key-by-key instead of as one blob, so "vat_amount changed from 0 to 274"
+            // shows up the same as any other field, not a raw JSON dump. getChanges()/
+            // getOriginal() return the raw, still-encoded string for these — decode explicitly.
+            $newArr = $this->decodeArrayAttribute($model, $field, $rawNew);
+            $oldArr = $this->decodeArrayAttribute($model, $field, $rawOld);
+            if ($newArr !== null || $oldArr !== null) {
+                foreach ($this->diffArrayField($oldArr ?? [], $newArr ?? []) as $subField => $pair) {
+                    $diff[$subField] = $pair;
+                }
+                continue;
+            }
+
+            $diff[$field] = ['old' => $rawOld, 'new' => $rawNew];
         }
 
         $this->log($model, 'updated', $diff, $this->describeChanges($diff));
@@ -68,7 +86,7 @@ class ActivityLogObserver
 
     public function deleted(Model $model): void
     {
-        $attributes = $model->getAttributes();
+        $attributes = $model->attributesToArray();
         $this->log($model, 'deleted', $attributes, $this->describeSnapshot($attributes));
     }
 
@@ -199,6 +217,17 @@ class ActivityLogObserver
                 $parts[] = $resolved;
                 continue;
             }
+            // A JSON/array column (e.g. bill_details) is spelled out key by key instead of
+            // dumped as one raw blob.
+            if (is_array($value)) {
+                foreach ($value as $subField => $subValue) {
+                    if ($subValue === null) {
+                        continue;
+                    }
+                    $parts[] = "{$subField}: ".$this->formatValue($subValue);
+                }
+                continue;
+            }
             $parts[] = "{$field}: ".$this->formatValue($value);
         }
 
@@ -227,6 +256,39 @@ class ActivityLogObserver
         }
 
         return implode('; ', $parts);
+    }
+
+    /** Decodes a JSON/array-cast column's raw (still-encoded) value into a PHP array, or null
+     *  if this field isn't one of those casts. */
+    private function decodeArrayAttribute(Model $model, string $field, mixed $value): ?array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if (is_string($value) && $model->hasCast($field, ['array', 'json', 'collection', 'object'])) {
+            $decoded = json_decode($value, true);
+
+            return is_array($decoded) ? $decoded : null;
+        }
+
+        return null;
+    }
+
+    /** field => [old, new] for every sub-key that actually differs between two JSON-column
+     *  arrays (e.g. bill_details), skipping keys that match. */
+    private function diffArrayField(array $old, array $new): array
+    {
+        $diff = [];
+        foreach (array_unique([...array_keys($old), ...array_keys($new)]) as $key) {
+            $oldVal = $old[$key] ?? null;
+            $newVal = $new[$key] ?? null;
+            if ($oldVal === $newVal) {
+                continue;
+            }
+            $diff[$key] = ['old' => $oldVal, 'new' => $newVal];
+        }
+
+        return $diff;
     }
 
     private function isAlwaysSkipped(string $field): bool

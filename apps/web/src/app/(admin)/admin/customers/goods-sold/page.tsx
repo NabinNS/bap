@@ -702,6 +702,13 @@ function GoodsSoldContent() {
             <p className="text-sm text-text-muted mt-0.5">{editTransactionParam ? "Update items sold to a customer." : "Record items sold to a customer."}</p>
           </div>
           <div className="flex items-center shrink-0">
+            <Link
+              href={exitDestination()}
+              className="flex items-center gap-2 bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/80 transition-colors cursor-pointer"
+            >
+              <ListOrdered className="h-4 w-4" />
+              View Transactions
+            </Link>
             {transactionUlid && (
               <button
                 onClick={() => setTrashedItemsOpen(true)}
@@ -711,13 +718,6 @@ function GoodsSoldContent() {
                 Recently Deleted
               </button>
             )}
-            <Link
-              href={exitDestination()}
-              className="flex items-center gap-2 bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/80 transition-colors cursor-pointer"
-            >
-              <ListOrdered className="h-4 w-4" />
-              View Transactions
-            </Link>
             <button
               onClick={() => router.back()}
               className="flex items-center gap-2 border border-slate-300 px-4 py-2 text-sm font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer"

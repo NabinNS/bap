@@ -9,6 +9,7 @@ type ActivityLog = {
   ulid: string;
   subject_type: string;
   subject_ulid: string | null;
+  session_id: string | null;
   label: string | null;
   event: "created" | "updated" | "deleted" | string;
   description: string | null;
@@ -16,6 +17,76 @@ type ActivityLog = {
   user: string | null;
   created_at: string;
 };
+
+/** True for the "parent" record of a bill/quotation — its transaction/quotation header, as
+ *  opposed to one of its line items. */
+function isParentSubject(subjectType: string): boolean {
+  return subjectType.endsWith("_transaction") || subjectType === "acc_quotation";
+}
+
+/** Groups line-item log entries under their bill/quotation's own entry when both were written
+ *  in the same editing session (same `X-Activity-Session`) — so adding a bill with 3 items in
+ *  one Save reads as one action with 3 nested items, not 4 separate timeline entries. Entries
+ *  stay flat (ungrouped) when their session has no matching header entry on this page. */
+function groupLogs(logs: ActivityLog[]): { log: ActivityLog; children: ActivityLog[] }[] {
+  const bySession = new Map<string, ActivityLog[]>();
+  for (const log of logs) {
+    if (!log.session_id) continue;
+    const arr = bySession.get(log.session_id) ?? [];
+    arr.push(log);
+    bySession.set(log.session_id, arr);
+  }
+
+  // Two passes: items are written a beat after their transaction, so sorted latest-first the
+  // item entry appears BEFORE its parent. A single forward pass would already have rendered
+  // it as standalone by the time the parent (further down the list) tried to claim it — so
+  // first determine every session's parent + its children, then build the display list.
+  const parentBySession = new Map<string, ActivityLog>();
+  for (const log of logs) {
+    if (log.session_id && isParentSubject(log.subject_type) && !parentBySession.has(log.session_id)) {
+      parentBySession.set(log.session_id, log);
+    }
+  }
+
+  const childUlids = new Set<string>();
+  for (const [sessionId, parent] of parentBySession) {
+    for (const sibling of bySession.get(sessionId) ?? []) {
+      if (sibling.ulid !== parent.ulid && !isParentSubject(sibling.subject_type)) {
+        childUlids.add(sibling.ulid);
+      }
+    }
+  }
+
+  const result: { log: ActivityLog; children: ActivityLog[] }[] = [];
+  for (const log of logs) {
+    if (childUlids.has(log.ulid)) continue;
+
+    const parent = log.session_id ? parentBySession.get(log.session_id) : undefined;
+    if (parent?.ulid === log.ulid) {
+      const children = (bySession.get(log.session_id!) ?? []).filter((s) => childUlids.has(s.ulid));
+      result.push({ log, children });
+    } else {
+      result.push({ log, children: [] });
+    }
+  }
+
+  return result;
+}
+
+/** "qty 2, rate 1000, discount 0, total 2000" — a compact one-line summary for a nested child
+ *  row, where the full chip-grid ChangeList would be too heavy. */
+function summarizeChanges(log: ActivityLog): string {
+  if (log.event === "updated" && log.changes) {
+    return Object.entries(log.changes)
+      .filter((e): e is [string, { old: unknown; new: unknown }] => {
+        const v = e[1];
+        return !!v && typeof v === "object" && "old" in v && "new" in v;
+      })
+      .map(([field, { old, new: next }]) => `${field.replace(/_/g, " ")} ${old ?? "—"} → ${next ?? "—"}`)
+      .join(", ");
+  }
+  return log.description ?? "";
+}
 
 const SUBJECT_TYPE_LABELS: Record<string, string> = {
   acc_vendor: "Vendor",
@@ -109,6 +180,7 @@ export function ActivityLogPanel({
   });
 
   const logs = data?.data ?? [];
+  const grouped = groupLogs(logs);
 
   return (
     <SlidePanel open={open} onClose={onClose} title={title}>
@@ -119,12 +191,12 @@ export function ActivityLogPanel({
       )}
 
       <div>
-        {logs.map((log, i) => {
+        {grouped.map(({ log, children }, i) => {
           const clickable = !!(onSelectEntry && log.subject_ulid && log.subject_type.endsWith("_transaction"));
           return (
           <div key={log.ulid} className="relative pl-6 pb-5 last:pb-0">
             {/* Connecting line down to the next entry's dot */}
-            {i !== logs.length - 1 && (
+            {i !== grouped.length - 1 && (
               <span className="absolute left-[5px] top-3 bottom-0 w-px bg-slate-200" />
             )}
             {/* Graph dot */}
@@ -174,6 +246,17 @@ export function ActivityLogPanel({
                 <p className="text-xs text-text-muted mt-2">by {log.user}</p>
               )}
             </div>
+
+            {children.length > 0 && (
+              <div className="mt-2 ml-1 pl-3 border-l-2 border-slate-100 space-y-1.5">
+                {children.map((child) => (
+                  <div key={child.ulid} className="text-xs">
+                    <span className="font-medium text-text-default capitalize">{child.label ?? SUBJECT_TYPE_LABELS[child.subject_type]}</span>
+                    <span className="text-text-muted"> — {summarizeChanges(child)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           );
         })}
