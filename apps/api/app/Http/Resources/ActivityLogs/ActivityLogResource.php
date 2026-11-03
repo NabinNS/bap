@@ -12,6 +12,7 @@ class ActivityLogResource extends JsonResource
         return [
             'ulid'         => $this->ulid,
             'subject_type' => $this->subject_type,
+            'subject_ulid' => $this->whenLoaded('subject', fn () => $this->subject?->ulid),
             'label'        => $this->label,
             'event'        => $this->event,
             'description'  => $this->description,

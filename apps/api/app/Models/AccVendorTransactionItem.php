@@ -50,6 +50,6 @@ class AccVendorTransactionItem extends Model
 
     public function activityLogLabel(): string
     {
-        return "item {$this->product?->name} on {$this->vendor?->name}'s bill";
+        return "item {$this->product?->name}";
     }
 }

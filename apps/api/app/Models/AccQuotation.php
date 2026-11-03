@@ -76,8 +76,6 @@ class AccQuotation extends Model
 
     public function activityLogLabel(): string
     {
-        $amount = number_format((float) ($this->grand_total ?? 0), 2);
-
-        return "quotation {$this->voucher_no} for {$this->customer?->name} — {$this->date} — {$amount}";
+        return "quotation {$this->voucher_no}";
     }
 }

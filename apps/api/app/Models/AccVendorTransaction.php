@@ -83,8 +83,6 @@ class AccVendorTransaction extends Model
 
     public function activityLogLabel(): string
     {
-        $amount = number_format((float) ($this->debit ?: $this->credit), 2);
-
-        return "transaction {$this->voucher_no} for {$this->vendor?->name} — {$this->date} — {$amount}";
+        return "transaction {$this->voucher_no}";
     }
 }

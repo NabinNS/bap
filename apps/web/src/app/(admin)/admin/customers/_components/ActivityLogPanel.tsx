@@ -8,6 +8,7 @@ import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 type ActivityLog = {
   ulid: string;
   subject_type: string;
+  subject_ulid: string | null;
   label: string | null;
   event: "created" | "updated" | "deleted" | string;
   description: string | null;
@@ -80,42 +81,23 @@ function ChangeList({ changes }: { changes: Record<string, unknown> }) {
   );
 }
 
-/** Renders a flat snapshot object (field => value) as compact wrapped tags — used for
- *  "Created"/"Deleted" entries instead of the long prose description. */
-function SnapshotChips({ snapshot }: { snapshot: Record<string, unknown> }) {
-  const entries = Object.entries(snapshot).filter(
-    (entry): entry is [string, string | number] => {
-      const v = entry[1];
-      return typeof v === "string" || typeof v === "number";
-    }
-  );
-
-  if (entries.length === 0) return null;
-
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      {entries.map(([field, value]) => (
-        <span key={field} className="px-1.5 py-0.5 text-xs bg-slate-100 text-text-default rounded">
-          <span className="text-text-muted capitalize">{field.replace(/_/g, " ")}: </span>
-          {String(value)}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 export function ActivityLogPanel({
   open,
   onClose,
   subjectType,
   subjectUlid,
   title = "Activity Log",
+  onSelectEntry,
 }: {
   open: boolean;
   onClose: () => void;
   subjectType: string;
   subjectUlid: string | null;
   title?: string;
+  /** Called when the user clicks an entry whose subject differs from the one this panel was
+   *  opened for (e.g. a transaction row inside a vendor's aggregated log) — lets the caller
+   *  jump to / select that row elsewhere in the page. */
+  onSelectEntry?: (subjectType: string, subjectUlid: string) => void;
 }) {
   const { data, isLoading } = useQuery({
     queryKey: ["activity-logs", subjectType, subjectUlid],
@@ -137,7 +119,9 @@ export function ActivityLogPanel({
       )}
 
       <div>
-        {logs.map((log, i) => (
+        {logs.map((log, i) => {
+          const clickable = !!(onSelectEntry && log.subject_ulid && log.subject_type.endsWith("_transaction"));
+          return (
           <div key={log.ulid} className="relative pl-6 pb-5 last:pb-0">
             {/* Connecting line down to the next entry's dot */}
             {i !== logs.length - 1 && (
@@ -150,34 +134,49 @@ export function ActivityLogPanel({
               }`}
             />
 
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide rounded ${
-                    EVENT_STYLES[log.event] ?? "bg-slate-100 text-text-muted"
-                  }`}
-                >
-                  {EVENT_LABELS[log.event] ?? log.event}
-                </span>
-                <span className="px-1.5 py-0.5 text-xs font-medium bg-slate-100 text-text-muted rounded">
-                  {SUBJECT_TYPE_LABELS[log.subject_type] ?? log.subject_type}
-                </span>
+            <div
+              onClick={clickable ? () => onSelectEntry!(log.subject_type, log.subject_ulid!) : undefined}
+              className={clickable ? "-mx-2 px-2 py-1 rounded cursor-pointer hover:bg-slate-50 transition-colors" : undefined}
+              title={clickable ? "Jump to this row" : undefined}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide rounded ${
+                      EVENT_STYLES[log.event] ?? "bg-slate-100 text-text-muted"
+                    }`}
+                  >
+                    {EVENT_LABELS[log.event] ?? log.event}
+                  </span>
+                  <span className="px-1.5 py-0.5 text-xs font-medium bg-slate-100 text-text-muted rounded">
+                    {SUBJECT_TYPE_LABELS[log.subject_type] ?? log.subject_type}
+                  </span>
+                </div>
+                <span className="text-xs text-text-muted">{formatBsDateTime(log.created_at)}</span>
               </div>
-              <span className="text-xs text-text-muted">{formatBsDateTime(log.created_at)}</span>
+
+              {log.label && (
+                <p className={`text-sm font-semibold text-text-default mt-2 capitalize ${clickable ? "hover:underline" : ""}`}>
+                  {log.label}
+                </p>
+              )}
+
+              {log.event === "updated" && log.changes ? (
+                <>
+                  <p className="text-xs text-text-muted mt-2">Fields changed:</p>
+                  <ChangeList changes={log.changes} />
+                </>
+              ) : (
+                <p className="text-sm text-text-muted mt-1 leading-relaxed">{log.description}</p>
+              )}
+
+              {log.user && (
+                <p className="text-xs text-text-muted mt-2">by {log.user}</p>
+              )}
             </div>
-
-            {log.label && (
-              <p className="text-sm font-semibold text-text-default mt-2 capitalize">{log.label}</p>
-            )}
-
-            {log.event === "updated" && log.changes && <ChangeList changes={log.changes} />}
-            {log.event !== "updated" && log.changes && <SnapshotChips snapshot={log.changes} />}
-
-            {log.user && (
-              <p className="text-xs text-text-muted mt-2">by {log.user}</p>
-            )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </SlidePanel>
   );

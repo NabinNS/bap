@@ -63,6 +63,11 @@ interface DataTableProps<TData> {
   // reacting to the array identity would re-trigger the scroll on unrelated re-renders.
   scrollToBottomOnLoad?: boolean;
   scrollToBottomKey?: string | number;
+  // Scrolls the matching row into view and briefly flashes its background — e.g. landing on
+  // a specific row after following a link from elsewhere (an activity log entry, a search
+  // result). Needs getRowId to know how to match a row against this id.
+  highlightRowId?: string | null;
+  getRowId?: (row: TData) => string;
   // Optional actions shown next to the search bar — the caller owns the actual print/export
   // logic since it knows how this table's data should be laid out on paper/in a spreadsheet.
   onPrint?: () => void;
@@ -89,6 +94,8 @@ export function DataTable<TData>({
   fillHeight = false,
   scrollToBottomOnLoad = false,
   scrollToBottomKey,
+  highlightRowId,
+  getRowId,
   onPrint,
   onExportCsv,
   moreActions,
@@ -104,6 +111,7 @@ export function DataTable<TData>({
   // double-click always fires the single-click handler first (opening/flashing a panel)
   // right before the double-click handler navigates away.
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
@@ -121,6 +129,14 @@ export function DataTable<TData>({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed intentionally, see prop doc
   }, [scrollToBottomKey, scrollToBottomOnLoad]);
+
+  useEffect(() => {
+    if (!highlightRowId) return;
+    rowRefs.current[highlightRowId]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Also re-run when `data` changes — the target row may not have been in the table yet
+    // (e.g. still loading after switching to a different vendor/customer first).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightRowId, data]);
 
   const isServerPaginated = !!meta && !!onPageChange;
 
@@ -298,9 +314,13 @@ export function DataTable<TData>({
                 </TableRow>
               ))
             ) : table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row) => {
+                const rowId = getRowId?.(row.original);
+                const isHighlighted = !!rowId && rowId === highlightRowId;
+                return (
                 <TableRow
                   key={row.id}
+                  ref={rowId ? (el) => { rowRefs.current[rowId] = el; } : undefined}
                   onClick={() => {
                     if (!onRowClick) return;
                     if (!onRowDoubleClick) { onRowClick(row.original); return; }
@@ -316,7 +336,11 @@ export function DataTable<TData>({
                   onBlur={onRowBlur ? (e) => {
                     if (!e.currentTarget.contains(e.relatedTarget as Node)) onRowBlur(row.original, e);
                   } : undefined}
-                  className={`border-b border-slate-300 hover:bg-slate-100 transition-colors ${onRowClick || onRowDoubleClick ? "cursor-pointer" : ""}`}
+                  className={cn(
+                    "border-b border-slate-300 hover:bg-slate-100 transition-colors duration-200",
+                    (onRowClick || onRowDoubleClick) && "cursor-pointer",
+                    isHighlighted && "!bg-slate-200 border-l-2 border-l-slate-700 !duration-75"
+                  )}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
@@ -331,7 +355,8 @@ export function DataTable<TData>({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-32 text-center text-slate-700 text-sm">

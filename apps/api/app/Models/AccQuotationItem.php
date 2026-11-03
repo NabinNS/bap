@@ -44,6 +44,6 @@ class AccQuotationItem extends Model
 
     public function activityLogLabel(): string
     {
-        return "item {$this->product?->name} on quotation #{$this->quotation_id}";
+        return "item {$this->product?->name}";
     }
 }

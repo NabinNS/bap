@@ -46,7 +46,7 @@ class EloquentActivityLogRepository implements ActivityLogRepositoryInterface
                 'acc_customer_transaction'      => AccCustomerTransaction::withTrashed()->where('customer_id', $subjectId)->pluck('id')->all(),
                 'acc_customer_transaction_item' => AccCustomerTransactionItem::withTrashed()->where('customer_id', $subjectId)->pluck('id')->all(),
             ]),
-            default => ActivityLog::with('user')
+            default => ActivityLog::with(['user', 'subject'])
                 ->where('tenant_id', $tenantId)
                 ->where('subject_type', $subjectType)
                 ->where('subject_id', $subjectId)
@@ -61,7 +61,7 @@ class EloquentActivityLogRepository implements ActivityLogRepositoryInterface
      *  $idsBySubjectType: subject_type => [subject_id, ...] to include. */
     private function listForOwner(int $tenantId, array $idsBySubjectType): LengthAwarePaginator
     {
-        return ActivityLog::with('user')
+        return ActivityLog::with(['user', 'subject'])
             ->where('tenant_id', $tenantId)
             ->where(function ($query) use ($idsBySubjectType) {
                 foreach ($idsBySubjectType as $subjectType => $ids) {

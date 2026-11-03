@@ -117,6 +117,7 @@ function AdminAccountsContent() {
   const [cardMenuPos, setCardMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [activityLogOpen, setActivityLogOpen] = useState(false);
   const [activityLogVendor, setActivityLogVendor] = useState<Vendor | null>(null);
+  const [highlightedTransactionUlid, setHighlightedTransactionUlid] = useState<string | null>(null);
   const [txActivityLogOpen, setTxActivityLogOpen] = useState(false);
   const [txActivityLogTarget, setTxActivityLogTarget] = useState<{ ulid: string; label: string } | null>(null);
   const cardMenuRef = useRef<HTMLDivElement>(null);
@@ -1193,6 +1194,8 @@ function AdminAccountsContent() {
                   fillHeight
                   scrollToBottomOnLoad
                   scrollToBottomKey={`${selectedVendorUlid ?? ""}:${rawTransactions.length}`}
+                  highlightRowId={highlightedTransactionUlid}
+                  getRowId={(row) => row.ulid}
                   onPrint={selectedVendor ? handlePrintLedger : undefined}
                   onExportCsv={selectedVendor ? handleExportLedgerCsv : undefined}
                   moreActions={[
@@ -1602,6 +1605,13 @@ function AdminAccountsContent() {
         subjectType="acc_vendor"
         subjectUlid={activityLogVendor?.ulid ?? null}
         title={activityLogVendor ? `Activity Log — ${activityLogVendor.name}` : "Activity Log"}
+        onSelectEntry={(subjectType, subjectUlid) => {
+          if (subjectType !== "acc_vendor_transaction") return;
+          if (activityLogVendor) trySwitchVendor(activityLogVendor.ulid);
+          setActivityLogOpen(false);
+          setHighlightedTransactionUlid(subjectUlid);
+          setTimeout(() => setHighlightedTransactionUlid(null), 500);
+        }}
       />
 
       <FiscalYearModal

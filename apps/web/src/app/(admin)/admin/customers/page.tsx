@@ -118,6 +118,7 @@ function AdminCustomersContent() {
   const cardMenuRef = useRef<HTMLDivElement>(null);
   const [activityLogOpen, setActivityLogOpen] = useState(false);
   const [activityLogCustomer, setActivityLogCustomer] = useState<Customer | null>(null);
+  const [highlightedTransactionUlid, setHighlightedTransactionUlid] = useState<string | null>(null);
   const [txActivityLogOpen, setTxActivityLogOpen] = useState(false);
   const [txActivityLogTarget, setTxActivityLogTarget] = useState<{ ulid: string; label: string } | null>(null);
   const [txMenuUlid, setTxMenuUlid] = useState<string | null>(null);
@@ -1195,6 +1196,8 @@ function AdminCustomersContent() {
                   fillHeight
                   scrollToBottomOnLoad
                   scrollToBottomKey={`${selectedCustomerUlid ?? ""}:${rawTransactions.length}`}
+                  highlightRowId={highlightedTransactionUlid}
+                  getRowId={(row) => row.ulid}
                   onPrint={selectedCustomer ? handlePrintLedger : undefined}
                   onExportCsv={selectedCustomer ? handleExportLedgerCsv : undefined}
                   moreActions={[
@@ -1608,6 +1611,13 @@ function AdminCustomersContent() {
         subjectType="acc_customer"
         subjectUlid={activityLogCustomer?.ulid ?? null}
         title={activityLogCustomer ? `Activity Log — ${activityLogCustomer.name}` : "Activity Log"}
+        onSelectEntry={(subjectType, subjectUlid) => {
+          if (subjectType !== "acc_customer_transaction") return;
+          if (activityLogCustomer) trySwitchCustomer(activityLogCustomer.ulid);
+          setActivityLogOpen(false);
+          setHighlightedTransactionUlid(subjectUlid);
+          setTimeout(() => setHighlightedTransactionUlid(null), 500);
+        }}
       />
 
       <FiscalYearModal
