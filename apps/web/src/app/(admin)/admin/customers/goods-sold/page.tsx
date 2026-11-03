@@ -133,6 +133,10 @@ function GoodsSoldContent() {
   // Mirrors transactionUlid but updates synchronously — ensureTransactionUlid needs the
   // fresh id right after awaiting the row save that creates the transaction.
   const transactionUlidRef = useRef<string | null>(null);
+  // Tags every autosave call made while working on one bill (new or existing) so the backend
+  // can merge them into a single activity log entry instead of one row per field blur.
+  // Regenerated whenever a fresh bill starts or a different existing one loads.
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
   const [discountPercent, setDiscountPercent] = useState("0");
   const [discountAmountDraft, setDiscountAmountDraft] = useState<string | null>(null);
   const [billTotals, setBillTotals] = useState<BillTotals | null>(null);
@@ -272,6 +276,7 @@ function GoodsSoldContent() {
 
     setRows([emptyRow()]);
     transactionUlidRef.current = null;
+    sessionIdRef.current = crypto.randomUUID();
     setTransactionUlid(null);
     setBillDate(getTodayBs());
     setBillNo("");
@@ -299,6 +304,7 @@ function GoodsSoldContent() {
     if (!tx) return;
     loadedTransactionRef.current = editTransactionParam;
     transactionUlidRef.current = tx.ulid;
+    sessionIdRef.current = crypto.randomUUID();
     setTransactionUlid(tx.ulid);
     setSelectedFiscalYearId(tx.fiscal_year_id);
     setBillDate(tx.date);
@@ -427,7 +433,8 @@ function GoodsSoldContent() {
   const createTransactionMutation = useMutation({
     mutationFn: ({ customerUlid, payload }: { customerUlid: string; payload: object }) =>
       apiFetch<{ data: { ulid: string } & TotalsPayload }>(
-        `/acc-customers/${customerUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }
+        `/acc-customers/${customerUlid}/transactions`,
+        { method: "POST", body: JSON.stringify(payload), headers: { "X-Activity-Session": sessionIdRef.current } }
       ),
     onSuccess: (_data, variables) => invalidateCustomerTransactions(variables.customerUlid),
   });
@@ -435,7 +442,8 @@ function GoodsSoldContent() {
   const addItemMutation = useMutation({
     mutationFn: ({ customerUlid, txUlid, payload }: { customerUlid: string; txUlid: string; payload: object }) =>
       apiFetch<{ data: { ulid: string; transaction: TotalsPayload } }>(
-        `/acc-customers/${customerUlid}/transactions/${txUlid}/items`, { method: "POST", body: JSON.stringify(payload) }
+        `/acc-customers/${customerUlid}/transactions/${txUlid}/items`,
+        { method: "POST", body: JSON.stringify(payload), headers: { "X-Activity-Session": sessionIdRef.current } }
       ),
     onSuccess: (_data, variables) => invalidateCustomerTransactions(variables.customerUlid),
   });
@@ -443,7 +451,8 @@ function GoodsSoldContent() {
   const updateItemMutation = useMutation({
     mutationFn: ({ customerUlid, txUlid, itemUlid, payload }: { customerUlid: string; txUlid: string; itemUlid: string; payload: object }) =>
       apiFetch<{ data: { ulid: string; transaction: TotalsPayload } }>(
-        `/acc-customers/${customerUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "PATCH", body: JSON.stringify(payload) }
+        `/acc-customers/${customerUlid}/transactions/${txUlid}/items/${itemUlid}`,
+        { method: "PATCH", body: JSON.stringify(payload), headers: { "X-Activity-Session": sessionIdRef.current } }
       ),
     onSuccess: (_data, variables) => invalidateCustomerTransactions(variables.customerUlid),
   });
@@ -451,14 +460,19 @@ function GoodsSoldContent() {
   const updateTotalsMutation = useMutation({
     mutationFn: ({ customerUlid, txUlid, body }: { customerUlid: string; txUlid: string; body: { discount_percent?: number; discount_amount?: number; vat_exempt?: boolean } }) =>
       apiFetch<{ data: TotalsPayload }>(
-        `/acc-customers/${customerUlid}/transactions/${txUlid}/totals`, { method: "PATCH", body: JSON.stringify(body) }
+        `/acc-customers/${customerUlid}/transactions/${txUlid}/totals`,
+        { method: "PATCH", body: JSON.stringify(body), headers: { "X-Activity-Session": sessionIdRef.current } }
       ),
     onSuccess: (_data, variables) => invalidateCustomerTransactions(variables.customerUlid),
   });
 
   const updateHeaderMutation = useMutation({
     mutationFn: ({ customerUlid, txUlid, payload }: { customerUlid: string; txUlid: string; payload: object }) =>
-      apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
+      apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+        headers: { "X-Activity-Session": sessionIdRef.current },
+      }),
     onSuccess: (_data, variables) => invalidateCustomerTransactions(variables.customerUlid),
     onError: (err: any) => toast.error("Failed to update bill details", err?.message ?? "Something went wrong."),
   });

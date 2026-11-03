@@ -70,6 +70,10 @@ function AmountPaidContent() {
   // Mirrors editingTransactionUlid but updates synchronously (state updates don't apply until
   // the next render) — ensureTransactionUlid needs the fresh id right after an awaited save.
   const editingTransactionUlidRef = useRef<string | null>(null);
+  // Tags every autosave call made while working on one payment (new or existing) so the
+  // backend can merge them into a single activity log entry instead of one row per field
+  // blur. Regenerated whenever a fresh payment starts or a different existing one loads.
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
 
   const receiptImage = useImageGroup("acc_vendor_transaction", "acc-vendor-transactions", "receipt");
 
@@ -183,6 +187,7 @@ function AmountPaidContent() {
     if (!tx) return;
     loadedTransactionRef.current = editTransactionParam;
     editingTransactionUlidRef.current = tx.ulid;
+    sessionIdRef.current = crypto.randomUUID();
     setEditingTransactionUlid(tx.ulid);
     setSelectedFiscalYearId(tx.fiscal_year_id);
     setBillDate(tx.date);
@@ -228,13 +233,18 @@ function AmountPaidContent() {
     setChequeNo("");
     setPaymentSaved(false);
     editingTransactionUlidRef.current = null;
+    sessionIdRef.current = crypto.randomUUID();
     setEditingTransactionUlid(null);
     setSelectedFiscalYearId(activeFiscalYearId);
   }
 
   const savePaymentMutation = useMutation({
     mutationFn: (payload: object) =>
-      apiFetch<{ data: { ulid: string } }>(`/acc-vendors/${selectedVendorUlid}/transactions`, { method: "POST", body: JSON.stringify(payload) }),
+      apiFetch<{ data: { ulid: string } }>(`/acc-vendors/${selectedVendorUlid}/transactions`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { "X-Activity-Session": sessionIdRef.current },
+      }),
     onSuccess: (res) => {
       // Capture the created ulid so a receipt photo can be attached right after — further
       // blurs of this draft still only PATCH once `editingTransactionUlid` is set, same as edit mode.
@@ -248,7 +258,11 @@ function AmountPaidContent() {
 
   const updatePaymentMutation = useMutation({
     mutationFn: (payload: object) =>
-      apiFetch(`/acc-vendors/${selectedVendorUlid}/transactions/${editingTransactionUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
+      apiFetch(`/acc-vendors/${selectedVendorUlid}/transactions/${editingTransactionUlid}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+        headers: { "X-Activity-Session": sessionIdRef.current },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["acc-vendors"] });
       queryClient.invalidateQueries({ queryKey: ["acc-vendor-transactions", selectedVendorUlid] });

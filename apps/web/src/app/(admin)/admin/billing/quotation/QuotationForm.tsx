@@ -98,6 +98,10 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
   const [quotationUlid, setQuotationUlid] = useState<string | null>(null);
   const [selectedFiscalYearId, setSelectedFiscalYearId] = useState<number | null>(null);
   const quotationUlidRef = useRef<string | null>(null);
+  // Tags every autosave call made while working on one quotation (new or existing) so the
+  // backend can merge them into a single activity log entry instead of one row per field
+  // blur. Regenerated whenever a fresh quotation starts or a different existing one loads.
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
   const [discountPercent, setDiscountPercent] = useState("0");
   const [discountAmountDraft, setDiscountAmountDraft] = useState<string | null>(null);
   const [quoteTotals, setQuoteTotals] = useState<QuoteTotals | null>(null);
@@ -196,6 +200,7 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
 
     setRows([emptyRow()]);
     quotationUlidRef.current = null;
+    sessionIdRef.current = crypto.randomUUID();
     setQuotationUlid(null);
     setQuoteDate(getTodayBs());
     setQuoteNo("");
@@ -220,6 +225,7 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
     if (!q) return;
     loadedQuotationRef.current = initialQuotationUlid;
     quotationUlidRef.current = q.ulid;
+    sessionIdRef.current = crypto.randomUUID();
     setQuotationUlid(q.ulid);
     setSelectedFiscalYearId(q.fiscal_year_id);
     setQuoteDate(q.date);
@@ -312,7 +318,8 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
   const createQuotationMutation = useMutation({
     mutationFn: ({ customerUlid, payload }: { customerUlid: string; payload: object }) =>
       apiFetch<{ data: { ulid: string } & TotalsPayload }>(
-        `/acc-customers/${customerUlid}/quotations`, { method: "POST", body: JSON.stringify(payload) }
+        `/acc-customers/${customerUlid}/quotations`,
+        { method: "POST", body: JSON.stringify(payload), headers: { "X-Activity-Session": sessionIdRef.current } }
       ),
     onSuccess: (_data, variables) => invalidateQuotations(variables.customerUlid),
   });
@@ -320,7 +327,8 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
   const addItemMutation = useMutation({
     mutationFn: async ({ customerUlid, quotationUlid, payload }: { customerUlid: string; quotationUlid: string; payload: object }) => {
       const res = await apiFetch<{ data: { ulid: string } }>(
-        `/acc-customers/${customerUlid}/quotations/${quotationUlid}/items`, { method: "POST", body: JSON.stringify(payload) }
+        `/acc-customers/${customerUlid}/quotations/${quotationUlid}/items`,
+        { method: "POST", body: JSON.stringify(payload), headers: { "X-Activity-Session": sessionIdRef.current } }
       );
       const list = await apiFetch<{ data: SavedQuotation[] }>(`/acc-customers/${customerUlid}/quotations`);
       const quotation = list.data.find((q) => q.ulid === quotationUlid);
@@ -332,7 +340,8 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
   const updateItemMutation = useMutation({
     mutationFn: ({ customerUlid, quotationUlid, itemUlid, payload }: { customerUlid: string; quotationUlid: string; itemUlid: string; payload: object }) =>
       apiFetch<{ data: { ulid: string } }>(
-        `/acc-customers/${customerUlid}/quotations/${quotationUlid}/items/${itemUlid}`, { method: "PATCH", body: JSON.stringify(payload) }
+        `/acc-customers/${customerUlid}/quotations/${quotationUlid}/items/${itemUlid}`,
+        { method: "PATCH", body: JSON.stringify(payload), headers: { "X-Activity-Session": sessionIdRef.current } }
       ),
     onSuccess: (_data, variables) => invalidateQuotations(variables.customerUlid),
   });
@@ -340,14 +349,19 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
   const updateTotalsMutation = useMutation({
     mutationFn: ({ customerUlid, quotationUlid, body }: { customerUlid: string; quotationUlid: string; body: { discount_percent?: number; discount_amount?: number; vat_exempt?: boolean } }) =>
       apiFetch<{ data: TotalsPayload }>(
-        `/acc-customers/${customerUlid}/quotations/${quotationUlid}/totals`, { method: "PATCH", body: JSON.stringify(body) }
+        `/acc-customers/${customerUlid}/quotations/${quotationUlid}/totals`,
+        { method: "PATCH", body: JSON.stringify(body), headers: { "X-Activity-Session": sessionIdRef.current } }
       ),
     onSuccess: (_data, variables) => invalidateQuotations(variables.customerUlid),
   });
 
   const updateHeaderMutation = useMutation({
     mutationFn: ({ customerUlid, quotationUlid, payload }: { customerUlid: string; quotationUlid: string; payload: object }) =>
-      apiFetch(`/acc-customers/${customerUlid}/quotations/${quotationUlid}`, { method: "PATCH", body: JSON.stringify(payload) }),
+      apiFetch(`/acc-customers/${customerUlid}/quotations/${quotationUlid}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+        headers: { "X-Activity-Session": sessionIdRef.current },
+      }),
     onSuccess: (_data, variables) => invalidateQuotations(variables.customerUlid),
     onError: (err: any) => toast.error("Failed to update quotation details", err?.message ?? "Something went wrong."),
   });
@@ -790,7 +804,6 @@ export function QuotationForm({ initialCustomerUlid = null, initialQuotationUlid
           setCustomerForm((f) => ({ ...f, [field]: value }));
           if (field === "name") setCustomerErrors((prev) => ({ ...prev, name: undefined }));
         }}
-        onFieldBlur={() => {}}
         onOpeningBalanceBlur={() => {}}
         onSubmit={submitCustomerForm}
       />

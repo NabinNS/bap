@@ -327,7 +327,6 @@ export default function PurchaseOrderPage() {
           setVendorForm((f) => ({ ...f, [field]: value }));
           if (field === "name") setVendorErrors((prev) => ({ ...prev, name: undefined }));
         }}
-        onFieldBlur={saveVendorDraft}
         onOpeningBalanceBlur={() => {}}
         onSubmit={submitVendorForm}
       />
