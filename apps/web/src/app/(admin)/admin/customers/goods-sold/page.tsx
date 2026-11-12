@@ -266,11 +266,19 @@ function GoodsSoldContent() {
     if (editTransactionParam || prev === selectedCustomerUlid) return;
 
     if (!prev) {
-      rows.forEach((row) => {
-        if (!row.saved && row.productUlid && row.quantity && Number(row.quantity) > 0 && row.rate !== "") {
-          trySaveRow(row.key);
+      // Sequential, not Promise.all/forEach: the first valid row creates the transaction and
+      // the rest must add their item to it — firing all of them at once would race, since
+      // `transactionUlid` only updates after the first one's create call resolves. Two rows
+      // starting from "no transaction yet" at the same instant would otherwise both create
+      // their own transaction instead of becoming two items on one.
+      const toSave = rows.filter(
+        (row) => !row.saved && row.productUlid && row.quantity && Number(row.quantity) > 0 && row.rate !== ""
+      );
+      (async () => {
+        for (const row of toSave) {
+          await trySaveRow(row.key);
         }
-      });
+      })();
       return;
     }
 

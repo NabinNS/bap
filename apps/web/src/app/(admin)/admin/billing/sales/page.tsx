@@ -3,12 +3,24 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search, Pencil, MoreVertical, Plus, Trash2, Filter as FilterIcon } from "lucide-react";
+import { Search, Pencil, MoreVertical, Plus, Trash2, Filter as FilterIcon, History } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { numberToWords } from "@/lib/numberToWords";
 import { toast } from "@/lib/toast";
 import { Modal } from "@/components/ui/Modal";
 import { BsDateInput } from "@/components/ui/form/BsDateInput";
+import { ActivityLogPanel } from "@/components/activity-log/ActivityLogPanel";
+
+const ACTIVITY_LOG_SUBJECT_TYPE_LABELS: Record<string, string> = {
+  acc_vendor: "Vendor",
+  acc_customer: "Customer",
+  acc_vendor_transaction: "Transaction",
+  acc_customer_transaction: "Transaction",
+  acc_vendor_transaction_item: "Item",
+  acc_customer_transaction_item: "Item",
+  acc_quotation: "Quotation",
+  acc_quotation_item: "Item",
+};
 
 type BillItem = {
   ulid: string;
@@ -44,6 +56,7 @@ export default function SalesPage() {
   const menuRef = useRef<HTMLDivElement>(null);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const headerMenuRef = useRef<HTMLDivElement>(null);
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -102,7 +115,8 @@ export default function SalesPage() {
   const selectedBill = bills.find((b) => b.ulid === selectedUlid) ?? filteredBills[0] ?? null;
 
   return (
-    <div className="p-6 flex flex-col gap-6 h-full">
+    <div className="flex gap-0 h-full">
+    <div className="flex-1 min-w-0 flex flex-col p-6 gap-6 h-full">
       <div>
         <h2 className="text-h3 font-bold text-text-default">Sales</h2>
         <p className="text-sm text-text-muted mt-0.5">All sales bills recorded across customers.</p>
@@ -268,6 +282,13 @@ export default function SalesPage() {
                         >
                           <Pencil className="h-3.5 w-3.5" /> Edit
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => { setMenuOpen(false); setActivityLogOpen(true); }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+                        >
+                          <History className="h-3.5 w-3.5" /> Activity Log
+                        </button>
                       </div>
                     )}
                     </div>
@@ -365,6 +386,16 @@ export default function SalesPage() {
           )}
         </div>
       </div>
+    </div>
+
+      <ActivityLogPanel
+        open={activityLogOpen}
+        onClose={() => setActivityLogOpen(false)}
+        subjectType="acc_customer_transaction"
+        subjectUlid={selectedBill?.ulid ?? null}
+        subjectTypeLabels={ACTIVITY_LOG_SUBJECT_TYPE_LABELS}
+        title={selectedBill ? `Activity Log — Bill #${selectedBill.voucher_no || selectedBill.ulid}` : "Activity Log"}
+      />
 
       <Modal
         open={trashedOpen}

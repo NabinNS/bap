@@ -1,3 +1,5 @@
+import { queryClient } from "@/lib/query-client";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 // In-memory access token — never touches localStorage or a readable cookie
@@ -44,6 +46,16 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: "Request failed" }));
     throw error;
+  }
+
+  // Any successful write (create/update/delete) can produce a new activity-log row on the
+  // backend — invalidate the cache here, once, centrally, rather than remembering to do it
+  // at every one of the dozens of mutation call sites across the app. A panel left open
+  // during the write picks up the change on its next background refetch instead of going
+  // stale until it's closed and reopened.
+  const method = (options.method ?? "GET").toUpperCase();
+  if (method !== "GET" && !path.startsWith("/activity-logs")) {
+    queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
   }
 
   return res.json();

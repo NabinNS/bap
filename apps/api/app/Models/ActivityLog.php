@@ -16,6 +16,8 @@ class ActivityLog extends Model
         'user_id',
         'subject_type',
         'subject_id',
+        'owner_type',
+        'owner_id',
         'label',
         'event',
         'description',

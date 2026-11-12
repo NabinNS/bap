@@ -17,6 +17,12 @@ import {
   Activity,
   Check,
 } from "lucide-react";
+import { ActivityLogPanel } from "@/components/activity-log/ActivityLogPanel";
+
+const ACTIVITY_LOG_SUBJECT_TYPE_LABELS: Record<string, string> = {
+  product: "Product",
+  product_transaction_item: "Stock",
+};
 
 type ProductDiscount = {
   ulid: string;
@@ -97,6 +103,7 @@ export default function AdminProductViewPage() {
   const discounts = discountsData?.data ?? [];
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("reviews");
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -450,12 +457,28 @@ export default function AdminProductViewPage() {
             </div>
           )}
           {activeTab === "activities" && (
-            <div className="text-sm text-text-muted flex items-center gap-2">
-              <Activity className="h-4 w-4" />No activities recorded.
+            <div>
+              <button
+                type="button"
+                onClick={() => setActivityLogOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-black text-white hover:bg-black/80 transition-colors"
+              >
+                <Activity className="h-4 w-4" />
+                View Activity Log
+              </button>
             </div>
           )}
         </div>
       </div>
+
+      <ActivityLogPanel
+        open={activityLogOpen}
+        onClose={() => setActivityLogOpen(false)}
+        subjectType="product"
+        subjectUlid={product.ulid}
+        subjectTypeLabels={ACTIVITY_LOG_SUBJECT_TYPE_LABELS}
+        title={`Activity Log — ${product.name}`}
+      />
 
     </div>
   );

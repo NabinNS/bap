@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { toBS } from "@zener/nepali-datepicker-react";
 import { apiFetch } from "@/lib/api";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
@@ -16,6 +16,11 @@ type ActivityLog = {
   changes: Record<string, unknown> | null;
   user: string | null;
   created_at: string;
+};
+
+type ActivityLogPage = {
+  data: ActivityLog[];
+  meta: { current_page: number; last_page: number };
 };
 
 /** True for the "parent" record of a bill/quotation — its transaction/quotation header, as
@@ -85,19 +90,13 @@ function summarizeChanges(log: ActivityLog): string {
       .map(([field, { old, new: next }]) => `${field.replace(/_/g, " ")} ${old ?? "—"} → ${next ?? "—"}`)
       .join(", ");
   }
-  return log.description ?? "";
+  // Created/deleted item descriptions read "{actor} created {label} — qty 1, rate 1, total 1"
+  // — the actor/label part is redundant here since the row above already shows the item's
+  // label, so keep only the "qty 1, rate 1, total 1" tail.
+  const description = log.description ?? "";
+  const summaryStart = description.lastIndexOf(" — ");
+  return summaryStart === -1 ? description : description.slice(summaryStart + 3);
 }
-
-const SUBJECT_TYPE_LABELS: Record<string, string> = {
-  acc_vendor: "Vendor",
-  acc_customer: "Customer",
-  acc_vendor_transaction: "Transaction",
-  acc_customer_transaction: "Transaction",
-  acc_vendor_transaction_item: "Item",
-  acc_customer_transaction_item: "Item",
-  acc_quotation: "Quotation",
-  acc_quotation_item: "Item",
-};
 
 const EVENT_STYLES: Record<string, string> = {
   created: "bg-emerald-50 text-emerald-700",
@@ -157,6 +156,7 @@ export function ActivityLogPanel({
   onClose,
   subjectType,
   subjectUlid,
+  subjectTypeLabels,
   title = "Activity Log",
   onSelectEntry,
 }: {
@@ -164,22 +164,28 @@ export function ActivityLogPanel({
   onClose: () => void;
   subjectType: string;
   subjectUlid: string | null;
+  /** Maps a log's `subject_type` to the short label shown as its chip, e.g. "acc_customer" -> "Customer". */
+  subjectTypeLabels: Record<string, string>;
   title?: string;
   /** Called when the user clicks an entry whose subject differs from the one this panel was
    *  opened for (e.g. a transaction row inside a vendor's aggregated log) — lets the caller
    *  jump to / select that row elsewhere in the page. */
   onSelectEntry?: (subjectType: string, subjectUlid: string) => void;
 }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["activity-logs", subjectType, subjectUlid],
-    queryFn: () =>
-      apiFetch<{ data: ActivityLog[] }>(
-        `/activity-logs?subject_type=${subjectType}&subject_ulid=${subjectUlid}`
+    queryFn: ({ pageParam }) =>
+      apiFetch<ActivityLogPage>(
+        `/activity-logs?subject_type=${subjectType}&subject_ulid=${subjectUlid}&page=${pageParam}`
       ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.current_page < lastPage.meta.last_page ? lastPage.meta.current_page + 1 : undefined,
     enabled: open && !!subjectUlid,
+    staleTime: 30_000,
   });
 
-  const logs = data?.data ?? [];
+  const logs = data?.pages.flatMap((page) => page.data) ?? [];
   const grouped = groupLogs(logs);
 
   return (
@@ -221,7 +227,7 @@ export function ActivityLogPanel({
                     {EVENT_LABELS[log.event] ?? log.event}
                   </span>
                   <span className="px-1.5 py-0.5 text-xs font-medium bg-slate-100 text-text-muted rounded">
-                    {SUBJECT_TYPE_LABELS[log.subject_type] ?? log.subject_type}
+                    {subjectTypeLabels[log.subject_type] ?? log.subject_type}
                   </span>
                 </div>
                 <span className="text-xs text-text-muted">{formatBsDateTime(log.created_at)}</span>
@@ -251,7 +257,7 @@ export function ActivityLogPanel({
               <div className="mt-2 ml-1 pl-3 border-l-2 border-slate-100 space-y-1.5">
                 {children.map((child) => (
                   <div key={child.ulid} className="text-xs">
-                    <span className="font-medium text-text-default capitalize">{child.label ?? SUBJECT_TYPE_LABELS[child.subject_type]}</span>
+                    <span className="font-medium text-text-default capitalize">{child.label ?? subjectTypeLabels[child.subject_type]}</span>
                     <span className="text-text-muted"> — {summarizeChanges(child)}</span>
                   </div>
                 ))}
@@ -261,6 +267,17 @@ export function ActivityLogPanel({
           );
         })}
       </div>
+
+      {hasNextPage && (
+        <button
+          type="button"
+          onClick={() => fetchNextPage()}
+          disabled={isFetchingNextPage}
+          className="mt-1 text-sm font-medium text-text-muted hover:text-text-default disabled:opacity-50"
+        >
+          {isFetchingNextPage ? "Loading..." : "Load more"}
+        </button>
+      )}
     </SlidePanel>
   );
 }

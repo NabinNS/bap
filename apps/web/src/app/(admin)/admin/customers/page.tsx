@@ -20,7 +20,18 @@ import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
 import { useImageGroup } from "@/hooks/useImageGroup";
 import { CustomerSidebar } from "./_components/CustomerSidebar";
 import { CustomerInfoBlock } from "./_components/CustomerInfoBlock";
-import { ActivityLogPanel } from "./_components/ActivityLogPanel";
+import { ActivityLogPanel } from "@/components/activity-log/ActivityLogPanel";
+
+const ACTIVITY_LOG_SUBJECT_TYPE_LABELS: Record<string, string> = {
+  acc_vendor: "Vendor",
+  acc_customer: "Customer",
+  acc_vendor_transaction: "Transaction",
+  acc_customer_transaction: "Transaction",
+  acc_vendor_transaction_item: "Item",
+  acc_customer_transaction_item: "Item",
+  acc_quotation: "Quotation",
+  acc_quotation_item: "Item",
+};
 import { TrashedCustomersModal } from "./_components/TrashedCustomersModal";
 import { FiscalYearModal } from "../accounts/_components/FiscalYearModal";
 import { FilterModal } from "./_components/FilterModal";
@@ -1610,6 +1621,7 @@ function AdminCustomersContent() {
         onClose={() => setActivityLogOpen(false)}
         subjectType="acc_customer"
         subjectUlid={activityLogCustomer?.ulid ?? null}
+        subjectTypeLabels={ACTIVITY_LOG_SUBJECT_TYPE_LABELS}
         title={activityLogCustomer ? `Activity Log — ${activityLogCustomer.name}` : "Activity Log"}
         onSelectEntry={(subjectType, subjectUlid) => {
           if (subjectType !== "acc_customer_transaction") return;
@@ -1748,6 +1760,7 @@ function AdminCustomersContent() {
         onClose={() => setTxActivityLogOpen(false)}
         subjectType="acc_customer_transaction"
         subjectUlid={txActivityLogTarget?.ulid ?? null}
+        subjectTypeLabels={ACTIVITY_LOG_SUBJECT_TYPE_LABELS}
         title={txActivityLogTarget ? `Activity Log — ${txActivityLogTarget.label}` : "Activity Log"}
       />
 

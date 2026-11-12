@@ -78,7 +78,20 @@ class ActivityLogObserver
                 continue;
             }
 
-            $diff[$field] = ['old' => $rawOld, 'new' => $rawNew];
+            // A known foreign key (customer_id, vendor_id, fiscal_year_id, product_id) is
+            // resolved to its display name *here*, before it's stored — not just in the
+            // separate describeChanges() text. The UI's change-chip list renders straight
+            // from this stored diff, so without this it would show "fiscal_year_id: 11 → 12"
+            // instead of "fiscal year: 2082/83 → 2083/84".
+            if (str_ends_with($field, '_id') && isset(self::FK_LOOKUPS[$field])) {
+                $diff[$this->fkLabel($field)] = [
+                    'old' => $this->resolveForeignKeyName($field, $rawOld) ?? 'None',
+                    'new' => $this->resolveForeignKeyName($field, $rawNew) ?? 'None',
+                ];
+                continue;
+            }
+
+            $diff[$field] = ['old' => $this->formatValue($rawOld), 'new' => $this->formatValue($rawNew)];
         }
 
         $this->log($model, 'updated', $diff, $this->describeChanges($diff));
@@ -131,24 +144,46 @@ class ActivityLogObserver
             }
         }
 
+        $subjectType = $model->getMorphClass();
+
         $description = match ($event) {
-            'created' => "{$actor} created {$label} — ".$this->describeSnapshot($changes),
+            'created' => $this->createdDescription($actor, $label, $subjectType, $changes),
             'updated' => "{$actor} updated {$label} — {$detail}",
-            'deleted' => "{$actor} deleted {$label} — {$detail}",
+            'deleted' => $this->deletedDescription($actor, $label, $subjectType, $changes) ?? "{$actor} deleted {$label} — {$detail}",
             default   => "{$actor} {$event} {$label}",
         };
+
+        [$ownerType, $ownerId] = $this->ownerFor($model, $subjectType);
 
         ActivityLog::create([
             'tenant_id'    => $model->tenant_id,
             'user_id'      => Auth::id(),
             'subject_type' => $model->getMorphClass(),
             'subject_id'   => $model->getKey(),
+            'owner_type'   => $ownerType,
+            'owner_id'     => $ownerId,
             'label'        => $label,
             'event'        => $event,
             'description'  => $description,
             'changes'      => $changes,
             'session_id'   => $sessionId,
         ]);
+    }
+
+    /** The vendor/customer/product this row should surface under in an aggregated activity
+     *  panel — itself for an account/product row, or the owning FK for one of its
+     *  transactions/items. Read directly off the model's current attributes (not $changes),
+     *  since an update to e.g. an item's quantity won't include its unchanged product_id in
+     *  the diff. Returns [null, null] for subject types that aren't aggregated this way. */
+    private function ownerFor(Model $model, string $subjectType): array
+    {
+        return match ($subjectType) {
+            'acc_vendor', 'acc_customer', 'product' => [$subjectType, $model->getKey()],
+            'acc_vendor_transaction', 'acc_vendor_transaction_item' => ['acc_vendor', $model->vendor_id],
+            'acc_customer_transaction', 'acc_customer_transaction_item' => ['acc_customer', $model->customer_id],
+            'product_transaction_item' => ['product', $model->product_id],
+            default => [null, null],
+        };
     }
 
     private function sessionId(): ?string
@@ -170,7 +205,7 @@ class ActivityLogObserver
             }
 
             $recent->changes = $snapshot;
-            $recent->description = "{$actor} created {$label} — ".$this->describeSnapshot($snapshot);
+            $recent->description = $this->createdDescription($actor, $label, $recent->subject_type, $snapshot);
         } else {
             $diff = $recent->changes ?? [];
             foreach ($changes as $field => $pair) {
@@ -296,6 +331,97 @@ class ActivityLogObserver
         return in_array($field, ['id', 'tenant_id', 'ulid', 'created_at', 'updated_at', 'deleted_at'], true);
     }
 
+    /** Subject types that are a bill/quotation header — logged as a single clean sentence
+     *  ("created transaction INV-1023 of 10,000") rather than the full bill_details
+     *  breakdown (discount/VAT/etc.), which is noise at creation time. */
+    private const AMOUNT_SUBJECTS = ['acc_customer_transaction', 'acc_vendor_transaction', 'acc_quotation'];
+
+    /** Subject types that are a bill/quotation line item — the product name is already in the
+     *  label, so the created/deleted line only needs qty/rate/total, not product_id again. */
+    private const ITEM_SUBJECTS = ['acc_customer_transaction_item', 'acc_vendor_transaction_item', 'acc_quotation_item'];
+
+    /** Subject types that are a plain account record — the label already says everything
+     *  that matters ("created vendor account ABC Traders"); the full address/phone/vat_no
+     *  dump at creation time is noise. */
+    private const ACCOUNT_SUBJECTS = ['acc_customer', 'acc_vendor'];
+
+    /** Subject types whose label already says everything worth saying ("stock purchase of
+     *  Rice 25kg — 2026-11-04 — qty 50") — no extra field dump needed on create/delete. */
+    private const LABEL_ONLY_SUBJECTS = ['product_transaction_item'];
+
+    private function createdDescription(string $actor, string $label, string $subjectType, array $data): string
+    {
+        if (in_array($subjectType, [...self::ACCOUNT_SUBJECTS, ...self::LABEL_ONLY_SUBJECTS], true)) {
+            return "{$actor} created {$label}";
+        }
+
+        if (in_array($subjectType, self::AMOUNT_SUBJECTS, true)) {
+            return "{$actor} created {$label} of ".$this->formatAmount($this->transactionAmount($data));
+        }
+
+        if (in_array($subjectType, self::ITEM_SUBJECTS, true)) {
+            return "{$actor} created {$label} — ".$this->itemSummary($data);
+        }
+
+        return "{$actor} created {$label} — ".$this->describeSnapshot($data);
+    }
+
+    private function deletedDescription(string $actor, string $label, string $subjectType, array $data): ?string
+    {
+        if (in_array($subjectType, [...self::ACCOUNT_SUBJECTS, ...self::LABEL_ONLY_SUBJECTS], true)) {
+            return "{$actor} deleted {$label}";
+        }
+
+        if (in_array($subjectType, self::AMOUNT_SUBJECTS, true)) {
+            return "{$actor} deleted {$label} of ".$this->formatAmount($this->transactionAmount($data));
+        }
+
+        if (in_array($subjectType, self::ITEM_SUBJECTS, true)) {
+            return "{$actor} deleted {$label} — ".$this->itemSummary($data);
+        }
+
+        return null;
+    }
+
+    private function itemSummary(array $data): string
+    {
+        $qty = $this->formatAmount($data['quantity'] ?? null);
+        $rate = $this->formatAmount($data['rate'] ?? null);
+        $total = $this->formatAmount($data['total'] ?? null);
+
+        return "qty {$qty}, rate {$rate}, total {$total}";
+    }
+
+    /** The bill's grand total (if it's an item-based bill with a discount/VAT breakdown),
+     *  falling back to whichever of credit/debit is actually set. */
+    private function transactionAmount(array $data): mixed
+    {
+        $grandTotal = $data['bill_details']['grand_total'] ?? null;
+        if ($grandTotal !== null) {
+            return $grandTotal;
+        }
+
+        return ($data['credit'] ?? 0) > 0 ? $data['credit'] : ($data['debit'] ?? 0);
+    }
+
+    /** "10,000" rather than "10000.00" — comma-grouped, drops a trailing whole-number decimal
+     *  but keeps real cents, matching how amounts are formatted everywhere else in the app. */
+    private function formatAmount(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '0';
+        }
+
+        if (!is_numeric($value)) {
+            return (string) $value;
+        }
+
+        $float = (float) $value;
+        $decimals = ((float) $value == (int) $float) ? 0 : 2;
+
+        return number_format($float, $decimals);
+    }
+
     /** "fiscal year: 2083/84", or null if this id field isn't in FK_LOOKUPS (internal linkage). */
     private function resolveForeignKey(string $field, mixed $id): ?string
     {
@@ -309,15 +435,26 @@ class ActivityLogObserver
         return $name !== null ? "{$label}: {$name}" : null;
     }
 
+    /** One request can diff several FK columns across several field saves (e.g. an autosave
+     *  session touching fiscal_year_id then customer_id) — memoized per (field, id) so each
+     *  distinct foreign row is fetched at most once per request instead of once per old/new
+     *  value per field. */
+    private static array $fkNameCache = [];
+
     private function resolveForeignKeyName(string $field, mixed $id): ?string
     {
         if ($id === null || !isset(self::FK_LOOKUPS[$field])) {
             return null;
         }
 
+        $cacheKey = "{$field}:{$id}";
+        if (array_key_exists($cacheKey, self::$fkNameCache)) {
+            return self::$fkNameCache[$cacheKey];
+        }
+
         [$class, $attribute] = self::FK_LOOKUPS[$field];
 
-        return $class::find($id)?->{$attribute};
+        return self::$fkNameCache[$cacheKey] = $class::find($id)?->{$attribute};
     }
 
     /** "fiscal_year_id" -> "fiscal year" */
@@ -332,6 +469,10 @@ class ActivityLogObserver
     {
         if (is_array($value)) {
             return json_encode($value);
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
         }
 
         return $value === null ? 'null' : (string) $value;
