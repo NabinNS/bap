@@ -87,6 +87,8 @@ export default function AdminSettings() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings-bootstrap"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["fiscal-years"] });
       toast.success("Settings saved", "Fiscal year has been updated.");
     },
     onError: (err: any) => {
@@ -103,6 +105,8 @@ export default function AdminSettings() {
     onSuccess: (res) => {
       const { customers_synced, vendors_synced, products_synced } = res.data;
       queryClient.invalidateQueries({ queryKey: ["settings-bootstrap"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["fiscal-years"] });
       toast.success(
         "Fiscal year switched",
         `Carried forward ${customers_synced} customer${customers_synced === 1 ? "" : "s"}, ${vendors_synced} vendor${vendors_synced === 1 ? "" : "s"}, and ${products_synced} product${products_synced === 1 ? "" : "s"}.`

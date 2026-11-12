@@ -106,6 +106,7 @@ function ParticularCombobox({ vendorUlid, onChange }: { vendorUlid: string; onCh
         value={value}
         onChange={(v) => { setValue(v); onChange(v); }}
         autoFocus
+        fillHeight
       />
     </div>
   );

@@ -27,22 +27,37 @@ export function ViewingFiscalYearProvider({
   children: React.ReactNode;
 }) {
   const [viewingFiscalYearId, setViewingFiscalYearIdState] = useState<number | null>(null);
+  const [lastSyncedActiveFiscalYearId, setLastSyncedActiveFiscalYearId] = useState<number | null>(null);
 
   // Seed from sessionStorage once we know the tenant's active fiscal year (used as the
-  // default when there's no stored preference yet for this tab's session).
+  // default when there's no stored preference yet for this tab's session). Afterwards, if
+  // Settings changes the tenant's active fiscal year, follow it — unless the user has
+  // manually switched the viewing year away from the active one this session.
   useEffect(() => {
-    if (viewingFiscalYearId !== null || activeFiscalYearId === null) return;
+    if (activeFiscalYearId === null || activeFiscalYearId === lastSyncedActiveFiscalYearId) return;
 
-    let stored: number | null = null;
-    try {
-      const raw = window.sessionStorage.getItem(STORAGE_KEY);
-      stored = raw ? Number(raw) : null;
-    } catch {
-      // sessionStorage unavailable (private mode, etc.) — fall back to the active fiscal year.
+    if (viewingFiscalYearId === null) {
+      let stored: number | null = null;
+      try {
+        const raw = window.sessionStorage.getItem(STORAGE_KEY);
+        stored = raw ? Number(raw) : null;
+      } catch {
+        // sessionStorage unavailable (private mode, etc.) — fall back to the active fiscal year.
+      }
+
+      setViewingFiscalYearIdState(stored ?? activeFiscalYearId);
+    } else if (lastSyncedActiveFiscalYearId !== null && viewingFiscalYearId === lastSyncedActiveFiscalYearId) {
+      // User was viewing the (old) active fiscal year and hadn't overridden it — follow Settings.
+      setViewingFiscalYearIdState(activeFiscalYearId);
+      try {
+        window.sessionStorage.setItem(STORAGE_KEY, String(activeFiscalYearId));
+      } catch {
+        // Ignore — the in-memory state still updates for this session.
+      }
     }
 
-    setViewingFiscalYearIdState(stored ?? activeFiscalYearId);
-  }, [activeFiscalYearId, viewingFiscalYearId]);
+    setLastSyncedActiveFiscalYearId(activeFiscalYearId);
+  }, [activeFiscalYearId, viewingFiscalYearId, lastSyncedActiveFiscalYearId]);
 
   const setViewingFiscalYearId = useCallback((fiscalYearId: number) => {
     setViewingFiscalYearIdState(fiscalYearId);

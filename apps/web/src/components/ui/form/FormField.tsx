@@ -52,6 +52,8 @@ type ComboboxFieldProps = BaseProps & {
   autoFocus?: boolean;
   /** Called when an option becomes highlighted (hover or keyboard) — use to lazily load its `extra` content. */
   onOptionHighlight?: (value: string | null) => void;
+  /** Stretches the field to fill its parent's height — for use in a table cell/absolute-fill layout, not a stacked form. */
+  fillHeight?: boolean;
 };
 
 type FileUploadFieldProps = BaseProps & {
@@ -198,6 +200,7 @@ export function ComboboxField({
   onSearchChange,
   autoFocus,
   onOptionHighlight,
+  fillHeight = false,
 }: ComboboxFieldProps) {
   const listboxId = useId();
   const listRef = useRef<HTMLUListElement>(null);
@@ -330,9 +333,9 @@ export function ComboboxField({
     : "border-slate-400 focus:border-slate-600";
 
   return (
-    <FieldWrapper hint={hint} error={error} fillHeight>
+    <FieldWrapper hint={hint} error={error} fillHeight={fillHeight}>
       {label && <Label label={label} required={required} />}
-      <div ref={containerRef} className={`relative h-full ${label ? "mt-1" : ""}`}>
+      <div ref={containerRef} className={`relative ${fillHeight ? "h-full" : ""} ${label ? "mt-1" : ""}`}>
         <input
           ref={inputRef}
           role="combobox"

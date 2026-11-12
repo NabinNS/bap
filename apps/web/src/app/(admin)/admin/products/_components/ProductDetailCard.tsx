@@ -123,7 +123,7 @@ export function ProductDetailCard({
 
         {product && (
           <div className="flex items-center shrink-0">
-            {showSyncButton && (
+            {false && showSyncButton && (
               <button
                 type="button"
                 onClick={onSyncClick}

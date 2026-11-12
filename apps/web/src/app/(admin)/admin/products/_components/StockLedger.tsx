@@ -60,6 +60,7 @@ function ParticularCombobox({ resetKey, initialValue, onChange }: { resetKey: st
         value={value}
         onChange={(v) => { setValue(v); onChange(v); }}
         autoFocus
+        fillHeight
       />
     </div>
   );
