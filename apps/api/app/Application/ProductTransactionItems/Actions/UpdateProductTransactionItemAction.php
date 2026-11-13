@@ -2,7 +2,7 @@
 
 namespace App\Application\ProductTransactionItems\Actions;
 
-use App\Application\ProductStockBalances\Actions\RecalculateProductStockBalanceAction;
+use App\Application\ProductStockBalances\Actions\SyncProductStockBalanceAction;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Domain\ProductTransactionItems\DTOs\ProductTransactionItemData;
 use App\Domain\ProductTransactionItems\Repositories\ProductTransactionItemRepositoryInterface;
@@ -19,7 +19,7 @@ class UpdateProductTransactionItemAction
         private ProductRepositoryInterface $products,
         private ReverseProductTransactionItemAction $reverseItem,
         private TenantSettingRepositoryInterface $settings,
-        private RecalculateProductStockBalanceAction $recalculateBalance,
+        private SyncProductStockBalanceAction $recalculateBalance,
     ) {}
 
     public function execute(int $tenantId, Product $product, ProductTransactionItem $item, ProductTransactionItemData $data): ProductTransactionItem

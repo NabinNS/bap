@@ -6,7 +6,6 @@ use App\Domain\ProductStockBalances\Repositories\ProductStockBalanceRepositoryIn
 use App\Models\Product;
 use App\Models\ProductStockBalance;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class SyncProductStockBalanceAction
 {
@@ -16,22 +15,18 @@ class SyncProductStockBalanceAction
     ) {}
 
     /**
-     * Manually re-sync a product's stock balance starting from a given fiscal year, forward
-     * through every later year that already tracks this product — overwriting each later
-     * year's opening_quantity even if it was entered manually. Only runs when the user
-     * explicitly presses "Sync Balance" (unlike RecalculateProductStockBalanceAction, which
-     * only ever touches the single fiscal year it's given and never cascades on its own).
+     * Re-sync a product's stock balance starting from a given fiscal year, forward through
+     * every later year that already tracks this product — overwriting each later year's
+     * opening_quantity with the prior year's recalculated remaining_quantity. Runs both from
+     * the explicit "Sync Balance" button and automatically after every transaction-item write
+     * (see Create/Update/Delete/RestoreProductTransactionItemAction), so a later year's stock
+     * balance can never go stale relative to an earlier year's transaction items.
+     *
+     * The starting year's balance row is created on demand (via RecalculateProductStockBalanceAction)
+     * if it doesn't exist yet, same as a plain recalculation would.
      */
     public function execute(Product $product, int $fiscalYearId): ProductStockBalance
     {
-        $balance = $this->balances->find($product, $fiscalYearId);
-
-        if (!$balance) {
-            throw ValidationException::withMessages([
-                'fiscal_year_id' => ['This product has no stock balance recorded for that fiscal year yet.'],
-            ]);
-        }
-
         return DB::transaction(function () use ($product, $fiscalYearId) {
             $currentFiscalYearId = $fiscalYearId;
 

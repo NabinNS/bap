@@ -2,7 +2,7 @@
 
 namespace App\Application\ProductTransactionItems\Actions;
 
-use App\Application\ProductStockBalances\Actions\RecalculateProductStockBalanceAction;
+use App\Application\ProductStockBalances\Actions\SyncProductStockBalanceAction;
 use App\Domain\Products\Repositories\ProductRepositoryInterface;
 use App\Domain\ProductTransactionItems\Repositories\ProductTransactionItemRepositoryInterface;
 use App\Models\Product;
@@ -14,7 +14,7 @@ class RestoreProductTransactionItemAction
     public function __construct(
         private ProductTransactionItemRepositoryInterface $items,
         private ProductRepositoryInterface $products,
-        private RecalculateProductStockBalanceAction $recalculateBalance,
+        private SyncProductStockBalanceAction $recalculateBalance,
     ) {}
 
     /**
