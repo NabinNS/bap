@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { useMutation, useQueryClient, UseMutationResult } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, UseMutationResult } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { ComboboxField, NumberField } from "@/components/ui/form/FormField";
 import { BsDateInput, isValidBsDate } from "@/components/ui/form/BsDateInput";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
+import { BillEditPanel, BillEditTransaction, BillEditPartyType } from "@/components/transactions/BillEditPanel";
 
 const PARTICULAR_OPTIONS = [
   { value: "purchase", label: "Purchase" },
@@ -68,6 +69,21 @@ export function ProductTransactionItemPanel({
     onError: () => toast.error("Failed to delete", "Could not delete the transaction."),
   });
 
+  if (item && item.bill) {
+    // Bill-linked rows open the same rich, auto-saving bill-edit panel used on the
+    // vendor/customer pages — full line items, product picker, VAT, receipt photo — instead
+    // of a locked, redirect-only quick view.
+    const bill = item.bill;
+    return (
+      <BillLinkedPanel
+        key={item.ulid}
+        productUlid={productUlid}
+        item={{ ...item, bill }}
+        onClose={onClose}
+      />
+    );
+  }
+
   return (
     <PanelForm
       // Remounts the form (and its local field state) whenever a different row is opened,
@@ -79,6 +95,44 @@ export function ProductTransactionItemPanel({
       onClose={onClose}
       updateMutation={updateMutation}
       deleteMutation={deleteMutation}
+    />
+  );
+}
+
+/** Fetches the full bill behind a bill-linked product-transaction row and edits it with the shared rich panel. */
+function BillLinkedPanel({
+  productUlid,
+  item,
+  onClose,
+}: {
+  productUlid: string;
+  item: TransactionItemPanelItem & { bill: { transaction_ulid: string; party_ulid: string } };
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const partyType: BillEditPartyType = item.type === "purchase" ? "vendor" : "customer";
+  const base = partyType === "vendor" ? "acc-vendors" : "acc-customers";
+  const queryKey = [partyType === "vendor" ? "acc-vendor-transactions" : "acc-customer-transactions", item.bill.party_ulid];
+
+  const { data } = useQuery({
+    queryKey,
+    queryFn: () => apiFetch<{ data: BillEditTransaction[] }>(`/${base}/${item.bill.party_ulid}/transactions?per_page=1000`),
+  });
+
+  const transaction = data?.data.find((t) => t.ulid === item.bill.transaction_ulid) ?? null;
+
+  return (
+    <BillEditPanel
+      partyType={partyType}
+      partyUlid={item.bill.party_ulid}
+      transaction={transaction}
+      queryKey={queryKey}
+      onClose={onClose}
+      onAddItemsPage={(tx) => {
+        const page = partyType === "vendor" ? "/admin/accounts/goods-purchased" : "/admin/customers/goods-sold";
+        const partyParam = partyType === "vendor" ? "vendor" : "customer";
+        router.push(`${page}?${partyParam}=${item.bill.party_ulid}&transaction=${tx.ulid}&product=${productUlid}`);
+      }}
     />
   );
 }
@@ -107,10 +161,8 @@ function PanelForm({
 
   const amount = quantity && rate ? Number(quantity) * Number(rate) : null;
 
-  const readOnly = !!item?.bill;
-
   function save() {
-    if (!item || readOnly || !isValidBsDate(date) || !quantity || !rate) return;
+    if (!item || !isValidBsDate(date) || !quantity || !rate) return;
     const isPurchase = type === "purchase";
     updateMutation.mutate({
       itemUlid: item.ulid,
@@ -130,27 +182,15 @@ function PanelForm({
       open={!!item}
       onClose={onClose}
       title={type === "purchase" ? "Purchase Entry" : "Sale Entry"}
-      description={readOnly ? "Bill-linked — edit it from the bill page." : "Quick view — double-click to open full detail."}
-      submitLabel={readOnly ? undefined : updateMutation.isPending ? "Saving..." : "Save Changes"}
-      onSubmit={readOnly ? undefined : save}
-      onDelete={item && !readOnly ? () => { if (confirm("Delete this entry?")) deleteMutation.mutate(item.ulid); } : undefined}
+      description="Quick view — double-click to open full detail."
+      submitLabel={updateMutation.isPending ? "Saving..." : "Save Changes"}
+      onSubmit={save}
+      onDelete={item ? () => { if (confirm("Delete this entry?")) deleteMutation.mutate(item.ulid); } : undefined}
     >
-      {item && item.bill && (
-        <Link
-          href={
-            item.type === "purchase"
-              ? `/admin/accounts/goods-purchased?vendor=${item.bill.party_ulid}&transaction=${item.bill.transaction_ulid}&product=${productUlid}`
-              : `/admin/customers/goods-sold?customer=${item.bill.party_ulid}&transaction=${item.bill.transaction_ulid}&product=${productUlid}`
-          }
-          className="block text-right text-xs font-semibold text-blue-800 underline hover:text-blue-900 transition-colors -mt-2 -mb-2"
-        >
-          Need full details? View full entry →
-        </Link>
-      )}
-      <ComboboxField label="Particular" options={PARTICULAR_OPTIONS} value={type} onChange={(v) => setType(v as "purchase" | "sale")} disabled={readOnly} />
-      <BsDateInput value={date} onChange={setDate} disabled={readOnly} />
-      <NumberField label="Quantity" placeholder="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={readOnly} />
-      <NumberField label="Rate" placeholder="0.00" allowDecimal value={rate} onChange={(e) => setRate(e.target.value)} disabled={readOnly} />
+      <ComboboxField label="Particular" options={PARTICULAR_OPTIONS} value={type} onChange={(v) => setType(v as "purchase" | "sale")} />
+      <BsDateInput value={date} onChange={setDate} />
+      <NumberField label="Quantity" placeholder="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+      <NumberField label="Rate" placeholder="0.00" allowDecimal value={rate} onChange={(e) => setRate(e.target.value)} />
       <div>
         <label className="block text-sm font-semibold text-text-default">Amount</label>
         <input

@@ -9,15 +9,13 @@ import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Plus, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon, RefreshCw, AlertTriangle, History } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { TRANSACTION_PARTICULARS, getParticularLabel, getParticularDirection, ITEM_CAPABLE_PARTICULARS } from "./constants";
+import { TRANSACTION_PARTICULARS, getParticularLabel } from "./constants";
 import { toast } from "@/lib/toast";
 import { SelectField, ComboboxField } from "@/components/ui/form/FormField";
 import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { BsDateInput, isValidBsDate } from "@/components/ui/form/BsDateInput";
-import { ProductCombobox, ProductOption } from "@/components/products/ProductCombobox";
 import { ConfirmDialog } from "@/components/ui/dialog/ConfirmDialog";
-import { MultiImageUpload } from "@/components/ui/form/MultiImageUpload";
-import { useImageGroup } from "@/hooks/useImageGroup";
+import { BillEditPanel } from "@/components/transactions/BillEditPanel";
 import { CustomerSidebar } from "./_components/CustomerSidebar";
 import { CustomerInfoBlock } from "./_components/CustomerInfoBlock";
 import { ActivityLogPanel } from "@/components/activity-log/ActivityLogPanel";
@@ -149,13 +147,6 @@ function AdminCustomersContent() {
   // an externally-cleared value (its own typed text otherwise never re-syncs from props).
   const [dateFilterResetKey, setDateFilterResetKey] = useState(0);
   const [confirmDeleteTxUlid, setConfirmDeleteTxUlid] = useState<string | null>(null);
-  const [confirmDeleteItemUlid, setConfirmDeleteItemUlid] = useState<string | null>(null);
-  const loadedReceiptForRef = useRef<string | null>(null);
-  // A fresh id per transaction-panel-open — tags every autosave call made while the panel
-  // stays open for this transaction, so the backend can merge them into one log entry
-  // instead of one row per field blur.
-  const txEditSessionRef = useRef<string | null>(null);
-  const receiptImage = useImageGroup("acc_customer_transaction", "acc-customer-transactions", "receipt");
   const [txMenuPos, setTxMenuPos] = useState<{ top: number; left: number } | null>(null);
   const txMenuRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -163,11 +154,6 @@ function AdminCustomersContent() {
   const draftRef = useRef({ particular: "", voucher_no: "", debit: "", credit: "", date: "" });
   const [pendingCustomerUlid, setPendingCustomerUlid] = useState<string | null>(null);
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
-  const [txEdit, setTxEdit] = useState<{ date: string; particular: string; voucher_no: string; cheque_no: string; amount: string } | null>(null);
-  const [itemEdits, setItemEdits] = useState<Record<string, { product_ulid: string; product_name: string; quantity: string; rate: string; discount: string }>>({});
-  const EMPTY_NEW_ITEM = { product_ulid: "", product_name: "", quantity: "", rate: "", discount: "0" };
-  const [newItem, setNewItem] = useState(EMPTY_NEW_ITEM);
-  const [addingItem, setAddingItem] = useState(false);
   const [editingOpeningBalance, setEditingOpeningBalance] = useState(false);
   const [openingBalanceDraft, setOpeningBalanceDraft] = useState("");
   const [openingBalanceFiscalYearId, setOpeningBalanceFiscalYearId] = useState("");
@@ -318,64 +304,6 @@ function AdminCustomersContent() {
       toast.success("Transaction restored", "The transaction is back in the ledger.");
     },
     onError: (err: any) => toast.error("Failed to restore transaction", err?.message ?? "Something went wrong."),
-  });
-
-  const updateTransactionMutation = useMutation({
-    mutationFn: ({ customerUlid, txUlid, payload }: { customerUlid: string; txUlid: string; payload: object }) =>
-      apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}`, {
-        method: "PATCH",
-        body: JSON.stringify(payload),
-        headers: txEditSessionRef.current ? { "X-Activity-Session": txEditSessionRef.current } : undefined,
-      }),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["acc-customer-transactions", variables.customerUlid] });
-      queryClient.invalidateQueries({ queryKey: ["acc-customers"] });
-    },
-    onError: (err: any) => toast.error("Failed to update transaction", err?.message ?? "Something went wrong."),
-  });
-
-  const updateTotalsMutation = useMutation({
-    mutationFn: ({ customerUlid, txUlid, body }: { customerUlid: string; txUlid: string; body: { vat_exempt: boolean } }) =>
-      apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}/totals`, { method: "PATCH", body: JSON.stringify(body) }),
-    onSuccess: (_data, variables) => invalidateCustomerTransactions(variables.customerUlid),
-    onError: (err: any) => toast.error("Failed to update VAT", err?.message ?? "Something went wrong."),
-  });
-
-  const updateItemMutation = useMutation({
-    mutationFn: ({ customerUlid, txUlid, itemUlid, payload }: { customerUlid: string; txUlid: string; itemUlid: string; payload: object }) =>
-      apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}/items/${itemUlid}`, {
-        method: "PATCH",
-        body: JSON.stringify(payload),
-        headers: txEditSessionRef.current ? { "X-Activity-Session": txEditSessionRef.current } : undefined,
-      }),
-    onSuccess: (_data, variables) => invalidateCustomerTransactions(variables.customerUlid),
-    onError: (err: any) => toast.error("Failed to update item", err?.message ?? "Something went wrong."),
-  });
-
-  const deleteItemMutation = useMutation({
-    mutationFn: ({ customerUlid, txUlid, itemUlid }: { customerUlid: string; txUlid: string; itemUlid: string }) =>
-      apiFetch(`/acc-customers/${customerUlid}/transactions/${txUlid}/items/${itemUlid}`, { method: "DELETE" }),
-    onSuccess: (_data, variables) => {
-      invalidateCustomerTransactions(variables.customerUlid);
-      toast.success("Item removed", "The line item has been deleted.");
-    },
-    onError: (err: any) => toast.error("Failed to delete item", err?.message ?? "Something went wrong."),
-  });
-
-  const addItemMutation = useMutation({
-    mutationFn: ({ customerUlid, txUlid, payload }: { customerUlid: string; txUlid: string; payload: object }) =>
-      apiFetch<{ data: { ulid: string; product_ulid: string; quantity: number; rate: number; discount: number; total: number } }>(
-        `/acc-customers/${customerUlid}/transactions/${txUlid}/items`,
-        {
-          method: "POST",
-          body: JSON.stringify(payload),
-          headers: txEditSessionRef.current ? { "X-Activity-Session": txEditSessionRef.current } : undefined,
-        }
-      ),
-    onSuccess: (_data, variables) => {
-      invalidateCustomerTransactions(variables.customerUlid);
-    },
-    onError: (err: any) => toast.error("Failed to add item", err?.message ?? "Something went wrong."),
   });
 
   function tryAutoSaveTransaction() {
@@ -624,169 +552,6 @@ function AdminCustomersContent() {
   const selectedTransaction = selectedTransactionUlid
     ? rawTransactions.find((t) => t.ulid === selectedTransactionUlid) ?? null
     : null;
-
-  useEffect(() => {
-    txEditSessionRef.current = selectedTransactionUlid ? crypto.randomUUID() : null;
-    setNewItem(EMPTY_NEW_ITEM);
-    setAddingItem(false);
-    if (!selectedTransaction) { setTxEdit(null); setItemEdits({}); return; }
-    setTxEdit({
-      date: selectedTransaction.date,
-      particular: selectedTransaction.particular,
-      voucher_no: selectedTransaction.voucher_no ?? "",
-      cheque_no: selectedTransaction.cheque_no ?? "",
-      amount: String(selectedTransaction.debit ?? selectedTransaction.credit ?? ""),
-    });
-    setItemEdits(Object.fromEntries((selectedTransaction.items ?? []).map((it) => [it.ulid, {
-      product_ulid: it.product_ulid,
-      product_name: it.product_name,
-      quantity: String(it.quantity),
-      rate: String(it.rate),
-      discount: String(it.discount),
-    }])));
-    if (!selectedTransaction) { receiptImage.reset(); loadedReceiptForRef.current = null; }
-    else if (loadedReceiptForRef.current !== selectedTransaction.ulid) {
-      loadedReceiptForRef.current = selectedTransaction.ulid;
-      receiptImage.load(selectedTransaction.ulid);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTransactionUlid]);
-
-  const hasItems = !!(selectedTransaction?.items && selectedTransaction.items.length > 0);
-
-  function saveTransactionHeader() {
-    if (!selectedCustomerUlid || !selectedTransactionUlid || !txEdit) return;
-    if (!isValidBsDate(txEdit.date) || !txEdit.particular.trim()) return;
-    const direction = getParticularDirection(txEdit.particular);
-    updateTransactionMutation.mutate({
-      customerUlid: selectedCustomerUlid,
-      txUlid: selectedTransactionUlid,
-      payload: {
-        date: txEdit.date,
-        particular: txEdit.particular,
-        voucher_no: txEdit.voucher_no || null,
-        cheque_no: txEdit.particular === "cheque" ? txEdit.cheque_no || null : null,
-        debit: direction === "debit" ? Number(txEdit.amount) || null : null,
-        credit: direction === "credit" ? Number(txEdit.amount) || null : null,
-      },
-    });
-  }
-
-  async function saveVatExempt(exempt: boolean) {
-    if (!selectedCustomerUlid || !selectedTransactionUlid || !selectedTransaction) return;
-
-    const queryKey = ["acc-customer-transactions", selectedCustomer?.ulid, viewedFiscalYearId];
-    const previousData = queryClient.getQueryData<{ data: Transaction[] }>(queryKey);
-
-    // Optimistic — flips the checkbox, zeroes/restores VAT, and relabels the particular
-    // immediately; reconciled with server-computed totals once both requests resolve.
-    queryClient.setQueryData<{ data: Transaction[] } | undefined>(queryKey, (old) => {
-      if (!old) return old;
-      return {
-        ...old,
-        data: old.data.map((t) => {
-          if (t.ulid !== selectedTransactionUlid) return t;
-          const vatAmount = exempt ? 0 : Math.round((t.taxable_amount ?? 0) * 0.13);
-          return {
-            ...t,
-            vat_exempt: exempt,
-            vat_amount: vatAmount,
-            grand_total: (t.taxable_amount ?? 0) + vatAmount,
-            particular: exempt ? "sales_non_vat" : "sales",
-          };
-        }),
-      };
-    });
-
-    try {
-      await updateTotalsMutation.mutateAsync({ customerUlid: selectedCustomerUlid, txUlid: selectedTransactionUlid, body: { vat_exempt: exempt } });
-      // Keep the particular label in sync — "sales" vs "sales_non_vat" — with the VAT toggle.
-      await updateTransactionMutation.mutateAsync({
-        customerUlid: selectedCustomerUlid,
-        txUlid: selectedTransactionUlid,
-        payload: {
-          date: selectedTransaction.date,
-          particular: exempt ? "sales_non_vat" : "sales",
-          voucher_no: selectedTransaction.voucher_no || null,
-          cheque_no: selectedTransaction.cheque_no || null,
-        },
-      });
-    } catch {
-      queryClient.setQueryData(queryKey, previousData);
-    }
-  }
-
-  function suggestedRate(product: ProductOption | null): number | null {
-    return product?.wacc ?? product?.cost_price ?? null;
-  }
-
-  // `overrides` lets a caller (e.g. the product combobox's onChange) save with values it
-  // just computed, instead of relying on `itemEdits` state that a same-tick blur event
-  // would still read as stale (React hasn't applied the update yet).
-  function saveItem(itemUlid: string, overrides?: Partial<{ product_ulid: string; product_name: string; quantity: string; rate: string; discount: string }>) {
-    const edit = itemEdits[itemUlid];
-    if (!selectedCustomerUlid || !selectedTransactionUlid || !edit) return;
-    const merged = overrides ? { ...edit, ...overrides } : edit;
-    if (!merged.product_ulid || !merged.quantity || Number(merged.quantity) <= 0 || merged.rate === "") return;
-    updateItemMutation.mutate({
-      customerUlid: selectedCustomerUlid,
-      txUlid: selectedTransactionUlid,
-      itemUlid,
-      payload: {
-        product_ulid: merged.product_ulid,
-        quantity: Number(merged.quantity),
-        rate: Number(merged.rate),
-        discount: Number(merged.discount) || 0,
-      },
-    });
-  }
-
-  function saveNewItem() {
-    if (!selectedCustomerUlid || !selectedTransactionUlid) return;
-    if (!newItem.product_ulid || !newItem.quantity || Number(newItem.quantity) <= 0 || newItem.rate === "") return;
-    addItemMutation.mutate(
-      {
-        customerUlid: selectedCustomerUlid,
-        txUlid: selectedTransactionUlid,
-        payload: {
-          product_ulid: newItem.product_ulid,
-          quantity: Number(newItem.quantity),
-          rate: Number(newItem.rate),
-          discount: Number(newItem.discount) || 0,
-        },
-      },
-      {
-        onSuccess: (res) => {
-          const it = res.data;
-          setItemEdits((prev) => ({
-            ...prev,
-            [it.ulid]: {
-              product_ulid: it.product_ulid,
-              product_name: newItem.product_name,
-              quantity: String(it.quantity),
-              rate: String(it.rate),
-              discount: String(it.discount),
-            },
-          }));
-          setNewItem(EMPTY_NEW_ITEM);
-          setAddingItem(false);
-        },
-      }
-    );
-  }
-
-  function removeItem(itemUlid: string) {
-    if (!selectedCustomerUlid || !selectedTransactionUlid) return;
-    setConfirmDeleteItemUlid(itemUlid);
-  }
-
-  function confirmRemoveItem() {
-    if (!selectedCustomerUlid || !selectedTransactionUlid || !confirmDeleteItemUlid) return;
-    const itemUlid = confirmDeleteItemUlid;
-    deleteItemMutation.mutate({ customerUlid: selectedCustomerUlid, txUlid: selectedTransactionUlid, itemUlid });
-    if (selectedTransaction?.items?.length === 1) setSelectedTransactionUlid(null);
-    setConfirmDeleteItemUlid(null);
-  }
 
   // compute running balance per row: credit increases, debit decreases
   const runningBalances = transactions.reduce<number[]>((acc, tx) => {
@@ -1285,269 +1050,15 @@ function AdminCustomersContent() {
       </SlidePanel>
 
       {/* Transaction detail panel */}
-      <SlidePanel
-        open={!!(selectedTransaction && txEdit)}
+      <BillEditPanel
+        partyType="customer"
+        partyUlid={selectedCustomerUlid ?? ""}
+        transaction={selectedTransaction}
+        queryKey={["acc-customer-transactions", selectedCustomer?.ulid, viewedFiscalYearId]}
         onClose={() => setSelectedTransactionUlid(null)}
-        title={selectedTransaction ? getParticularLabel(selectedTransaction.particular) : ""}
-        description="Auto-saves as you edit."
-        submitLabel={updateTransactionMutation.isPending ? "Saving..." : "Save"}
-        onSubmit={() => { saveTransactionHeader(); setSelectedTransactionUlid(null); }}
-        onDelete={selectedTransaction ? () => removeTransaction(selectedTransaction.ulid) : undefined}
-      >
-        {selectedTransaction && txEdit && <>
-          {ITEM_CAPABLE_PARTICULARS.includes(selectedTransaction.particular) && (
-            <button
-              type="button"
-              onClick={() => openAddItemsPage(selectedTransaction)}
-              className="block w-full text-right text-xs font-semibold text-blue-800 underline hover:text-blue-900 transition-colors -mt-2 -mb-2"
-            >
-              Need full details? Add items →
-            </button>
-          )}
-
-          {/* Header fields */}
-          <div className="space-y-5">
-            <div>
-              <label className="block text-sm font-semibold text-text-default">Date</label>
-              <BsDateInput
-                value={txEdit.date}
-                onChange={(v) => setTxEdit((s) => s && { ...s, date: v })}
-                onBlur={saveTransactionHeader}
-                className="mt-1 w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-text-default">Voucher No</label>
-              <input
-                type="text"
-                value={txEdit.voucher_no}
-                onChange={(e) => setTxEdit((s) => s && { ...s, voucher_no: e.target.value })}
-                onBlur={saveTransactionHeader}
-                className="mt-1 w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
-              />
-            </div>
-            {!hasItems && (
-              <>
-                <div>
-                  <SelectField
-                    label="Particular"
-                    value={txEdit.particular}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setTxEdit((s) => s && { ...s, particular: value, cheque_no: value === "cheque" ? s.cheque_no : "" });
-                      saveTransactionHeader();
-                    }}
-                    options={TRANSACTION_PARTICULARS.map((p) => ({ label: p.label, value: p.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-text-default">
-                    Amount <span className="normal-case">({getParticularDirection(txEdit.particular) === "debit" ? "Debit" : "Credit"})</span>
-                  </label>
-                  <input
-                    type="number" min="0"
-                    value={txEdit.amount}
-                    onChange={(e) => setTxEdit((s) => s && { ...s, amount: e.target.value })}
-                    onBlur={saveTransactionHeader}
-                    className="mt-1 w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
-                  />
-                </div>
-                {txEdit.particular === "cheque" && (
-                  <div>
-                    <label className="block text-sm font-semibold text-text-default">Cheque No</label>
-                    <input
-                      type="text"
-                      value={txEdit.cheque_no}
-                      onChange={(e) => setTxEdit((s) => s && { ...s, cheque_no: e.target.value })}
-                      onBlur={saveTransactionHeader}
-                      className="mt-1 w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
-                    />
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Receipt photo */}
-          <div>
-            <MultiImageUpload
-              label="Receipt Photo"
-              value={receiptImage.images}
-              onChange={receiptImage.setImages}
-              savedImages={receiptImage.savedImages}
-              groupName={receiptImage.groupName}
-              onGroupNameChange={receiptImage.setGroupName}
-              onGroupNameBlur={receiptImage.updateGroupName}
-              onSave={() => receiptImage.save(selectedTransaction.ulid)}
-              onRemoveSaved={receiptImage.removeSaved}
-              saving={receiptImage.saving}
-              uploadStates={receiptImage.uploadStates}
-              max={1}
-            />
-          </div>
-
-          {/* Items */}
-          {hasItems && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-text-default flex items-center justify-between">
-                <span>Items ({selectedTransaction.items!.length})</span>
-                {(updateItemMutation.isPending || addItemMutation.isPending || deleteItemMutation.isPending) && (
-                  <span className="text-xs font-normal text-text-muted">Saving...</span>
-                )}
-              </p>
-              <div className="space-y-3">
-                {selectedTransaction.items!.map((item) => {
-                  const edit = itemEdits[item.ulid];
-                  if (!edit) return null;
-                  return (
-                    <div key={item.ulid} className="border border-slate-300 p-3 space-y-3">
-                      <div className="[&_input]:h-10 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
-                        <ProductCombobox
-                          value={edit.product_ulid}
-                          onChange={(val, product) => {
-                            const rate = suggestedRate(product);
-                            const rateStr = rate != null ? String(rate) : edit.rate;
-                            setItemEdits((prev) => ({
-                              ...prev,
-                              [item.ulid]: {
-                                ...prev[item.ulid],
-                                product_ulid: val,
-                                product_name: product?.name ?? prev[item.ulid].product_name,
-                                rate: rateStr,
-                              },
-                            }));
-                            saveItem(item.ulid, { product_ulid: val, rate: rateStr });
-                          }}
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="block text-xs font-semibold text-text-default mb-1">Qty</label>
-                          <input
-                            type="number" min="0"
-                            value={edit.quantity}
-                            onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], quantity: e.target.value } }))}
-                            onBlur={() => saveItem(item.ulid)}
-                            className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-text-default mb-1">Rate</label>
-                          <input
-                            type="number" min="0"
-                            value={edit.rate}
-                            onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], rate: e.target.value } }))}
-                            onBlur={() => saveItem(item.ulid)}
-                            className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-text-default mb-1">Discount</label>
-                          <input
-                            type="number" min="0"
-                            value={edit.discount}
-                            onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.ulid]: { ...prev[item.ulid], discount: e.target.value } }))}
-                            onBlur={() => saveItem(item.ulid)}
-                            className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-sm text-text-body">Total <span className="font-semibold text-text-default">{item.total.toLocaleString()}</span></span>
-                        <button onClick={() => removeItem(item.ulid)} className="text-text-muted hover:text-red-600 transition-colors cursor-pointer">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {addingItem ? (
-                <div className="border border-dashed border-slate-300 p-3 space-y-3">
-                  <div className="[&_input]:h-10 [&_input]:text-sm [&_input]:font-medium [&_input]:text-black [&_.mt-1]:mt-0">
-                    <ProductCombobox
-                      value={newItem.product_ulid}
-                      onChange={(val, product) => {
-                        const rate = suggestedRate(product);
-                        setNewItem((s) => ({ ...s, product_ulid: val, product_name: product?.name ?? s.product_name, rate: rate != null ? String(rate) : s.rate }));
-                      }}
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-text-default mb-1">Qty</label>
-                      <input
-                        type="number" min="0"
-                        value={newItem.quantity}
-                        onChange={(e) => setNewItem((s) => ({ ...s, quantity: e.target.value }))}
-                        className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-text-default mb-1">Rate</label>
-                      <input
-                        type="number" min="0"
-                        value={newItem.rate}
-                        onChange={(e) => setNewItem((s) => ({ ...s, rate: e.target.value }))}
-                        className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-text-default mb-1">Discount</label>
-                      <input
-                        type="number" min="0"
-                        value={newItem.discount}
-                        onChange={(e) => setNewItem((s) => ({ ...s, discount: e.target.value }))}
-                        className="w-full h-10 px-3 text-sm font-medium text-black border border-slate-400 focus:outline-none focus:border-slate-600 bg-white"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    <button onClick={() => { setNewItem(EMPTY_NEW_ITEM); setAddingItem(false); }} className="h-9 px-3 text-sm font-semibold text-text-default hover:bg-slate-50 border border-slate-300 cursor-pointer">Cancel</button>
-                    <button onClick={saveNewItem} className="h-9 px-3 text-sm font-semibold text-white bg-black hover:bg-black/80 cursor-pointer">Add</button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setAddingItem(true)}
-                  className="flex items-center gap-1.5 text-sm font-semibold text-text-default hover:text-black transition-colors cursor-pointer"
-                >
-                  <Plus className="h-4 w-4" /> Add Item
-                </button>
-              )}
-
-              <div className="pt-3 space-y-1.5 border-t border-slate-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm-custom text-text-body">Discount</span>
-                  <span className="text-sm-custom text-text-default">{selectedTransaction.discount_percent ?? 0}%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm-custom text-text-body">Taxable Amount</span>
-                  <span className="text-sm-custom text-text-default">{(selectedTransaction.taxable_amount ?? 0).toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-sm-custom text-text-body">
-                    VAT (13%)
-                    <input
-                      type="checkbox"
-                      checked={selectedTransaction.vat_exempt ?? false}
-                      onChange={(e) => saveVatExempt(e.target.checked)}
-                      disabled={updateTotalsMutation.isPending || updateTransactionMutation.isPending}
-                      className="h-3.5 w-3.5 accent-black cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                  </span>
-                  <span className="text-sm-custom text-text-default">{(selectedTransaction.vat_amount ?? 0).toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm-custom font-bold text-text-default">Grand Total</span>
-                  <span className="text-sm-custom font-bold text-text-default">{(selectedTransaction.grand_total ?? 0).toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </>}
-      </SlidePanel>
+        onDeleteTransaction={(tx) => removeTransaction(tx.ulid)}
+        onAddItemsPage={(tx) => openAddItemsPage(tx)}
+      />
 
       {/* Customer context menu portal */}
       {openMenuUlid && menuPos && createPortal(
@@ -1707,15 +1218,6 @@ function AdminCustomersContent() {
         confirmLabel="Delete"
         onCancel={() => setConfirmDeleteTxUlid(null)}
         onConfirm={confirmRemoveTransaction}
-      />
-
-      <ConfirmDialog
-        open={confirmDeleteItemUlid !== null}
-        title="Delete line item?"
-        description="If this is the last item, the whole transaction will be removed too. This cannot be undone."
-        confirmLabel="Delete"
-        onCancel={() => setConfirmDeleteItemUlid(null)}
-        onConfirm={confirmRemoveItem}
       />
 
       {/* Transaction row three-dot menu portal */}
