@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { Plus, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Calendar, Filter as FilterIcon, RefreshCw, AlertTriangle, History } from "lucide-react";
+import { Plus, CreditCard, X, MoreVertical, Pencil, Eye, Trash2, Maximize2, Filter as FilterIcon, RefreshCw, AlertTriangle, History } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { TRANSACTION_PARTICULARS, getParticularLabel } from "./constants";
 import { toast } from "@/lib/toast";
@@ -705,6 +705,25 @@ function AdminCustomersContent() {
                     <span className="text-right font-semibold text-text-default">{it.total.toLocaleString()}</span>
                   </div>
                 ))}
+                <div className="mt-1.5 pt-1.5 border-t border-dashed border-slate-300 space-y-0.5 text-[11px]">
+                  {!!row.original.discount_percent && (
+                    <div className="flex items-center justify-between text-text-muted">
+                      <span>Discount ({row.original.discount_percent}%)</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-text-muted">
+                    <span>Taxable Amount</span>
+                    <span className="font-medium text-text-default">{(row.original.taxable_amount ?? 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-text-muted">
+                    <span>{row.original.vat_exempt ? "VAT (Exempt)" : "VAT 13%"}</span>
+                    <span className="font-medium text-text-default">{(row.original.vat_amount ?? 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-0.5 mt-0.5 border-t border-slate-200 font-semibold text-text-default">
+                    <span>Grand Total</span>
+                    <span>{(row.original.grand_total ?? 0).toLocaleString()}</span>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -977,11 +996,8 @@ function AdminCustomersContent() {
                   getRowId={(row) => row.ulid}
                   onPrint={selectedCustomer ? handlePrintLedger : undefined}
                   onExportCsv={selectedCustomer ? handleExportLedgerCsv : undefined}
-                  moreActions={[
+                  toolbarActions={[
                     { label: showFullDetails ? "Hide Full" : "Show Full", icon: Maximize2, onClick: () => setShowFullDetails((v) => !v) },
-                    { label: "Fiscal Year", icon: Calendar, onClick: () => { setFiscalYearDraft(String(viewedFiscalYearId ?? "")); setFiscalYearModalOpen(true); } },
-                    { label: dateFrom || dateTo ? "Filter (active)" : "Filter", icon: FilterIcon, onClick: () => { setDateFromDraft(dateFrom); setDateToDraft(dateTo); setFilterModalOpen(true); } },
-                    { label: "Recently Deleted", icon: Trash2, onClick: () => setTrashModalOpen(true) },
                   ]}
                   tableClassName="table-fixed"
                   onRowClick={(row) => {
@@ -1104,7 +1120,7 @@ function AdminCustomersContent() {
         <div
           ref={cardMenuRef}
           style={{ position: "fixed", top: cardMenuPos.top, left: cardMenuPos.left, zIndex: 9999 }}
-          className="w-36 bg-white border border-slate-200 shadow-md"
+          className="w-44 bg-white border border-slate-200 shadow-md"
         >
           <button
             onClick={() => { selectedCustomer && openEdit(selectedCustomer); setCardMenuOpen(false); }}
@@ -1123,6 +1139,18 @@ function AdminCustomersContent() {
             className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
           >
             <History className="h-3.5 w-3.5" /> Activity Log
+          </button>
+          <button
+            onClick={() => { setDateFromDraft(dateFrom); setDateToDraft(dateTo); setFilterModalOpen(true); setCardMenuOpen(false); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+          >
+            <FilterIcon className="h-3.5 w-3.5" /> {dateFrom || dateTo ? "Filter (active)" : "Filter"}
+          </button>
+          <button
+            onClick={() => { setTrashModalOpen(true); setCardMenuOpen(false); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-default hover:bg-slate-50 cursor-pointer"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Recently Deleted
           </button>
         </div>,
         document.body

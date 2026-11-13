@@ -38,7 +38,7 @@ export function FiscalYearModal({
         <p className="text-sm text-text-muted">No fiscal years configured yet.</p>
       ) : (
         <SelectField
-          label="Fiscal Year"
+          label=""
           value={draft}
           onChange={(e) => onDraftChange(e.target.value)}
           options={fiscalYears.map((fy) => ({

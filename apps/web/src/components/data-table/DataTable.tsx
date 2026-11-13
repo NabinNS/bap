@@ -72,8 +72,11 @@ interface DataTableProps<TData> {
   // logic since it knows how this table's data should be laid out on paper/in a spreadsheet.
   onPrint?: () => void;
   onExportCsv?: () => void;
+  // Always-visible buttons rendered between Print and Excel — for a toggle important enough
+  // to not bury behind the "more" (⋮) menu (e.g. a view-mode toggle).
+  toolbarActions?: { label: string; onClick: () => void; icon?: ComponentType<{ className?: string }> }[];
   // Extra actions tucked behind a "more" (⋮) button after Print/Excel, for things too
-  // situational to earn their own always-visible button (e.g. a view-mode toggle).
+  // situational to earn their own always-visible button.
   moreActions?: { label: string; onClick: () => void; icon?: ComponentType<{ className?: string }> }[];
 }
 
@@ -98,6 +101,7 @@ export function DataTable<TData>({
   getRowId,
   onPrint,
   onExportCsv,
+  toolbarActions,
   moreActions,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -184,6 +188,17 @@ export function DataTable<TData>({
             className="w-full h-10 pl-9 text-sm bg-white border border-slate-400 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-slate-500"
           />
         </div>
+        {toolbarActions?.map((action) => (
+          <button
+            key={action.label}
+            type="button"
+            onClick={action.onClick}
+            className="flex h-10 shrink-0 items-center gap-1.5 px-3 bg-white border border-l-0 border-slate-400 text-sm font-medium text-text-default hover:bg-slate-50 cursor-pointer transition-colors"
+          >
+            {action.icon && <action.icon className="h-4 w-4" />}
+            {action.label}
+          </button>
+        ))}
         {onPrint && (
           <button
             type="button"

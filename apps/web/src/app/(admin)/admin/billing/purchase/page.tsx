@@ -10,6 +10,8 @@ import { toast } from "@/lib/toast";
 import { Modal } from "@/components/ui/Modal";
 import { BsDateInput } from "@/components/ui/form/BsDateInput";
 import { ActivityLogPanel } from "@/components/activity-log/ActivityLogPanel";
+import { BS_MONTHS, bsDateMonth } from "@/lib/bsMonths";
+import { useViewingFiscalYear } from "@/features/fiscal-year/ViewingFiscalYearProvider";
 
 const ACTIVITY_LOG_SUBJECT_TYPE_LABELS: Record<string, string> = {
   acc_vendor: "Vendor",
@@ -80,15 +82,22 @@ export default function PurchasePage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [appliedRange, setAppliedRange] = useState<{ from: string; to: string } | null>(null);
+  const [monthFilter, setMonthFilter] = useState("");
+
+  const { viewingFiscalYearId } = useViewingFiscalYear();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["purchase-bills"],
-    queryFn: () => apiFetch<{ data: PurchaseBill[] }>("/acc-vendors/purchase-bills?per_page=100"),
+    queryKey: ["purchase-bills", viewingFiscalYearId],
+    queryFn: () => apiFetch<{ data: PurchaseBill[] }>(
+      `/acc-vendors/purchase-bills?per_page=100${viewingFiscalYearId ? `&fiscal_year_id=${viewingFiscalYearId}` : ""}`
+    ),
   });
 
   const { data: trashedData, isLoading: trashedLoading } = useQuery({
-    queryKey: ["purchase-bills-trashed"],
-    queryFn: () => apiFetch<{ data: PurchaseBill[] }>("/acc-vendors/purchase-bills/trashed"),
+    queryKey: ["purchase-bills-trashed", viewingFiscalYearId],
+    queryFn: () => apiFetch<{ data: PurchaseBill[] }>(
+      `/acc-vendors/purchase-bills/trashed${viewingFiscalYearId ? `?fiscal_year_id=${viewingFiscalYearId}` : ""}`
+    ),
     enabled: trashedOpen,
   });
 
@@ -110,16 +119,30 @@ export default function PurchasePage() {
       (b.vendor?.name ?? "").toLowerCase().includes(search.toLowerCase());
     const matchesRange =
       !appliedRange || ((!appliedRange.from || b.date >= appliedRange.from) && (!appliedRange.to || b.date <= appliedRange.to));
-    return matchesSearch && matchesRange;
+    const matchesMonth = !monthFilter || bsDateMonth(b.date) === monthFilter;
+    return matchesSearch && matchesRange && matchesMonth;
   });
   const selectedBill = bills.find((b) => b.ulid === selectedUlid) ?? filteredBills[0] ?? null;
 
   return (
     <div className="flex gap-0 h-full">
     <div className="flex-1 min-w-0 flex flex-col p-6 gap-6 h-full">
-      <div>
-        <h2 className="text-h3 font-bold text-text-default">Purchase</h2>
-        <p className="text-sm text-text-muted mt-0.5">All purchase bills recorded across vendors.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-h3 font-bold text-text-default">Purchase</h2>
+          <p className="text-sm text-text-muted mt-0.5">All purchase bills recorded across vendors.</p>
+        </div>
+        <select
+          value={monthFilter}
+          onChange={(e) => setMonthFilter(e.target.value)}
+          title="Filter by month"
+          className="h-9 px-3 text-sm font-medium text-text-default border border-slate-300 focus:outline-none focus:border-slate-500 bg-white cursor-pointer"
+        >
+          <option value="">All Months</option>
+          {BS_MONTHS.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="flex gap-6 flex-1 min-h-0">

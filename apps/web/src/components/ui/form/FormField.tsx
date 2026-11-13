@@ -63,6 +63,7 @@ type FileUploadFieldProps = BaseProps & {
 };
 
 function Label({ label, required }: { label: string; required?: boolean }) {
+  if (!label) return null;
   return (
     <label className="text-sm font-semibold text-text-default">
       {label} {required && <span className="text-red-500">*</span>}
