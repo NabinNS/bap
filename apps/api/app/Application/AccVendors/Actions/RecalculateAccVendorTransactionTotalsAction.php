@@ -14,7 +14,7 @@ class RecalculateAccVendorTransactionTotalsAction
 
     public function __construct(
         private AccVendorTransactionRepositoryInterface $transactions,
-        private RecalculateVendorBalanceAction $recalculateBalance,
+        private SyncAccVendorBalanceAction $recalculateBalance,
     ) {}
 
     /**

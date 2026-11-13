@@ -16,7 +16,7 @@ class StoreAccVendorTransactionAction
         private AccVendorTransactionRepositoryInterface $transactions,
         private TenantSettingRepositoryInterface $settings,
         private RecordAccVendorTransactionItemAction $recordItem,
-        private RecalculateVendorBalanceAction $recalculateBalance,
+        private SyncAccVendorBalanceAction $recalculateBalance,
     ) {}
 
     public function execute(int $tenantId, AccVendor $vendor, AccVendorTransactionData $data): AccVendorTransaction

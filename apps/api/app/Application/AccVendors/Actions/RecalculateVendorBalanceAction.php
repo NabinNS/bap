@@ -24,11 +24,10 @@ class RecalculateVendorBalanceAction
      * Locks the balance row for the duration so concurrent recalculations (e.g. two
      * transactions being recorded at once) can't interleave their read-then-write and drop one.
      *
-     * Only touches this one fiscal year — it does NOT cascade into later years. A transaction
-     * recorded into a non-active (e.g. past) fiscal year can make later years' opening_balance
-     * stale; that's resolved on demand via SyncAccVendorBalanceAction ("Sync Balance" button),
-     * not automatically on every save, so a later year's manually-entered opening_balance is
-     * never silently overwritten without the user explicitly asking for it.
+     * Only touches this one fiscal year — it does NOT cascade into later years on its own.
+     * Callers that write a transaction (which may land in a past fiscal year) use
+     * SyncAccVendorBalanceAction instead, which calls this for the given year and then
+     * cascades the resulting remaining_balance forward into every later year.
      */
     public function execute(AccVendor $vendor, int $fiscalYearId): void
     {

@@ -16,7 +16,7 @@ class StoreAccCustomerTransactionAction
         private AccCustomerTransactionRepositoryInterface $transactions,
         private TenantSettingRepositoryInterface $settings,
         private RecordAccCustomerTransactionItemAction $recordItem,
-        private RecalculateCustomerBalanceAction $recalculateBalance,
+        private SyncAccCustomerBalanceAction $recalculateBalance,
     ) {}
 
     public function execute(int $tenantId, AccCustomer $customer, AccCustomerTransactionData $data): AccCustomerTransaction

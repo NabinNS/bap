@@ -16,7 +16,7 @@ class DeleteAccVendorTransactionItemAction
     public function __construct(
         private AccVendorTransactionRepositoryInterface $transactions,
         private RecalculateAccVendorTransactionTotalsAction $recalculateTotals,
-        private RecalculateVendorBalanceAction $recalculateBalance,
+        private SyncAccVendorBalanceAction $recalculateBalance,
         private ProductTransactionItemRepositoryInterface $productItems,
         private ProductRepositoryInterface $products,
         private DeleteProductTransactionItemAction $deleteProductTransactionItem,

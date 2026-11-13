@@ -6,7 +6,6 @@ use App\Domain\AccVendors\Repositories\AccVendorBalanceRepositoryInterface;
 use App\Models\AccVendor;
 use App\Models\AccVendorBalance;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class SyncAccVendorBalanceAction
 {
@@ -16,22 +15,18 @@ class SyncAccVendorBalanceAction
     ) {}
 
     /**
-     * Manually re-sync a vendor's balance starting from a given fiscal year, forward through
-     * every later year that already tracks this vendor — overwriting each later year's
-     * opening_balance even if it was entered manually. Only runs when the user explicitly
-     * presses "Sync Balance" (unlike RecalculateVendorBalanceAction, which only ever touches
-     * the single fiscal year it's given and never cascades on its own).
+     * Re-sync a vendor's balance starting from a given fiscal year, forward through every
+     * later year that already tracks this vendor — overwriting each later year's
+     * opening_balance with the prior year's recalculated remaining_balance. Runs both from
+     * the explicit "Sync Balance" button and automatically after every transaction write
+     * (see Store/Update/Delete/RestoreAccVendorTransactionAction etc.), so a later year's
+     * balance can never go stale relative to an earlier year's transactions.
+     *
+     * The starting year's balance row is created on demand (via RecalculateVendorBalanceAction)
+     * if it doesn't exist yet, same as a plain recalculation would.
      */
     public function execute(AccVendor $vendor, int $fiscalYearId): AccVendorBalance
     {
-        $balance = $this->balances->find($vendor, $fiscalYearId);
-
-        if (!$balance) {
-            throw ValidationException::withMessages([
-                'fiscal_year_id' => ['This vendor has no balance recorded for that fiscal year yet.'],
-            ]);
-        }
-
         return DB::transaction(function () use ($vendor, $fiscalYearId) {
             $currentFiscalYearId = $fiscalYearId;
 

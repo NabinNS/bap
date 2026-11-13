@@ -14,7 +14,7 @@ class RestoreAccVendorTransactionAction
 {
     public function __construct(
         private AccVendorTransactionRepositoryInterface $transactions,
-        private RecalculateVendorBalanceAction $recalculateBalance,
+        private SyncAccVendorBalanceAction $recalculateBalance,
         private ProductTransactionItemRepositoryInterface $productItems,
         private ProductRepositoryInterface $products,
         private RestoreProductTransactionItemAction $restoreProductTransactionItem,
