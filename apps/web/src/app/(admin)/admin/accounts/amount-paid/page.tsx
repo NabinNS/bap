@@ -431,24 +431,6 @@ function AmountPaidContent() {
             <div className="bg-white px-5 py-4 space-y-3">
               <div className="flex items-start justify-between gap-4">
                 <VendorInfoBlock vendor={selectedVendor} />
-
-                {fiscalYears.length > 0 && (
-                  <div className="flex flex-col gap-2 shrink-0 w-48">
-                    <select
-                      value={selectedFiscalYearId ?? ""}
-                      onChange={(e) => setSelectedFiscalYearId(Number(e.target.value))}
-                      disabled={!!editingTransactionUlid}
-                      title={editingTransactionUlid ? "Fiscal year is locked once the payment is saved" : "Fiscal year this payment is recorded against"}
-                      className="w-full h-8 px-2 text-sm font-medium text-black border border-slate-300 focus:outline-none focus:border-slate-500 bg-white disabled:bg-slate-100 disabled:text-text-muted"
-                    >
-                      {fiscalYears.map((fy) => (
-                        <option key={fy.id} value={fy.id}>
-                          {fy.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
               </div>
             </div>
 

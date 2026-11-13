@@ -16,6 +16,7 @@ import { SlidePanel } from "@/components/ui/form/SlidePanelForm";
 import { BsDateInput, isValidBsDate } from "@/components/ui/form/BsDateInput";
 import { ConfirmDialog } from "@/components/ui/dialog/ConfirmDialog";
 import { BillEditPanel } from "@/components/transactions/BillEditPanel";
+import { AmountPaidPanel } from "./_components/AmountPaidPanel";
 import { VendorSidebar } from "./_components/VendorSidebar";
 import { VendorInfoBlock } from "./_components/VendorInfoBlock";
 import { ActivityLogPanel } from "@/components/activity-log/ActivityLogPanel";
@@ -156,6 +157,7 @@ function AdminAccountsContent() {
   const [editingOpeningBalance, setEditingOpeningBalance] = useState(false);
   const [openingBalanceDraft, setOpeningBalanceDraft] = useState("");
   const [openingBalanceFiscalYearId, setOpeningBalanceFiscalYearId] = useState("");
+  const [amountPaidPanelOpen, setAmountPaidPanelOpen] = useState(false);
 
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
     queryKey: ["acc-vendors"],
@@ -885,13 +887,15 @@ function AdminAccountsContent() {
                     <Plus className="h-4 w-4" />
                     Goods Purchased
                   </Link>
-                  <Link
-                    href={selectedVendor ? `/admin/accounts/amount-paid?vendor=${selectedVendor.ulid}` : "/admin/accounts/amount-paid"}
-                    className="flex items-center gap-2 border border-slate-300 px-4 py-2 text-sm font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer"
+                  <button
+                    type="button"
+                    disabled={!selectedVendor}
+                    onClick={() => { setSelectedTransactionUlid(null); setEditingOpeningBalance(false); setAmountPaidPanelOpen(true); }}
+                    className="flex items-center gap-2 border border-slate-300 px-4 py-2 text-sm font-semibold text-text-default hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <CreditCard className="h-4 w-4" />
                     Amount Paid
-                  </Link>
+                  </button>
                   <button
                     onClick={(e) => {
                       if (cardMenuOpen) { setCardMenuOpen(false); setCardMenuPos(null); return; }
@@ -990,10 +994,12 @@ function AdminAccountsContent() {
                       setSelectedTransactionUlid(null);
                       setOpeningBalanceDraft(viewedOpeningBalance ?? "");
                       setOpeningBalanceFiscalYearId(viewingFiscalYearId ? String(viewingFiscalYearId) : "");
+                      setAmountPaidPanelOpen(false);
                       setEditingOpeningBalance(true);
                       return;
                     }
                     setEditingOpeningBalance(false);
+                    setAmountPaidPanelOpen(false);
                     setSelectedTransactionUlid(row.ulid);
                   }}
                   onRowDoubleClick={(row) => { if (row.ulid !== "__new__" && row.ulid !== "__opening_balance__") openTransactionPage(row); }}
@@ -1058,6 +1064,14 @@ function AdminAccountsContent() {
         onClose={() => setSelectedTransactionUlid(null)}
         onDeleteTransaction={(tx) => removeTransaction(tx.ulid)}
         onAddItemsPage={(tx) => openAddItemsPage(tx)}
+      />
+
+      {/* Amount Paid side panel */}
+      <AmountPaidPanel
+        open={amountPaidPanelOpen && !!selectedVendorUlid}
+        onClose={() => setAmountPaidPanelOpen(false)}
+        vendorUlid={selectedVendorUlid ?? ""}
+        fiscalYearId={viewingFiscalYearId}
       />
 
       {/* Vendor context menu portal */}
